@@ -50,12 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
-          
+
+          if (profileError) {
+            console.error('プロフィール取得エラー:', profileError);
+          }
+
           if (profileData) {
             setProfile(profileData);
           }
@@ -78,12 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
-          
+
+          if (profileError) {
+            console.error('プロフィール取得エラー:', profileError);
+          }
+
           if (profileData) {
             setProfile(profileData);
           }

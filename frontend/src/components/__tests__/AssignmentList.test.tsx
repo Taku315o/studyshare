@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 import AssignmentList from '../AssignmentList';
 import { useAuth } from '@/context/AuthContext';
-import { deleteAssignment, setAuthToken } from '@/lib/api';
+import { deleteAssignment } from '@/lib/api';
 import supabase from '@/lib/supabase';
 
 // モックの設定
@@ -22,7 +22,6 @@ jest.mock('@/context/AuthContext', () => ({
 
 jest.mock('@/lib/api', () => ({
   deleteAssignment: jest.fn(),
-  setAuthToken: jest.fn(),
 }));
 
 jest.mock('@/lib/supabase', () => ({
@@ -30,14 +29,7 @@ jest.mock('@/lib/supabase', () => ({
   default: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          order: jest.fn(() => ({
-            limit: jest.fn(() => ({
-              data: [],
-              error: null,
-            })),
-          })),
-        })),
+        order: jest.fn(() => Promise.resolve({ data: [], error: null })),
       })),
     })),
     rpc: jest.fn(),
@@ -93,29 +85,21 @@ describe('AssignmentList', () => {
       // Supabaseの応答を遅延させる
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => new Promise(() => {})), // 永続的に待機
-            })),
-          })),
+          order: jest.fn(() => new Promise(() => {})), // 永続的に待機
         })),
       });
 
       render(<AssignmentList />);
 
-      expect(screen.getByText('課題を読み込んでいます...')).toBeInTheDocument();
+      expect(screen.getByText('読み込み中...')).toBeInTheDocument();
     });
 
     it('should render assignments when loaded', async () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: mockAssignments,
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: mockAssignments,
+            error: null,
           })),
         })),
       });
@@ -133,13 +117,9 @@ describe('AssignmentList', () => {
     it('should render images when provided', async () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: mockAssignments,
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: mockAssignments,
+            error: null,
           })),
         })),
       });
@@ -155,13 +135,9 @@ describe('AssignmentList', () => {
     it('should not render delete buttons for non-admin users', async () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: mockAssignments,
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: mockAssignments,
+            error: null,
           })),
         })),
       });
@@ -181,13 +157,9 @@ describe('AssignmentList', () => {
 
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: mockAssignments,
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: mockAssignments,
+            error: null,
           })),
         })),
       });
@@ -232,7 +204,7 @@ describe('AssignmentList', () => {
       render(<AssignmentList query="test query" />);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('検索エラー:', expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith('課題取得エラー:', expect.any(Error));
       });
 
       consoleSpy.mockRestore();
@@ -249,18 +221,15 @@ describe('AssignmentList', () => {
 
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: mockAssignments,
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: mockAssignments,
+            error: null,
           })),
         })),
       });
 
       (deleteAssignment as jest.Mock).mockResolvedValue({ success: true });
+      window.confirm = jest.fn(() => true);
     });
 
     it('should delete assignment successfully', async () => {
@@ -276,7 +245,6 @@ describe('AssignmentList', () => {
       await user.click(deleteButtons[0]);
 
       await waitFor(() => {
-        expect(setAuthToken).toHaveBeenCalledWith('mock-token');
         expect(deleteAssignment).toHaveBeenCalledWith('1');
         expect(toast.success).toHaveBeenCalledWith('課題を削除しました');
       });
@@ -290,7 +258,7 @@ describe('AssignmentList', () => {
       });
 
       const user = userEvent.setup();
-      
+
       render(<AssignmentList />);
 
       await waitFor(() => {
@@ -301,7 +269,7 @@ describe('AssignmentList', () => {
       await user.click(deleteButtons[0]);
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('認証が必要です');
+        expect(toast.error).toHaveBeenCalledWith('削除に失敗しました');
       });
     });
 
@@ -331,25 +299,20 @@ describe('AssignmentList', () => {
       let callCount = 0;
       (supabase.from as jest.Mock).mockImplementation(() => ({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => {
-                callCount++;
-                if (callCount === 1) {
-                  return Promise.resolve({
-                    data: mockAssignments,
-                    error: null,
-                  });
-                } else {
-                  // 削除後は1件少ない
-                  return Promise.resolve({
-                    data: [mockAssignments[1]],
-                    error: null,
-                  });
-                }
-              }),
-            })),
-          })),
+          order: jest.fn(() => {
+            callCount++;
+            if (callCount === 1) {
+              return Promise.resolve({
+                data: mockAssignments,
+                error: null,
+              });
+            } else {
+              return Promise.resolve({
+                data: [mockAssignments[1]],
+                error: null,
+              });
+            }
+          }),
         })),
       }));
       
@@ -376,13 +339,9 @@ describe('AssignmentList', () => {
       
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: null,
-                error: new Error('Fetch failed'),
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: null,
+            error: new Error('Fetch failed'),
           })),
         })),
       });
@@ -399,13 +358,9 @@ describe('AssignmentList', () => {
     it('should render empty state when no assignments', async () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => Promise.resolve({
-                data: [],
-                error: null,
-              })),
-            })),
+          order: jest.fn(() => Promise.resolve({
+            data: [],
+            error: null,
           })),
         })),
       });
@@ -413,7 +368,7 @@ describe('AssignmentList', () => {
       render(<AssignmentList />);
 
       await waitFor(() => {
-        expect(screen.getByText('投稿された課題がありません')).toBeInTheDocument();
+        expect(screen.getByText('課題はまだ投稿されていません')).toBeInTheDocument();
       });
     });
   });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -134,10 +134,10 @@ describe('AssignmentForm', () => {
       const user = userEvent.setup();
       render(<AssignmentForm />);
 
-      const imageInput = screen.getByLabelText('画像（任意）');
+      const imageInput = screen.getByLabelText('画像（任意）') as HTMLInputElement;
       const invalidFile = new File(['test'], 'test.txt', { type: 'text/plain' });
 
-      await user.upload(imageInput, invalidFile);
+      fireEvent.change(imageInput, { target: { files: [invalidFile] } });
 
       expect(toast.error).toHaveBeenCalledWith('JPEGまたはPNG形式の画像のみアップロード可能です');
     });
