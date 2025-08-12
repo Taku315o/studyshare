@@ -16,6 +16,7 @@ beforeEach(() => {
             exchangeCodeForSession: mockExchangeCodeForSession,
         },
     });
+    mockExchangeCodeForSession.mockResolvedValue({ data: { session: {} }, error: null });
 });
 
 function createMockRequest(url: string): NextRequest {
@@ -28,6 +29,7 @@ function createMockRequest(url: string): NextRequest {
                     pathname: '/',
                     searchParams: {
                         delete: jest.fn(),
+                        set: jest.fn(),
                     },
                     toString: () => u.origin + '/',
                 };
