@@ -6,6 +6,8 @@ import { Request, Response } from 'express';
 import { createAssignment, searchAssignments, deleteAssignment } from '../services/assignmentService';
 
 // 課題作成
+  // req (Request) - 受信したHTTPリクエスト
+  // res (Response) - 送信するHTTPレスポンス
 export const createAssignmentController = async (req: Request, res: Response) => {
   try {
     const { title, description, image_url } = req.body;
