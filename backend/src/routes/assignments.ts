@@ -4,6 +4,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import supabase from '../lib/supabase';
 import { authenticate, requireAdmin } from '../middleware/auth'; // 作成したミドルウェア
+import validate from '../middleware/validate';
+import { createAssignmentSchema } from '../validators/assignment';
 
 const router = Router();
 
@@ -64,15 +66,10 @@ router.post('/upload', authenticate, upload.single('image'), async (req, res) =>
  * 課題投稿 API
  * POST /api/assignments
  */
-router.post('/assignments', authenticate, async (req, res) => {
+router.post('/assignments', authenticate, validate(createAssignmentSchema), async (req, res) => {
   const { title, description, image_url } = req.body;
   // @ts-ignore
   const userId = req.user.id;
-
-  if (!title || !description) {
-    res.status(400).json({ message: 'タイトルと説明は必須です。' });
-    return;
-  }
 
   try {
     const { data, error } = await supabase
