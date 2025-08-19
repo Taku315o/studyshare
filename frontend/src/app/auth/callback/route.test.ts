@@ -1,7 +1,7 @@
 //認証コードがある場合・ない場合・エラーが発生した場合の3つのシナリオで、リダイレクトが正しく行われるかをテスト。
 import { GET } from './route';
 import { NextRequest, NextResponse } from 'next/server';
-const { createSupabaseClient } = require('@/lib/supabase');
+import { createSupabaseClient } from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({
     createSupabaseClient: jest.fn(),

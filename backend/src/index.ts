@@ -3,7 +3,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import supabase from './lib/supabase';
 // 新しく作るassignmentsルーターをインポート
 import assignmentRoutes from './routes/assignments'; 
 
@@ -17,12 +16,12 @@ app.use(express.json());
 
 // ルートを定義
 app.get('/', (req, res) => {
-  res.send('🚀 Hello from Express + TypeScript!');
+  res.send('Hello from Express + TypeScript!');
 });
 
 // '/api' パスにルーターを適用
 app.use('/api', assignmentRoutes);
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

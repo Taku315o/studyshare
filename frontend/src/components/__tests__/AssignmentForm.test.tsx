@@ -131,7 +131,6 @@ describe('AssignmentForm', () => {
     });
 
     it('should reject invalid file formats', async () => {
-      const user = userEvent.setup();
       render(<AssignmentForm />);
 
       const imageInput = screen.getByLabelText('画像（任意）') as HTMLInputElement;
