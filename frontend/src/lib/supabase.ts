@@ -75,6 +75,10 @@ export type Database = {
 export const createSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  
+  // デバッグ情報（本番環境では削除すること）
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Key exists:', !!supabaseAnonKey);
 
   const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {

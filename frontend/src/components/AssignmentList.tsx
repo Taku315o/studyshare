@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { deleteAssignment } from '@/lib/api';
+import { deleteAssignment, setAuthToken } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 type Assignment = {
@@ -81,6 +81,11 @@ export default function AssignmentList({ query }: AssignmentListProps) {
     try {
       const token = await getAccessToken();
       if (!token) throw new Error('認証が必要です');
+      // API呼び出し前に認証トークンをヘッダーへ設定
+      // テスト環境などでモックされていない場合でも安全に動作するようにガード
+      if (typeof setAuthToken === 'function') {
+        setAuthToken(token);
+      }
       
       await deleteAssignment(id);
       toast.success('課題を削除しました');
