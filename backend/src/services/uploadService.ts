@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
-import supabase from '../lib/supabase';
+import { supabaseAdmin as supabase } from '../lib/supabase';
 
 // multerの型定義を修正
 // ファイル型の定義を変更

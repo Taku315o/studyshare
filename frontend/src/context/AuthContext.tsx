@@ -3,7 +3,7 @@
 
 //AuthContext.tsx
 // ユーザー認証状態を管理し、アプリケーション全体で共有するためのContextとProvider
-//ユーザーの認証状態（ログインしているか、ユーザー情報など）を管理し、アプリケーション内のどのコンポーネントからでも利用できるように提供（Provide）します。
+//ユーザー情報（user）、セッション（session）、プロフィール（profile）などを、アプリ内のどのコンポーネントからでも直接呼び出せるようにします。
 // Googleログインやログアウトの関数もここで定義されています。
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
@@ -29,6 +29,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+//アプリ全体をこのAuthProviderコンポーネントで囲むことで、内部のどこからでも認証情報にアクセスできるようになります。
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);

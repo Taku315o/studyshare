@@ -1,4 +1,4 @@
-import supabase from '../lib/supabase';
+import { supabaseAdmin as supabase } from '../lib/supabase';
 //データベースのassignmentsテーブルに対する具体的な操作（作成、検索、削除）を実装している。
 // 削除処理では、管理者でないユーザーが他人の課題を削除できないように、権限チェックも行う。
 interface AssignmentData {

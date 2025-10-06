@@ -10,28 +10,66 @@ const supabase = createClient(
 );
 
 async function main() {
-  // 1. まずテスト用ユーザーを作成
-  console.log('テスト用ユーザーを作成中...');
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: 'test@example.com',
+  // 1. テスト用ユーザーを作成（一般ユーザー）
+  console.log('テスト用ユーザー（一般）を作成中...');
+  const { data: authDataStudent, error: authErrorStudent } = await supabase.auth.admin.createUser({
+    email: 'student@example.com',
     password: 'password123',
-    email_confirm: true // メール確認をスキップ
+    email_confirm: true
   });
 
-  if (authError) {
-    console.error('ユーザー作成エラー:', authError);
+  if (authErrorStudent) {
+    console.error('一般ユーザー作成エラー:', authErrorStudent);
     return;
   }
 
-  const userId = authData.user.id;
-  console.log('ユーザー作成成功! ID:', userId);
+  const studentId = authDataStudent.user.id;
+  console.log('一般ユーザー作成成功! ID:', studentId);
 
-  // 2. 作成したユーザーIDで課題データを投入
+  // users テーブルにロールを設定
+  const { error: profileErrorStudent } = await supabase.from('users').insert({
+    id: studentId,
+    email: 'student@example.com',
+    role: 'student'
+  });
+
+  if (profileErrorStudent) {
+    console.error('一般ユーザープロフィール作成エラー:', profileErrorStudent);
+  }
+
+  // 2. 管理者ユーザーを作成
+  console.log('管理者ユーザーを作成中...');
+  const { data: authDataAdmin, error: authErrorAdmin } = await supabase.auth.admin.createUser({
+    email: 'admin@example.com',
+    password: 'password123',
+    email_confirm: true
+  });
+
+  if (authErrorAdmin) {
+    console.error('管理者ユーザー作成エラー:', authErrorAdmin);
+    return;
+  }
+
+  const adminId = authDataAdmin.user.id;
+  console.log('管理者ユーザー作成成功! ID:', adminId);
+
+  // users テーブルにロールを設定
+  const { error: profileErrorAdmin } = await supabase.from('users').insert({
+    id: adminId,
+    email: 'admin@example.com',
+    role: 'admin'
+  });
+
+  if (profileErrorAdmin) {
+    console.error('管理者プロフィール作成エラー:', profileErrorAdmin);
+  }
+
+  // 3. 作成したユーザーIDで課題データを投入（一般ユーザーの課題）
   console.log('課題データを投入中...');
   const assignments = [
-    { title: '微積分の課題1', description: '教科書p.30の問1-5', user_id: userId },
-    { title: '線形代数のレポート', description: '行列式に関する考察', user_id: userId },
-    { title: 'プログラミング演習', description: '再帰関数についての課題', user_id: userId },
+    { title: '微積分の課題1', description: '教科書p.30の問1-5', user_id: studentId },
+    { title: '線形代数のレポート', description: '行列式に関する考察', user_id: studentId },
+    { title: 'プログラミング演習', description: '再帰関数についての課題', user_id: studentId },
   ];
 
   const { data, error } = await supabase.from('assignments').insert(assignments);

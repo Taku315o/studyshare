@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import multer from 'multer';
-import supabase from '../lib/supabase';
+import { supabaseAdmin as supabase } from '../lib/supabase';
 import { authenticate, requireAdmin } from '../middleware/auth'; // 作成したミドルウェア
 import validate from '../middleware/validate';
 import { createAssignmentSchema } from '../validators/assignment';
