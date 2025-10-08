@@ -7,6 +7,9 @@ import { authenticate, requireAdmin } from '../middleware/auth'; // 作成した
 import validate from '../middleware/validate';
 import { createAssignmentSchema } from '../validators/assignment';
 
+/**
+ * Express router exposing assignment CRUD endpoints and image upload handling.
+ */
 const router = Router();
 
 // Multerの設定（画像をメモリ上に保存）

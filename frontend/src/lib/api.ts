@@ -4,11 +4,18 @@
 import axios from 'axios';
 //バックエンドのExpressサーバーと通信するためのAPIクライアントです。
 // axiosライブラリを使い、画像アップロード、課題の投稿・検索・削除といった各APIリクエストを行う関数を定義しています。
+/**
+ * Preconfigured Axios instance targeting the backend API base URL.
+ */
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001/api',
 });
 
-// トークンをセットする関数
+/**
+ * Applies or removes the Authorization header used for authenticated API requests.
+ *
+ * @param token - JWT retrieved from Supabase; pass null to clear the header.
+ */
 export const setAuthToken = (token: string | null) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -17,7 +24,12 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
-// 画像アップロードAPI
+/**
+ * Uploads an image file to the backend and returns the resulting public URL.
+ *
+ * @param file - Browser File object selected by the user.
+ * @returns A promise resolving to an object containing the uploaded image URL.
+ */
 export const uploadImage = async (file: File): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
@@ -31,7 +43,12 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
   return response.data;
 };
 
-// 課題投稿API
+/**
+ * Sends a request to create a new assignment using the backend API.
+ *
+ * @param data - Assignment payload including title, description, and an optional image URL.
+ * @returns A promise resolving to the created assignment object.
+ */
 export const createAssignment = async (data: {
   title: string;
   description: string;
@@ -41,13 +58,23 @@ export const createAssignment = async (data: {
   return response.data;
 };
 
-// 課題検索API
+/**
+ * Searches assignments using the backend API's query endpoint.
+ *
+ * @param query - Free-text query submitted by the user.
+ * @returns A promise resolving to the array of assignments returned by the server.
+ */
 export const searchAssignments = async (query: string) => {
   const response = await api.get(`/assignments/search?query=${encodeURIComponent(query)}`);
   return response.data;
 };
 
-// 課題削除API（管理者用）
+/**
+ * Deletes an assignment via the backend API. Requires administrator privileges.
+ *
+ * @param id - Identifier of the assignment to remove.
+ * @returns A promise resolving once the backend acknowledges the deletion.
+ */
 export const deleteAssignment = async (id: string) => {
   const response = await api.delete(`/assignments/${id}`);
   return response.data;

@@ -7,20 +7,30 @@ const url = process.env.SUPABASE_URL!;
 const anon = process.env.SUPABASE_ANON_KEY!;
 const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// 認証や基本操作用（anon key）
-// フロントや「getUser(token)」で利用する想定
+/**
+ * Supabase client configured with the anon key for operations that should respect RLS policies.
+ *
+ * @returns A Supabase client intended for authenticated user interactions.
+ */
 export const supabaseAuth = createClient(url, anon, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-// 管理・バッチ専用（RLSを無視する権限）
-// Express の管理APIや内部処理でのみ利用する
+/**
+ * Supabase client configured with the service role key for privileged server-side operations.
+ *
+ * @returns A Supabase client that bypasses RLS, intended for secure backend use only.
+ */
 export const supabaseAdmin = createClient(url, service, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-// リクエストのJWTを使ったユーザー権限クライアント
-// DBアクセスをユーザー権限で実行できる（RLSが効く）
+/**
+ * Creates a Supabase client scoped to the supplied JWT so that requests run with the caller's permissions.
+ *
+ * @param token - JWT extracted from the incoming request Authorization header.
+ * @returns A Supabase client authenticated with the provided token.
+ */
 export const supabaseFromToken = (token: string) =>
   createClient(url, anon, {
     global: { headers: { Authorization: `Bearer ${token}` } },

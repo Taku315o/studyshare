@@ -5,9 +5,13 @@
 import { Request, Response } from 'express';
 import { createAssignment, searchAssignments, deleteAssignment } from '../services/assignmentService';
 
-// 課題作成
-  // req (Request) - 受信したHTTPリクエスト
-  // res (Response) - 送信するHTTPレスポンス
+/**
+ * Handles assignment creation requests by validating the payload and delegating persistence to the service layer.
+ *
+ * @param req - Express request containing the assignment data and authenticated user information.
+ * @param res - Express response used to return the created assignment or an error.
+ * @returns A promise that resolves when the HTTP response has been sent.
+ */
 export const createAssignmentController = async (req: Request, res: Response) => {
   try {
     const { title, description, image_url } = req.body;
@@ -35,7 +39,13 @@ export const createAssignmentController = async (req: Request, res: Response) =>
   }
 };
 
-// 課題検索
+/**
+ * Searches assignments using the provided query string and responds with matching results.
+ *
+ * @param req - Express request containing the search query in the query string.
+ * @param res - Express response used to return matching assignments or an error message.
+ * @returns A promise that resolves when the response is sent.
+ */
 export const searchAssignmentsController = async (req: Request, res: Response) => {
   try {
     const query = req.query.query as string;
@@ -54,7 +64,13 @@ export const searchAssignmentsController = async (req: Request, res: Response) =
   }
 };
 
-// 課題削除
+/**
+ * Deletes an assignment identified by the request parameter while enforcing authorization rules.
+ *
+ * @param req - Express request that includes the assignment ID parameter and authenticated user context.
+ * @param res - Express response used to acknowledge deletion or communicate an error.
+ * @returns A promise that resolves when the response is issued.
+ */
 export const deleteAssignmentController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

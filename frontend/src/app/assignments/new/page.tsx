@@ -8,6 +8,11 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import AssignmentForm from '@/components/AssignmentForm';
 //app/assignments/new/page.tsx に置いてあるこの関数は、URL /assignments/new にアクセスしたときに表示されるページ
+/**
+ * Page that guards assignment creation behind authentication and renders the submission form for logged-in users.
+ *
+ * @returns JSX element representing the assignment creation screen or redirects when unauthenticated.
+ */
 export default function NewAssignmentPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();

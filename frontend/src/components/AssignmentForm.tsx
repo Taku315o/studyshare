@@ -15,6 +15,11 @@ type FormData = {
   description: string;
 };
 
+/**
+ * Form component that lets authenticated users submit new assignments with optional images.
+ *
+ * @returns JSX element rendering the assignment submission form.
+ */
 export default function AssignmentForm() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>();
   const [image, setImage] = useState<File | null>(null);

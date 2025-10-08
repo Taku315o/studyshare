@@ -14,7 +14,14 @@ declare global {
   }
 }
 
-// 認証ミドルウェア
+/**
+ * Express middleware that validates a Supabase JWT and enriches the request with the authenticated user's profile.
+ *
+ * @param req - Incoming request expected to provide a bearer token in the Authorization header.
+ * @param res - Response used to return appropriate HTTP errors when authentication fails.
+ * @param next - Callback invoked to continue the middleware chain after successful authentication.
+ * @returns A promise that resolves once authentication completes and `next` is called or an error response is sent.
+ */
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -69,7 +76,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-// 管理者権限チェック
+/**
+ * Express middleware ensuring the authenticated user has administrator privileges before continuing.
+ *
+ * @param req - Request object containing the authenticated user injected by the `authenticate` middleware.
+ * @param res - Response used to send 401/403 errors when access is denied.
+ * @param next - Callback executed if the requester is an administrator.
+ */
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
     res.status(401).json({ error: '認証が必要です' });

@@ -9,6 +9,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // バックエンドなのでサービスキーを使う
 );
 
+/**
+ * Seeds Supabase with fixture users and assignments for local development and testing.
+ *
+ * @returns A promise that resolves when the bootstrap process completes.
+ */
 async function main() {
   // 1. テスト用ユーザーを作成（一般ユーザー）
   console.log('テスト用ユーザー（一般）を作成中...');

@@ -8,7 +8,12 @@ type SearchFormProps = {
   onSearch: (query: string) => void;
 };
 
-// 課題検索フォームコンポーネント
+/**
+ * Form component that captures a search query and notifies the parent component when submitted.
+ *
+ * @param onSearch - Callback invoked with the trimmed query string when the form is submitted.
+ * @returns JSX element rendering the search input and submit button.
+ */
 export default function SearchForm({ onSearch }: SearchFormProps) {
   const [query, setQuery] = useState('');
 //

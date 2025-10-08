@@ -15,6 +15,12 @@ export const metadata: Metadata = {
   description: '大学生のための課題共有プラットフォーム',
 };
 
+/**
+ * Next.js root layout that wraps all pages with the shared providers and metadata configuration.
+ *
+ * @param children - Page content to render within the layout shell.
+ * @returns HTML document markup including providers shared across routes.
+ */
 export default function RootLayout({
   children,
 }: {
