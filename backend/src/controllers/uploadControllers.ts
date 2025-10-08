@@ -4,7 +4,13 @@
 import { Request, Response } from 'express';
 import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
 
-// ファイルアップロードのコントローラー
+/**
+ * Validates and uploads an image file provided via multipart form data to Supabase Storage.
+ *
+ * @param req - Express request expected to contain a Multer `file` and the authenticated user context.
+ * @param res - Express response used to return the uploaded image URL or an error message.
+ * @returns A promise that resolves once the HTTP response has been sent.
+ */
 export const uploadController = async (req: Request, res: Response) => {
   try {
     const file = req.file;

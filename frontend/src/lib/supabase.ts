@@ -71,7 +71,11 @@ export type Database = {
   };
 };
 
-// クライアントサイドでのsupabaseインスタンス作成するための関数
+/**
+ * Instantiates a Supabase client configured for use in the browser with persisted sessions enabled.
+ *
+ * @returns A Supabase client typed to the application's database schema.
+ */
 export const createSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -92,5 +96,8 @@ export const createSupabaseClient = () => {
 
 // クライアントインスタンス（シングルトン）
 
+/**
+ * Shared Supabase client instance for reuse across the client-side application.
+ */
 const supabase = createSupabaseClient();
 export default supabase;

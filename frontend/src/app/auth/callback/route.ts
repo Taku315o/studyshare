@@ -6,7 +6,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseClient } from '@/lib/supabase';
 //Supabaseが返してきたcodeを使ってセッションを作成
 //codeなどのクエリを取り除いたうえでトップページにリダイレクト
-// Supabase認証コールバック処理
+/**
+ * Handles the Supabase OAuth callback by exchanging the authorization code for a session and redirecting to the home page.
+ *
+ * @param request - Incoming Next.js request containing the authorization code query parameter.
+ * @returns Redirect response to the root path with query parameters sanitized.
+ */
 export async function GET(request: NextRequest) {
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = '/';

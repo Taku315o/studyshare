@@ -26,6 +26,12 @@ type AssignmentListProps = {
   query?: string;
 };
 
+/**
+ * Displays a grid of assignments and optionally filters them using a search query.
+ *
+ * @param query - Optional search string used to filter assignments via Supabase RPC.
+ * @returns JSX element rendering the assignment list, loading state, or empty state message.
+ */
 export default function AssignmentList({ query }: AssignmentListProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);

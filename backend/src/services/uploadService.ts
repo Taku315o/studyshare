@@ -17,18 +17,35 @@ interface File {
   size: number;
 }
 
-// ファイルのMIMEタイプチェック
+/**
+ * Determines whether the provided MIME type is an accepted image format.
+ *
+ * @param mimetype - MIME type string reported for an uploaded file.
+ * @returns True when the MIME type is either JPEG or PNG; otherwise false.
+ */
 export const isValidImageType = (mimetype: string): boolean => {
   return ['image/jpeg', 'image/png'].includes(mimetype);
 };
 
-// ファイルサイズチェック (5MB)
+/**
+ * Validates that the file size does not exceed the allowed upload limit.
+ *
+ * @param size - Size of the file in bytes.
+ * @returns True when the file is 5MB or smaller; otherwise false.
+ */
 export const isValidFileSize = (size: number): boolean => {
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   return size <= MAX_FILE_SIZE;
 };
 
-// Supabase Storageへのアップロード
+/**
+ * Uploads an image to the Supabase Storage `assignments` bucket and returns its public URL.
+ *
+ * @param file - Multer file object containing the binary data to store.
+ * @param userId - Identifier of the user whose namespace the file should be stored under.
+ * @returns The publicly accessible URL pointing to the uploaded asset.
+ * @throws When Supabase fails to upload the file or generate a public URL.
+ */
 export const uploadToStorage = async (
   file: File,
   userId: string

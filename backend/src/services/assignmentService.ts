@@ -8,7 +8,13 @@ interface AssignmentData {
   user_id: string;
 }
 
-// 課題を作成
+/**
+ * Creates a new assignment record in Supabase using the provided payload.
+ *
+ * @param data - The assignment fields including title, description, optional image URL, and the authoring user ID.
+ * @returns The created assignment row returned from Supabase.
+ * @throws When Supabase returns an error while inserting the assignment.
+ */
 export const createAssignment = async (data: AssignmentData) => {
   const { data: assignment, error } = await supabase
     .from('assignments')
@@ -24,7 +30,13 @@ export const createAssignment = async (data: AssignmentData) => {
   return assignment;
 };
 
-// 課題を検索
+/**
+ * Executes the `search_assignments` stored procedure to fetch assignments that match the query string.
+ *
+ * @param query - Free-form text used to search the title and description of assignments.
+ * @returns A list of assignments matching the search query or an empty array when nothing matches.
+ * @throws When Supabase fails to execute the remote procedure call or another runtime error occurs.
+ */
 export const searchAssignments = async (query: string) => {
   try {
     const { data, error } = await supabase
@@ -42,7 +54,15 @@ export const searchAssignments = async (query: string) => {
   }
 };
 
-// 課題を削除
+/**
+ * Deletes an assignment while enforcing that non-admin users can only delete their own records.
+ *
+ * @param id - The identifier of the assignment to delete.
+ * @param userId - The ID of the user making the request.
+ * @param isAdmin - Flag indicating whether the requesting user has administrator privileges.
+ * @returns An object indicating the deletion completed successfully.
+ * @throws When the assignment is not found, the user lacks permission, or Supabase fails to delete the record.
+ */
 export const deleteAssignment = async (id: string, userId: string, isAdmin: boolean) => {
   // 管理者でない場合、自分の課題のみ削除可能
   if (!isAdmin) {

@@ -29,7 +29,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-//アプリ全体をこのAuthProviderコンポーネントで囲むことで、内部のどこからでも認証情報にアクセスできるようになります。
+/**
+ * Provides authentication context to descendant components, wiring Supabase session management and helper actions.
+ *
+ * @param children - React nodes that should have access to authentication state and actions.
+ * @returns JSX element that renders the context provider around the supplied children.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -160,6 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Hook that exposes the authentication context set by {@link AuthProvider}.
+ *
+ * @returns Authentication context including session data and helper actions.
+ * @throws When called outside of an `AuthProvider` tree.
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
