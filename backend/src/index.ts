@@ -20,6 +20,7 @@ app.get('/', (req, res) => {
 });
 
 // '/api' パスにルーターを適用
+///api パスに assignmentRoutes ルーターをマウントしている。ex) GET /assignments/search → 実際のエンドポイント: /api/assignments/search
 app.use('/api', assignmentRoutes);
 
 app.listen(PORT, () => {

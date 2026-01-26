@@ -14,6 +14,7 @@ declare global {
   }
 }
 
+
 /**
  * Express middleware that validates a Supabase JWT and enriches the request with the authenticated user's profile.
  *
@@ -33,7 +34,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     const token = authHeader.split(' ')[1];
 
-    // Supabaseでユーザー確認（署名検証はSupabaseが内部でやってくれる）
+    // Supabaseでユーザー確認（署名検証はSupabaseが内部でやってくれる）ここでsupabaseAuthはjwtを検証している。
     const { data, error } = await supabaseAuth.auth.getUser(token);
 
     if (error || !data.user) {
