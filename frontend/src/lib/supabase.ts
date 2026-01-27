@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 //フロントエンド側でSupabaseと通信するためのクライアントを初期化するファイルです。
 // NEXT_PUBLIC_から始まる公開可能な環境変数を使って、安全にクライアントをセットアップします。
+
 export type Database = {
   public: {
     Tables: {
