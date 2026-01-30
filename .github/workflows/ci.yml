@@ -2,12 +2,6 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-  # Weekly full audit. Keep enabled if you want scheduled security checks.
-  schedule:
-    - cron: '0 3 * * 1'
   workflow_dispatch:
 
 concurrency:
@@ -22,7 +16,6 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
@@ -46,12 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: >
-      github.event_name != 'schedule' &&
-      (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-        needs.changes.outputs.frontend == 'true' ||
-        needs.changes.outputs.ci == 'true'
-      )
+      needs.changes.outputs.frontend == 'true' ||
+      needs.changes.outputs.ci == 'true' ||
+      github.event_name == 'workflow_dispatch'
     env:
       CI: true
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -80,12 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: >
-      github.event_name != 'schedule' &&
-      (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-        needs.changes.outputs.backend == 'true' ||
-        needs.changes.outputs.ci == 'true'
-      )
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ci == 'true' ||
+      github.event_name == 'workflow_dispatch'
     env:
       CI: true
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -111,11 +98,9 @@ jobs:
         run: npm run build --prefix backend
 
   audit:
-    name: Security audit (main & schedule)
+    name: Security audit
     runs-on: ubuntu-latest
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'schedule'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node 20 LTS
