@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 // 新しく作るassignmentsルーターをインポート
 import assignmentRoutes from './routes/assignments'; 
 
-dotenv.config();//.envファイルから環境変数をロード.それ以外の.env.developmentは読まれてない。
+dotenv.config({ path: '.env.development' });//.envファイルから環境変数をロード.それ以外の.env.developmentは読まれてない。
 
 const app = express();
 const PORT = process.env.PORT || 3001;
