@@ -2,78 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 //フロントエンド側でSupabaseと通信するためのクライアントを初期化するファイルです。
 // NEXT_PUBLIC_から始まる公開可能な環境変数を使って、安全にクライアントをセットアップします。
+import { Database } from '../types/supabase'
 
-export type Database = {
-  public: {
-    Views: Record<string, never>;
-    Tables: {
-      users: {
-        Row: {
-          id: string;
-          email: string;
-          role: 'student' | 'admin';
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email: string;
-          role?: 'student' | 'admin';
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          role?: 'student' | 'admin';
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      assignments: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          image_url: string | null;
-          user_id: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          description: string;
-          image_url?: string | null;
-          user_id: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string;
-          image_url?: string | null;
-          user_id?: string;
-          created_at?: string;
-        };
-      };
-    };
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-    Functions: {
-      search_assignments: {
-        Args: { search_query: string };
-        Returns: Array<{
-          id: string;
-          title: string;
-          description: string;
-          image_url: string | null;
-          user_id: string;
-          created_at: string;
-        }>;
-      };
-    };
-  };
-};
 
 /**
  * Instantiates a Supabase client configured for use in the browser with persisted sessions enabled.
