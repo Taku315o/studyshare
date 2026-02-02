@@ -8,7 +8,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
-import { setAuthToken } from '@/lib/api';
+import { setAuthToken } from '@/lib/api';//401 はバックエンドが認証トークンを受け取れていない可能性が高いので、セッション変更時に必ず Authorization を同期するように修正しました。
 import { useRouter } from 'next/navigation';//Next.js 13+ の App Router で使用されるライブラリでページ遷移やURL操作を扱うためのフックや関数
 
 type UserProfile = {
