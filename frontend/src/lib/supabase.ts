@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export type Database = {
   public: {
+    Views: Record<string, never>;
     Tables: {
       users: {
         Row: {
@@ -56,6 +57,8 @@ export type Database = {
         };
       };
     };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
     Functions: {
       search_assignments: {
         Args: { search_query: string };
