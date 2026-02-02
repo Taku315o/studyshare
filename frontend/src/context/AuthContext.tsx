@@ -8,6 +8,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
+import { setAuthToken } from '@/lib/api';//401 はバックエンドが認証トークンを受け取れていない可能性が高いので、セッション変更時に必ず Authorization を同期するように修正しました。
 import { useRouter } from 'next/navigation';//Next.js 13+ の App Router で使用されるライブラリでページ遷移やURL操作を扱うためのフックや関数
 
 type UserProfile = {
@@ -54,8 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(session);
         setUser(session?.user ?? null);
-        
+        setAuthToken(session?.access_token ?? null);
+
         if (session?.user) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.error('セッション検証エラー:', userError);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setAuthToken(null);
+            return;
+          }
+
           const { data: profileData, error: profileError } = await supabase
             .from('users')
             .select('*')
@@ -67,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (profileData) {
-            setProfile(profileData);
+            setProfile(profileData as unknown as UserProfile);
           }
         }
       } catch (error) {
@@ -86,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(session);
         setUser(session?.user ?? null);
+        setAuthToken(session?.access_token ?? null);
         
         if (session?.user) {
           const { data: profileData, error: profileError } = await supabase
@@ -99,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (profileData) {
-            setProfile(profileData);
+            setProfile(profileData as unknown as UserProfile);
           }
         } else {
           setProfile(null);
@@ -134,10 +148,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ログアウト
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      router.push('/');
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
       console.error('ログアウトエラー:', error);
+    } finally {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setAuthToken(null);
+      router.push('/');
     }
   };
 
