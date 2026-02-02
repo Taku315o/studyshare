@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (profileData) {
-            setProfile(profileData);
+            setProfile(profileData as unknown as UserProfile);
           }
         }
       } catch (error) {
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (profileData) {
-            setProfile(profileData);
+            setProfile(profileData as unknown as UserProfile);
           }
         } else {
           setProfile(null);
