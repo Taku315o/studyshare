@@ -11,25 +11,29 @@ import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/
  * @param res - Express response used to return the uploaded image URL or an error message.
  * @returns A promise that resolves once the HTTP response has been sent.
  */
-export const uploadController = async (req: Request, res: Response) => {
+export const uploadController = async (req: Request, res: Response): Promise<void> => {
   try {
     const file = req.file;
     const user = req.user;
 
     if (!file) {
-      return res.status(400).json({ error: 'ファイルがアップロードされていません' });
+      res.status(400).json({ error: 'ファイルがアップロードされていません' });
+      return;
     }
 
     if (!user) {
-      return res.status(401).json({ error: '認証が必要です' });
+      res.status(401).json({ error: '認証が必要です' });
+      return;
     }
 
     // ファイル形式とサイズのバリデーション
     if (!isValidImageType(file.mimetype)) {
-      return res.status(400).json({ error: '無効なファイル形式です（png/jpgのみ）' });
+      res.status(400).json({ error: '無効なファイル形式です（png/jpgのみ）' });
+      return;
     }
     if (!isValidFileSize(file.size)) {
-      return res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      return;
     }
 
     // Storageにアップロードして公開URLを取得

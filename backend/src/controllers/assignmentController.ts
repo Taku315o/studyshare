@@ -12,17 +12,19 @@ import { createAssignment, searchAssignments, deleteAssignment } from '../servic
  * @param res - Express response used to return the created assignment or an error.
  * @returns A promise that resolves when the HTTP response has been sent.
  */
-export const createAssignmentController = async (req: Request, res: Response) => {
+export const createAssignmentController = async (req: Request, res: Response): Promise<void> => {
   try {
     const { title, description, image_url } = req.body;
     const user = req.user;
 
     if (!user) {
-      return res.status(401).json({ error: '認証が必要です' });
+      res.status(401).json({ error: '認証が必要です' });
+      return;
     }
 
     if (!title || !description) {
-      return res.status(400).json({ error: 'タイトルと説明は必須です' });
+      res.status(400).json({ error: 'タイトルと説明は必須です' });
+      return;
     }
 
     const newAssignment = await createAssignment({
@@ -46,14 +48,15 @@ export const createAssignmentController = async (req: Request, res: Response) =>
  * @param res - Express response used to return matching assignments or an error message.
  * @returns A promise that resolves when the response is sent.
  */
-export const searchAssignmentsController = async (req: Request, res: Response) => {
+export const searchAssignmentsController = async (req: Request, res: Response): Promise<void> => {
   try {
     const query = req.query.query as string;
     
     if (!query) {
       // クエリがない場合は空の結果を返すか、全件返すか選択
       // ここでは空の結果を返す
-      return res.status(200).json([]);
+      res.status(200).json([]);
+      return;
     }
 
     const assignments = await searchAssignments(query);
@@ -71,13 +74,14 @@ export const searchAssignmentsController = async (req: Request, res: Response) =
  * @param res - Express response used to acknowledge deletion or communicate an error.
  * @returns A promise that resolves when the response is issued.
  */
-export const deleteAssignmentController = async (req: Request, res: Response) => {
+export const deleteAssignmentController = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const user = req.user;
 
     if (!user) {
-      return res.status(401).json({ error: '認証が必要です' });
+      res.status(401).json({ error: '認証が必要です' });
+      return;
     }
 
     // サービス層で権限チェックも行う
