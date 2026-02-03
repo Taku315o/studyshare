@@ -1,16 +1,16 @@
-drop trigger if exists "update_users_updated_at" on "public"."users";
+--drop trigger if exists "update_users_updated_at" on "public"."users";
 
-drop policy "自分の課題のみ削除可能または管理者" on "public"."assignments";
+--drop policy "自分の課題のみ削除可能または管理者" on "public"."assignments";
 
-drop policy "自分の課題のみ更新可能" on "public"."assignments";
+--drop policy "自分の課題のみ更新可能" on "public"."assignments";
 
-drop policy "認証済みユーザーのみ課題を投稿可能" on "public"."assignments";
+--drop policy "認証済みユーザーのみ課題を投稿可能" on "public"."assignments";
 
-drop policy "課題は全員閲覧可能" on "public"."assignments";
+--drop policy "課題は全員閲覧可能" on "public"."assignments";
 
-drop policy "ユーザーは自分のプロフィールを閲覧可能" on "public"."users";
+--drop policy "ユーザーは自分のプロフィールを閲覧可能" on "public"."users";
 
-alter table "public"."assignments" add column "updated_at" timestamp with time zone not null default now();
+--alter table "public"."assignments" add column "updated_at" timestamp with time zone not null default now();
 
 set check_function_bodies = off;
 
