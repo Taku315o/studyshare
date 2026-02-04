@@ -5,6 +5,7 @@
 // 管理者（admin）権限を持つユーザーには削除ボタンが表示されます。
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { deleteAssignment, setAuthToken } from '@/lib/api';
@@ -36,6 +37,7 @@ export default function AssignmentList({ query }: AssignmentListProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const { isAdmin, getAccessToken } = useAuth();
+  const router = useRouter();
 
   // 課題一覧を取得する関数
   // useCallbackを使ってるのは、useEffectの無限ループを防ぐため！
@@ -103,6 +105,17 @@ export default function AssignmentList({ query }: AssignmentListProps) {
     }
   };
 
+  const handleOpenAssignment = (id: string) => {
+    router.push(`/assignments/${id}`);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, id: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleOpenAssignment(id);
+    }
+  };
+
   // クエリが変わったらデータを再取得
   // ここでfetchAssignmentsを依存配列に入れてるから、上でuseCallbackが必要なんだよね
   // fetchAssignmentsがuseCallbackじゃないと、無限ループの原因になっちゃう
@@ -125,7 +138,14 @@ export default function AssignmentList({ query }: AssignmentListProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {assignments.map((assignment) => (
-        <div key={assignment.id} className="border rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow group">
+        <div
+          key={assignment.id}
+          className="border rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+          role="button"
+          tabIndex={0}
+          onClick={() => handleOpenAssignment(assignment.id)}
+          onKeyDown={(event) => handleKeyDown(event, assignment.id)}
+        >
           {assignment.image_url && (
             <div className="w-full h-48 overflow-hidden relative">
               <Image
@@ -137,7 +157,9 @@ export default function AssignmentList({ query }: AssignmentListProps) {
             </div>
           )}
           <div className="p-4">
-            <h3 className="text-xl font-semibold">{assignment.title}</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              {assignment.title}
+            </h3>
             <p className="text-gray-600 dark:text-gray-300 mt-2">{assignment.description}</p>
             <div className="flex justify-between items-center mt-4 text-sm text-gray-500 dark:text-gray-400">
               <span>投稿者: {assignment.user?.email || '不明'}</span>
@@ -147,7 +169,10 @@ export default function AssignmentList({ query }: AssignmentListProps) {
             {/* 管理者のみ削除ボタンを表示 */}
             {isAdmin && (
               <button
-                onClick={() => handleDelete(assignment.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDelete(assignment.id);
+                }}
                 className="mt-3 px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50 dark:hover:bg-red-900"
               >
                 削除

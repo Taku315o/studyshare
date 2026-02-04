@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 import AssignmentList from '../AssignmentList';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { deleteAssignment } from '@/lib/api';
 import supabase from '@/lib/supabase';
@@ -34,6 +35,10 @@ jest.mock('@/lib/supabase', () => ({
     })),
     rpc: jest.fn(),
   },
+}));
+
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
 }));
 
 jest.mock('next/image', () => {
@@ -74,10 +79,14 @@ describe('AssignmentList', () => {
     isAdmin: false,
     getAccessToken: jest.fn(),
   };
+  const mockRouter = {
+    push: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useAuth as jest.Mock).mockReturnValue(mockAuth);
+    (useRouter as jest.Mock).mockReturnValue(mockRouter);
   });
 
   describe('レンダリング', () => {

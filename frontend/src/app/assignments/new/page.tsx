@@ -40,7 +40,7 @@ export default function NewAssignmentPage() {
         <Link href="/" className="hover:underline">
           ← 戻る
         </Link>
-        <h1 className="text-2xl font-bold">新しい課題を投稿</h1>
+        <h1 className="text-2xl font-bold">新しいnoteを投稿</h1>
       </header>
 
       <main>

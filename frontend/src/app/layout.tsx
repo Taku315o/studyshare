@@ -11,8 +11,8 @@ import { Toaster } from 'react-hot-toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'StudyShare - 課題共有アプリ',
-  description: '大学生のための課題共有プラットフォーム',
+  title: 'StudyShare - note共有アプリ',
+  description: '大学生のためのnote共有プラットフォーム',
 };
 
 /**
