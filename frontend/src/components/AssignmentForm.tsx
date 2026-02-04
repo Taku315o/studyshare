@@ -72,6 +72,8 @@ export default function AssignmentForm() {
       
       // 認証トークン取得
       const token = await getAccessToken();
+      console.log('[AssignmentForm] Token取得:', token ? `${token.substring(0, 20)}...` : 'null');
+      
       if (!token) {
         toast.error('ログインが必要です');
         router.push('/auth/login');
@@ -80,13 +82,16 @@ export default function AssignmentForm() {
       
       // トークンをセット
       setAuthToken(token);
+      console.log('[AssignmentForm] AuthToken設定完了');
       
       let imageUrl = null;
       
       // 画像アップロード
       if (image) {
+        console.log('[AssignmentForm] 画像アップロード開始');
         const uploadResult = await uploadImage(image);
         imageUrl = uploadResult.url;
+        console.log('[AssignmentForm] 画像アップロード完了:', imageUrl);
       }
       
       // 課題投稿

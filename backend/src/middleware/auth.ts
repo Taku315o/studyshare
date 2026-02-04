@@ -26,18 +26,23 @@ declare global {
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log('[Auth] Authorization header:', authHeader ? 'Bearer ***' : 'なし');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[Auth] トークンなし - 401返却');
       res.status(401).json({ error: '認証トークンが必要です' });
       return;
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('[Auth] Token received, length:', token.length);
 
     // Supabaseでユーザー確認（署名検証はSupabaseが内部でやってくれる）ここでsupabaseAuthはjwtを検証している。
     const { data, error } = await supabaseAuth.auth.getUser(token);
+    console.log('[Auth] getUser result:', { hasUser: !!data?.user, error: error?.message });
 
     if (error || !data.user) {
+      console.log('[Auth] トークン検証失敗:', error?.message);
       res.status(401).json({ error: '無効なトークンです' });
       return;
     }

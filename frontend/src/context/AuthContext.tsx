@@ -160,10 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // JWTトークン取得
+  // JWTトークン取得（常にSupabaseから最新を取得）
   const getAccessToken = async (): Promise<string | null> => {
-    if (!session) return null;
-    return session.access_token;
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    return currentSession?.access_token ?? null;
   };
 
   const isAdmin = profile?.role === 'admin';
