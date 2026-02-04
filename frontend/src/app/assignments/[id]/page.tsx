@@ -215,7 +215,7 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
                     disabled={isDownloading}
                     aria-label="画像をダウンロード"
                     className="
-                    absolute right-14 top-3 z-10
+                    absolute right-4 bottom-4 z-10
                     h-10 w-10
                     rounded-full bg-white/90
                     flex items-center justify-center
