@@ -25,6 +25,32 @@ type AssignmentDetailPageProps = {
   };
 };
 
+
+// 追加：このへんに置く（type定義の下とかでOK）
+function DownloadIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* 下のトレイ */}
+      <path d="M4 20V10" />
+      <path d="M20 20V10" />
+      <path d="M4 20H20" />
+
+      {/* 下向き矢印 */}
+      <path d="M12 3V14" />
+      <path d="M7.5 10.5L12 15l4.5-4.5" />
+    </svg>
+  );
+}
+
 /**
  * Displays a single assignment detail page based on the route param.
  *
@@ -184,13 +210,24 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
                       ×
                     </button>
                     <button
-                      type="button"
-                      onClick={handleDownload}
-                      disabled={isDownloading}
-                      className="absolute right-14 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-sm text-gray-900 shadow hover:bg-white disabled:opacity-60"
-                    >
-                      {isDownloading ? 'DL中...' : 'ダウンロード'}
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    aria-label="画像をダウンロード"
+                    className="
+                    absolute right-14 top-3 z-10
+                    h-10 w-10
+                    rounded-full bg-white/90
+                    flex items-center justify-center
+                    text-gray-900 shadow
+                    hover:bg-white
+                    disabled:opacity-60">
+                    {isDownloading ? (<span className="text-xs font-semibold">…</span>
+                    ) : (<DownloadIcon className="h-6 w-6" />
+
+                    )}
                     </button>
+
                     <Image
                       src={assignment.image_url}
                       alt={`${assignment.title} プレビュー`}
