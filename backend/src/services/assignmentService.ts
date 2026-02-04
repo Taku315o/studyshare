@@ -6,6 +6,11 @@ interface AssignmentData {
   title: string;
   description: string;
   image_url?: string | null;
+  university?: string | null;
+  faculty?: string | null;
+  department?: string | null;
+  course_name?: string | null;
+  teacher_name?: string | null;
   user_id: string;
 }
 
