@@ -137,7 +137,9 @@ export default function AssignmentList({ query }: AssignmentListProps) {
             </div>
           )}
           <div className="p-4">
-            <h3 className="text-xl font-semibold">{assignment.title}</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              {assignment.title}
+            </h3>
             <p className="text-gray-600 dark:text-gray-300 mt-2">{assignment.description}</p>
             <div className="flex justify-between items-center mt-4 text-sm text-gray-500 dark:text-gray-400">
               <span>投稿者: {assignment.user?.email || '不明'}</span>
