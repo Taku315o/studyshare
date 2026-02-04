@@ -13,6 +13,11 @@ import Image from 'next/image';
 type FormData = {
   title: string;
   description: string;
+  university: string;
+  faculty: string;
+  department: string;
+  course_name: string;
+  teacher_name: string;
 };
 
 /**
@@ -94,11 +99,22 @@ export default function AssignmentForm() {
         console.log('[AssignmentForm] 画像アップロード完了:', imageUrl);
       }
       
+      const university = data.university.trim();
+      const faculty = data.faculty.trim();
+      const department = data.department.trim();
+      const courseName = data.course_name.trim();
+      const teacherName = data.teacher_name.trim();
+
       // 課題投稿
       await createAssignment({
         title: data.title,
         description: data.description,
         image_url: imageUrl ?? undefined,
+        ...(university ? { university } : {}),
+        ...(faculty ? { faculty } : {}),
+        ...(department ? { department } : {}),
+        ...(courseName ? { course_name: courseName } : {}),
+        ...(teacherName ? { teacher_name: teacherName } : {}),
       });
       
       toast.success('課題を投稿しました');
@@ -163,6 +179,71 @@ export default function AssignmentForm() {
         {errors.description && (
           <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
         )}
+      </div>
+
+      {/* 大学入力フィールド */}
+      <div>
+        <label htmlFor="university" className="block text-sm font-medium text-gray-700">
+          大学名
+        </label>
+        <input
+          id="university"
+          type="text"
+          {...register('university')}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+        />
+      </div>
+
+      {/* 学部入力フィールド */}
+      <div>
+        <label htmlFor="faculty" className="block text-sm font-medium text-gray-700">
+          学部
+        </label>
+        <input
+          id="faculty"
+          type="text"
+          {...register('faculty')}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+        />
+      </div>
+
+      {/* 学科入力フィールド */}
+      <div>
+        <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+          学科
+        </label>
+        <input
+          id="department"
+          type="text"
+          {...register('department')}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+        />
+      </div>
+
+      {/* 講義名入力フィールド */}
+      <div>
+        <label htmlFor="course_name" className="block text-sm font-medium text-gray-700">
+          講義名
+        </label>
+        <input
+          id="course_name"
+          type="text"
+          {...register('course_name')}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+        />
+      </div>
+
+      {/* 教員名入力フィールド */}
+      <div>
+        <label htmlFor="teacher_name" className="block text-sm font-medium text-gray-700">
+          教員名
+        </label>
+        <input
+          id="teacher_name"
+          type="text"
+          {...register('teacher_name')}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+        />
       </div>
 
       {/* 画像アップロードフィールド */}
