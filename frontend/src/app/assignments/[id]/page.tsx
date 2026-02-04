@@ -36,6 +36,7 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const fetchAssignment = async () => {
@@ -88,6 +89,35 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPreviewOpen]);
+
+  const handleDownload = async () => {
+    if (!assignment?.image_url) return;
+
+    try {
+      setIsDownloading(true);
+      const response = await fetch(assignment.image_url);
+      if (!response.ok) {
+        throw new Error('Failed to download image');
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      const safeTitle = `${assignment.title || 'assignment-image'}`.replace(/[\\/:*?"<>|]/g, '_');
+      const urlPath = new URL(assignment.image_url).pathname;
+      const extension = urlPath.includes('.') ? urlPath.split('.').pop() : 'png';
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${safeTitle}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('画像のダウンロードに失敗しました:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (loading) {
     return <div className="container mx-auto px-4 py-8 text-center">読み込み中...</div>;
@@ -152,6 +182,14 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
                       className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-sm text-gray-900 shadow hover:bg-white"
                     >
                       ×
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      disabled={isDownloading}
+                      className="absolute right-14 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-sm text-gray-900 shadow hover:bg-white disabled:opacity-60"
+                    >
+                      {isDownloading ? 'DL中...' : 'ダウンロード'}
                     </button>
                     <Image
                       src={assignment.image_url}
