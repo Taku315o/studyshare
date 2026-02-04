@@ -38,28 +38,43 @@ export type Database = {
         Row: {
           created_at: string
           description: string
+          department: string | null
+          faculty: string | null
           id: string
           image_url: string | null
+          course_name: string | null
+          teacher_name: string | null
           title: string
           updated_at: string
+          university: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           description: string
+          department?: string | null
+          faculty?: string | null
           id?: string
           image_url?: string | null
+          course_name?: string | null
+          teacher_name?: string | null
           title: string
           updated_at?: string
+          university?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           description?: string
+          department?: string | null
+          faculty?: string | null
           id?: string
           image_url?: string | null
+          course_name?: string | null
+          teacher_name?: string | null
           title?: string
           updated_at?: string
+          university?: string | null
           user_id?: string
         }
         Relationships: [
@@ -107,10 +122,15 @@ export type Database = {
         Returns: {
           created_at: string
           description: string
+          department: string | null
+          faculty: string | null
           id: string
           image_url: string | null
+          course_name: string | null
+          teacher_name: string | null
           title: string
           updated_at: string
+          university: string | null
           user_id: string
         }[]
         SetofOptions: {
@@ -255,4 +275,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

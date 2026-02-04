@@ -14,7 +14,16 @@ import { createAssignment, searchAssignments, deleteAssignment } from '../servic
  */
 export const createAssignmentController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, description, image_url } = req.body;
+    const {
+      title,
+      description,
+      image_url,
+      university,
+      faculty,
+      department,
+      course_name,
+      teacher_name,
+    } = req.body;
     const user = req.user;
 
     if (!user) {
@@ -31,6 +40,11 @@ export const createAssignmentController = async (req: Request, res: Response): P
       title,
       description,
       image_url,
+      university,
+      faculty,
+      department,
+      course_name,
+      teacher_name,
       user_id: user.id,
     });
 

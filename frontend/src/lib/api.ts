@@ -49,6 +49,11 @@ export const createAssignment = async (data: {
   title: string;
   description: string;
   image_url?: string;
+  university?: string;
+  faculty?: string;
+  department?: string;
+  course_name?: string;
+  teacher_name?: string;
 }) => {
   const response = await api.post('/assignments', data);
   return response.data;
