@@ -35,6 +35,7 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     const fetchAssignment = async () => {
@@ -75,6 +76,19 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
     fetchAssignment();
   }, [params.id]);
 
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPreviewOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPreviewOpen]);
+
   if (loading) {
     return <div className="container mx-auto px-4 py-8 text-center">読み込み中...</div>;
   }
@@ -106,14 +120,50 @@ export default function AssignmentDetailPage({ params }: AssignmentDetailPagePro
       <main className="max-w-3xl mx-auto">
         <div className="border rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-800">
           {assignment.image_url && (
-            <div className="w-full h-72 overflow-hidden relative">
-              <Image
-                src={assignment.image_url}
-                alt={assignment.title}
-                fill
-                className="object-cover"
-              />
-            </div>
+            <>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(true)}
+                className="w-full h-72 overflow-hidden relative cursor-zoom-in"
+                aria-label="画像を拡大表示"
+              >
+                <Image
+                  src={assignment.image_url}
+                  alt={assignment.title}
+                  fill
+                  className="object-cover"
+                />
+              </button>
+
+              {isPreviewOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={() => setIsPreviewOpen(false)}
+                >
+                  <div
+                    className="relative w-full max-w-5xl h-[80vh] bg-black/90 rounded-lg overflow-hidden shadow-lg"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewOpen(false)}
+                      className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-sm text-gray-900 shadow hover:bg-white"
+                    >
+                      ×
+                    </button>
+                    <Image
+                      src={assignment.image_url}
+                      alt={`${assignment.title} プレビュー`}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 768px) 100vw, 80vw"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div className="p-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
