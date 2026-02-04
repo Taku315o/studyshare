@@ -105,7 +105,7 @@ export default function AssignmentForm() {
       const courseName = data.course_name.trim();
       const teacherName = data.teacher_name.trim();
 
-      // 課題投稿
+      // 課題投稿 送信payload
       await createAssignment({
         title: data.title,
         description: data.description,
