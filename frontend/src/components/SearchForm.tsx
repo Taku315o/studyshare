@@ -1,9 +1,6 @@
-// studyshare/frontend/src/components/SearchForm.tsx
-// 課題検索フォームのUIとロジックを定義するコンポーネントファイル
 import { useState, FormEvent } from 'react';
-//SearchFormで入力された文字(query)が、onSearch関数の引数として親コンポーネント(page.tsx)に渡される。
-//onSearchは親から子へpropsとして渡された関数で、実行されるとhandleSearchが動作してクエリを更新する
-//onSearchっていうpropsを渡してくれって要求してる
+import { Search } from 'lucide-react';
+
 type SearchFormProps = {
   onSearch: (query: string) => void;
 };
@@ -16,24 +13,27 @@ type SearchFormProps = {
  */
 export default function SearchForm({ onSearch }: SearchFormProps) {
   const [query, setQuery] = useState('');
-//
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSearch(query.trim());
   };
-    // フォームの送信時にクエリをトリムして検索
+
   return (
-    <form onSubmit={handleSubmit} className="mb-6 flex">
+    <form onSubmit={handleSubmit} className="relative group">
+      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <Search className="h-5 w-5 text-blue-200/70 group-focus-within:text-cyan-400 transition-colors duration-300" />
+      </div>
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="キーワードで検索..."
-        className="flex-1 px-4 py-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="ノートを検索..."
+        className="w-full pl-12 pr-32 py-4 bg-slate-900/40 border border-white/10 rounded-2xl text-white placeholder-blue-200/50 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-slate-900/60 focus:border-blue-500/30 transition-all duration-300 shadow-lg shadow-black/10"
       />
       <button
         type="submit"
-        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r"
+        className="absolute right-2 top-2 bottom-2 px-6 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl border border-white/5 backdrop-blur-md transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 active:scale-95"
       >
         検索
       </button>
