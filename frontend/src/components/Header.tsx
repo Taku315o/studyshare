@@ -36,7 +36,7 @@ export default function Header() {
                   className="group inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-500/90 hover:bg-blue-500 text-white font-medium transition-all duration-200 shadow-sm shadow-black/10 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 >
                   <PenSquare className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                  ノートを共有
+                  ノートを投稿
                 </Link>
 
                 {/* ⑥ ログアウト：危険操作なので目立たせすぎず、でも押しやすく（hit area増やす） */}

@@ -13,6 +13,11 @@ type AssignmentDetail = {
     title: string;
     description: string;
     image_url: string | null;
+    university?: string | null;
+    faculty?: string | null;
+    department?: string | null;
+    course_name?: string | null;
+    teacher_name?: string | null;
     user_id: string;
     created_at: string;
     updated_at: string;
@@ -199,38 +204,43 @@ export default function AssignmentDetailClient({ id }: Props) {
         <div className="min-h-screen">
             <Header />
             <div className="container mx-auto px-4 py-8 pt-24">
-                <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-col gap-2">
-                        <Link href="/" className="text-blue-200/80 hover:text-white transition-colors">
-                            ← 戻る
-                        </Link>
-                        <span className="text-sm text-blue-100/70">
-                            {new Date(assignment.created_at).toLocaleString('ja-JP')}
-                        </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={handleShare}
-                            disabled={isSharing}
-                            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20 disabled:opacity-60"
-                        >
-                            <Share2 className="h-4 w-4" />
-                            共有
-                        </button>
-                        {assignment.image_url && (
+                <div className="mx-auto max-w-5xl">
+                    <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-4">
+                            <Link
+                                href="/"
+                                className="text-sm font-semibold text-white/90 hover:text-white transition-colors"
+                            >
+                                ← 戻る
+                            </Link>
+                            <span className="text-sm text-blue-100/85">
+                                {new Date(assignment.created_at).toLocaleString('ja-JP')}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
                             <button
                                 type="button"
-                                onClick={handleDownload}
-                                disabled={isDownloading}
-                                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20 disabled:opacity-60"
+                                onClick={handleShare}
+                                disabled={isSharing}
+                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 hover:-translate-y-0.5 disabled:opacity-60"
                             >
-                                <Download className="h-4 w-4" />
-                                ダウンロード
+                                <Share2 className="h-4 w-4" />
+                                共有
                             </button>
-                        )}
-                    </div>
-                </header>
+                            {assignment.image_url && (
+                                <button
+                                    type="button"
+                                    onClick={handleDownload}
+                                    disabled={isDownloading}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-gray-900 shadow-lg shadow-black/15 transition hover:bg-white hover:-translate-y-0.5 disabled:opacity-60"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    ダウンロード
+                                </button>
+                            )}
+                        </div>
+                    </header>
+                </div>
 
                 <main className="relative mx-auto max-w-5xl">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/20 blur-[100px] rounded-full pointer-events-none" />
@@ -259,7 +269,7 @@ export default function AssignmentDetailClient({ id }: Props) {
                                     onClick={() => setIsPreviewOpen(false)}
                                 >
                                     <div
-                                        className="relative w-full max-w-5xl h-[80vh] bg-black/90 rounded-lg overflow-hidden shadow-lg"
+                                        className="relative w-full max-w-5xl h-[80vh] bg-black/90 rounded-lg shadow-lg"
                                         onClick={(event) => event.stopPropagation()}
                                     >
                                         <button
@@ -290,13 +300,16 @@ export default function AssignmentDetailClient({ id }: Props) {
                                             )}
                                         </button>
 
-                                        <Image
-                                            src={assignment.image_url}
-                                            alt={`${assignment.title} プレビュー`}
-                                            fill
-                                            className="object-contain"
-                                            sizes="(max-width: 768px) 100vw, 80vw"
-                                        />
+                                        <div className="flex h-full w-full items-center justify-center px-6 py-10">
+                                            <Image
+                                                src={assignment.image_url}
+                                                alt={`${assignment.title} プレビュー`}
+                                                width={1600}
+                                                height={1200}
+                                                className="max-h-[70vh] w-auto object-contain"
+                                                sizes="(max-width: 768px) 100vw, 80vw"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -310,10 +323,49 @@ export default function AssignmentDetailClient({ id }: Props) {
                             {assignment.description}
                         </p>
 
-                        <div className="mt-6 text-sm text-blue-100/70 flex flex-col gap-1">
+                        <div className="mt-6 text-sm text-blue-100/85 flex flex-col gap-1">
                             <span>投稿者: {assignment.user?.email || '不明'}</span>
                             <span>最終更新: {new Date(assignment.updated_at).toLocaleString('ja-JP')}</span>
                         </div>
+
+                        {(assignment.university ||
+                            assignment.faculty ||
+                            assignment.department ||
+                            assignment.course_name ||
+                            assignment.teacher_name) && (
+                            <div className="mt-8 grid gap-4 sm:grid-cols-2 text-sm text-blue-100/85">
+                                {assignment.university && (
+                                    <div>
+                                        <span className="block text-xs uppercase tracking-wide text-blue-200/70">大学名</span>
+                                        <span className="mt-1 block text-white/90">{assignment.university}</span>
+                                    </div>
+                                )}
+                                {assignment.faculty && (
+                                    <div>
+                                        <span className="block text-xs uppercase tracking-wide text-blue-200/70">学部</span>
+                                        <span className="mt-1 block text-white/90">{assignment.faculty}</span>
+                                    </div>
+                                )}
+                                {assignment.department && (
+                                    <div>
+                                        <span className="block text-xs uppercase tracking-wide text-blue-200/70">学科</span>
+                                        <span className="mt-1 block text-white/90">{assignment.department}</span>
+                                    </div>
+                                )}
+                                {assignment.course_name && (
+                                    <div>
+                                        <span className="block text-xs uppercase tracking-wide text-blue-200/70">講義名</span>
+                                        <span className="mt-1 block text-white/90">{assignment.course_name}</span>
+                                    </div>
+                                )}
+                                {assignment.teacher_name && (
+                                    <div>
+                                        <span className="block text-xs uppercase tracking-wide text-blue-200/70">教員名</span>
+                                        <span className="mt-1 block text-white/90">{assignment.teacher_name}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     </div>
                 </main>
