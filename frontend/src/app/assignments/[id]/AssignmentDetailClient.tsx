@@ -190,13 +190,13 @@ export default function AssignmentDetailClient({ id }: Props) {
                         <div className="flex flex-wrap items-center gap-3">
                             <Link
                                 href="/"
-                                className="text-sm font-semibold text-white hover:text-white/90 transition-colors"
+                                className="text-base font-semibold text-white hover:text-white/95 transition-colors"
                             >
-                                <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1">
+                                <span className="inline-flex items-center rounded-full bg-white/15 px-3.5 py-1.5">
                                     ← 戻る
                                 </span>
                             </Link>
-                            <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white/95">
+                            <span className="inline-flex items-center rounded-full bg-white/15 px-3.5 py-1.5 text-base font-semibold text-white">
                                 {new Date(assignment.created_at).toLocaleString('ja-JP')}
                             </span>
                         </div>
