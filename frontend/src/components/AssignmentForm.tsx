@@ -143,7 +143,7 @@ export default function AssignmentForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* タイトル入力フィールド */}
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="title" className="block text-sm font-medium text-blue-100/80">
           タイトル
         </label>
         <input
@@ -153,17 +153,17 @@ export default function AssignmentForm() {
           // 'title' はフォームデータ内のキー名
           // { required: '必須項目です' } はバリデーションルール
           {...register('title', { required: '必須項目です' })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
         {/* タイトル入力のエラーメッセージ表示 */}
         {errors.title && (
-          <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+          <p className="mt-1 text-sm text-red-300">{errors.title.message}</p>
         )}
       </div>
 
       {/* 説明入力フィールド */}
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="description" className="block text-sm font-medium text-blue-100/80">
           説明
         </label>
         <textarea
@@ -173,82 +173,82 @@ export default function AssignmentForm() {
           // 'description' はフォームデータ内のキー名
           // { required: '必須項目です' } はバリデーションルール
           {...register('description', { required: '必須項目です' })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
         {/* 説明入力のエラーメッセージ表示 */}
         {errors.description && (
-          <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+          <p className="mt-1 text-sm text-red-300">{errors.description.message}</p>
         )}
       </div>
 
       {/* 大学入力フィールド */}
       <div>
-        <label htmlFor="university" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="university" className="block text-sm font-medium text-blue-100/80">
           大学名
         </label>
         <input
           id="university"
           type="text"
           {...register('university')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
       </div>
 
       {/* 学部入力フィールド */}
       <div>
-        <label htmlFor="faculty" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="faculty" className="block text-sm font-medium text-blue-100/80">
           学部
         </label>
         <input
           id="faculty"
           type="text"
           {...register('faculty')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
       </div>
 
       {/* 学科入力フィールド */}
       <div>
-        <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="department" className="block text-sm font-medium text-blue-100/80">
           学科
         </label>
         <input
           id="department"
           type="text"
           {...register('department')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
       </div>
 
       {/* 講義名入力フィールド */}
       <div>
-        <label htmlFor="course_name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="course_name" className="block text-sm font-medium text-blue-100/80">
           講義名
         </label>
         <input
           id="course_name"
           type="text"
           {...register('course_name')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
       </div>
 
       {/* 教員名入力フィールド */}
       <div>
-        <label htmlFor="teacher_name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="teacher_name" className="block text-sm font-medium text-blue-100/80">
           教員名
         </label>
         <input
           id="teacher_name"
           type="text"
           {...register('teacher_name')}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+          className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-white placeholder:text-blue-100/50 shadow-sm focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
       </div>
 
       {/* 画像アップロードフィールド */}
       <div>
-        <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="image" className="block text-sm font-medium text-blue-100/80">
           画像（任意）
         </label>
         <input
@@ -258,12 +258,12 @@ export default function AssignmentForm() {
           accept="image/jpeg, image/png"
           // ファイルが選択されたときに handleImageChange 関数を呼び出す
           onChange={handleImageChange}
-          className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+          className="mt-1 block w-full text-sm text-blue-100/70 file:mr-4 file:rounded-2xl file:border file:border-white/15 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white/90 hover:file:bg-white/20"
         />
         {/* 画像プレビュー表示 */}
         {imagePreview && (
           <div className="mt-2">
-            <Image src={imagePreview} alt="Preview" width={160} height={160} className="h-40 w-auto object-cover rounded" />
+            <Image src={imagePreview} alt="Preview" width={160} height={160} className="h-40 w-auto object-cover rounded-2xl border border-white/10" />
           </div>
         )}
       </div>
@@ -274,7 +274,7 @@ export default function AssignmentForm() {
           type="submit"
           // uploading が true の場合はボタンを無効化
           disabled={uploading}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-blue-500 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/30 disabled:opacity-50"
         >
           {/* uploading の状態によってボタンのテキストを変更 */}
           {uploading ? '投稿中...' : '投稿する'}
