@@ -19,7 +19,7 @@ export default function Hero() {
 
         <div className="relative px-8 py-20 text-center md:py-24">
           <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 rounded-full bg-white/5 border border-white/10 text-blue-200 text-sm font-medium backdrop-blur-md">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <Sparkles className="w-4 h-4 text-blue-400" />
             <span>Share your knowledge with others</span>
           </div>
 

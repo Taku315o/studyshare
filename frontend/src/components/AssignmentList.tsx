@@ -125,8 +125,34 @@ export default function AssignmentList({ query }: AssignmentListProps) {
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-white/10 bg-slate-900/30 p-10 text-center text-white/90 backdrop-blur-md shadow-lg shadow-black/10">
-        読み込み中...
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={`skeleton-${index}`}
+            className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/30 backdrop-blur-md shadow-lg shadow-black/10"
+          >
+            <div className="h-48 w-full bg-white/5" />
+            <div className="p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4">
+                <div className="h-5 w-3/4 rounded-full bg-white/10" />
+                <div className="mt-3 h-3 w-full rounded-full bg-white/10" />
+                <div className="mt-2 h-3 w-5/6 rounded-full bg-white/10" />
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className="h-6 w-24 rounded-full bg-white/10" />
+                  <div className="h-6 w-32 rounded-full bg-white/10" />
+                </div>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_1.6s_infinite]" />
+          </div>
+        ))}
+        <style jsx>{`
+          @keyframes shimmer {
+            100% {
+              transform: translateX(100%);
+            }
+          }
+        `}</style>
       </div>
     );
   }
