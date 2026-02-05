@@ -187,14 +187,16 @@ export default function AssignmentDetailClient({ id }: Props) {
             <div className="container mx-auto px-4 py-8 pt-24">
                 <div className="mx-auto max-w-5xl">
                     <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center gap-3">
                             <Link
                                 href="/"
                                 className="text-sm font-semibold text-white hover:text-white/90 transition-colors"
                             >
-                                ← 戻る
+                                <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1">
+                                    ← 戻る
+                                </span>
                             </Link>
-                            <span className="text-sm font-medium text-white/95">
+                            <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white/95">
                                 {new Date(assignment.created_at).toLocaleString('ja-JP')}
                             </span>
                         </div>
