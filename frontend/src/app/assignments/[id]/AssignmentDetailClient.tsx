@@ -30,26 +30,7 @@ type Props = {
     id: string;
 };
 
-function DownloadIcon({ className = '' }: { className?: string }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            className={className}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M4 20V10" />
-            <path d="M20 20V10" />
-            <path d="M4 20H20" />
-            <path d="M12 3V14" />
-            <path d="M7.5 10.5L12 15l4.5-4.5" />
-        </svg>
-    );
-}
+
 
 export default function AssignmentDetailClient({ id }: Props) {
     const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
@@ -209,42 +190,20 @@ export default function AssignmentDetailClient({ id }: Props) {
                         <div className="flex items-center gap-4">
                             <Link
                                 href="/"
-                                className="text-sm font-semibold text-white/90 hover:text-white transition-colors"
+                                className="text-sm font-semibold text-white hover:text-white/90 transition-colors"
                             >
                                 ← 戻る
                             </Link>
-                            <span className="text-sm text-blue-100/85">
+                            <span className="text-sm font-medium text-white/95">
                                 {new Date(assignment.created_at).toLocaleString('ja-JP')}
                             </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={handleShare}
-                                disabled={isSharing}
-                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 hover:-translate-y-0.5 disabled:opacity-60"
-                            >
-                                <Share2 className="h-4 w-4" />
-                                共有
-                            </button>
-                            {assignment.image_url && (
-                                <button
-                                    type="button"
-                                    onClick={handleDownload}
-                                    disabled={isDownloading}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-gray-900 shadow-lg shadow-black/15 transition hover:bg-white hover:-translate-y-0.5 disabled:opacity-60"
-                                >
-                                    <Download className="h-4 w-4" />
-                                    ダウンロード
-                                </button>
-                            )}
                         </div>
                     </header>
                 </div>
 
                 <main className="relative mx-auto max-w-5xl">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/20 blur-[100px] rounded-full pointer-events-none" />
-                    <div className="relative overflow-hidden rounded-[3rem] border border-white/10 bg-slate-900/30 backdrop-blur-xl shadow-2xl shadow-black/20">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[110%] h-[110%] bg-blue-500/10 blur-[70px] rounded-full pointer-events-none" />
+                    <div className="relative overflow-hidden rounded-[3rem] border border-white/12 bg-slate-900/35 backdrop-blur-md shadow-xl shadow-black/10">
                     {assignment.image_url && (
                         <>
                             <button
@@ -269,38 +228,18 @@ export default function AssignmentDetailClient({ id }: Props) {
                                     onClick={() => setIsPreviewOpen(false)}
                                 >
                                     <div
-                                        className="relative w-full max-w-5xl h-[80vh] bg-black/90 rounded-lg shadow-lg"
+                                        className="relative w-full max-w-5xl h-[80vh] bg-black/90 rounded-2xl shadow-lg"
                                         onClick={(event) => event.stopPropagation()}
                                     >
                                         <button
                                             type="button"
                                             onClick={() => setIsPreviewOpen(false)}
-                                            className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-sm text-gray-900 shadow hover:bg-white"
+                                            className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-base font-semibold text-gray-900 shadow hover:bg-white"
                                         >
                                             ×
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleDownload}
-                                            disabled={isDownloading}
-                                            aria-label="画像をダウンロード"
-                                            className="
-                    absolute right-4 bottom-4 z-10
-                    h-10 w-10
-                    rounded-full bg-white/90
-                    flex items-center justify-center
-                    text-gray-900 shadow
-                    hover:bg-white
-                    disabled:opacity-60"
-                                        >
-                                            {isDownloading ? (
-                                                <span className="text-xs font-semibold">…</span>
-                                            ) : (
-                                                <DownloadIcon className="h-6 w-6" />
-                                            )}
-                                        </button>
 
-                                        <div className="flex h-full w-full items-center justify-center px-6 py-10">
+                                        <div className="flex h-full w-full items-center justify-center px-10 py-12">
                                             <Image
                                                 src={assignment.image_url}
                                                 alt={`${assignment.title} プレビュー`}
@@ -316,9 +255,33 @@ export default function AssignmentDetailClient({ id }: Props) {
                         </>
                     )}
                     <div className="p-6 md:p-10">
-                        <h1 className="text-3xl font-bold tracking-tight text-white">
-                            {assignment.title}
-                        </h1>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <h1 className="text-3xl font-bold tracking-tight text-white">
+                                {assignment.title}
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleShare}
+                                    disabled={isSharing}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 hover:-translate-y-0.5 disabled:opacity-60"
+                                >
+                                    <Share2 className="h-4 w-4" />
+                                    共有
+                                </button>
+                                {assignment.image_url && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDownload}
+                                        disabled={isDownloading}
+                                        className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-gray-900 shadow-lg shadow-black/15 transition hover:bg-white hover:-translate-y-0.5 disabled:opacity-60"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        ダウンロード
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         <p className="mt-4 whitespace-pre-wrap text-blue-100/80 leading-relaxed">
                             {assignment.description}
                         </p>
