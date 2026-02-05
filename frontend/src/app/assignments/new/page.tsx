@@ -44,14 +44,21 @@ export default function NewAssignmentPage() {
     <div className="min-h-screen">
       <Header />
       <div className="container mx-auto px-4 py-8 pt-24">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <Link href="/" className="text-blue-200/80 hover:text-white transition-colors">
-              ← 戻る
-            </Link>
-            <h1 className="text-3xl font-bold tracking-tight text-white">新しいnoteを投稿</h1>
-          </div>
-        </header>
+        <div className="mx-auto max-w-5xl">
+          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/"
+                className="text-base font-semibold text-white hover:text-white/95 transition-colors"
+              >
+                <span className="inline-flex items-center rounded-full bg-white/15 px-3.5 py-1.5">
+                  ← 戻る
+                </span>
+              </Link>
+              <h1 className="text-3xl font-bold tracking-tight text-white">新しいnoteを投稿</h1>
+            </div>
+          </header>
+        </div>
 
         <main className="relative mx-auto max-w-5xl">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/20 blur-[100px] rounded-full pointer-events-none" />
