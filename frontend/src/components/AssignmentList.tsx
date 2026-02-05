@@ -124,12 +124,42 @@ export default function AssignmentList({ query }: AssignmentListProps) {
   }, [query, fetchAssignments]);
 
   if (loading) {
-    return <div className="text-center p-8">読み込み中...</div>;
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={`skeleton-${index}`}
+            className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/30 backdrop-blur-md shadow-lg shadow-black/10"
+          >
+            <div className="h-48 w-full bg-white/5" />
+            <div className="p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4">
+                <div className="h-5 w-3/4 rounded-full bg-white/10" />
+                <div className="mt-3 h-3 w-full rounded-full bg-white/10" />
+                <div className="mt-2 h-3 w-5/6 rounded-full bg-white/10" />
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className="h-6 w-24 rounded-full bg-white/10" />
+                  <div className="h-6 w-32 rounded-full bg-white/10" />
+                </div>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_1.6s_infinite]" />
+          </div>
+        ))}
+        <style jsx>{`
+          @keyframes shimmer {
+            100% {
+              transform: translateX(100%);
+            }
+          }
+        `}</style>
+      </div>
+    );
   }
 
   if (assignments.length === 0) {
     return (
-      <div className="text-center p-8">
+      <div className="rounded-3xl border border-white/10 bg-slate-900/30 p-10 text-center text-white/90 backdrop-blur-md shadow-lg shadow-black/10">
         {query ? `"${query}" に一致する課題はありません` : '課題はまだ投稿されていません'}
       </div>
     );
@@ -140,7 +170,7 @@ export default function AssignmentList({ query }: AssignmentListProps) {
       {assignments.map((assignment) => (
         <div
           key={assignment.id}
-          className="border rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/30 backdrop-blur-md shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/15 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/30"
           role="button"
           tabIndex={0}
           onClick={() => handleOpenAssignment(assignment.id)}
@@ -154,16 +184,25 @@ export default function AssignmentList({ query }: AssignmentListProps) {
                 fill
                 className="object-cover group-hover:scale-105 transition-transform"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-transparent" />
             </div>
           )}
           <div className="p-4">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {assignment.title}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">{assignment.description}</p>
-            <div className="flex justify-between items-center mt-4 text-sm text-gray-500 dark:text-gray-400">
-              <span>投稿者: {assignment.user?.email || '不明'}</span>
-              <span>{new Date(assignment.created_at).toLocaleString('ja-JP')}</span>
+            <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4">
+              <h3 className="text-xl font-semibold text-white">
+                {assignment.title}
+              </h3>
+              <p className="mt-2 text-sm text-blue-100/85 line-clamp-3">
+                {assignment.description}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-white/85">
+                <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1">
+                  投稿者: {assignment.user?.email || '不明'}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1">
+                  {new Date(assignment.created_at).toLocaleString('ja-JP')}
+                </span>
+              </div>
             </div>
             
             {/* 管理者のみ削除ボタンを表示 */}
@@ -173,7 +212,7 @@ export default function AssignmentList({ query }: AssignmentListProps) {
                   event.stopPropagation();
                   handleDelete(assignment.id);
                 }}
-                className="mt-3 px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50 dark:hover:bg-red-900"
+                className="mt-3 inline-flex items-center rounded-full border border-red-400/70 px-3 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/15"
               >
                 削除
               </button>
