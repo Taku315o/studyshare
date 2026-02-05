@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import supabase from '@/lib/supabase';
+import Header from '@/components/Header';
+import toast from 'react-hot-toast';
+import { Download, Share2 } from 'lucide-react';
 
 type AssignmentDetail = {
     id: string;
@@ -49,6 +52,7 @@ export default function AssignmentDetailClient({ id }: Props) {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isSharing, setIsSharing] = useState(false);
 
     useEffect(() => {
         const fetchAssignment = async () => {
@@ -131,36 +135,106 @@ export default function AssignmentDetailClient({ id }: Props) {
         }
     };
 
+    const handleShare = async () => {
+        if (!assignment) return;
+
+        try {
+            setIsSharing(true);
+            const shareUrl = window.location.href;
+            const shareData = {
+                title: assignment.title,
+                text: assignment.description?.slice(0, 140) || 'StudyShareのノート',
+                url: shareUrl,
+            };
+
+            if (navigator.share) {
+                await navigator.share(shareData);
+                toast.success('共有しました');
+                return;
+            }
+
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success('リンクをコピーしました');
+                return;
+            }
+
+            toast.error('共有に対応していないブラウザです');
+        } catch (error) {
+            console.error('共有に失敗しました:', error);
+            toast.error('共有に失敗しました');
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     if (loading) {
-        return <div className="container mx-auto px-4 py-8 text-center">読み込み中...</div>;
+        return (
+            <div className="min-h-screen">
+                <Header />
+                <div className="container mx-auto px-4 py-8 pt-24 text-center">読み込み中...</div>
+            </div>
+        );
     }
 
     if (!assignment) {
         return (
-            <div className="container mx-auto px-4 py-8">
-                <header className="mb-6 flex items-center justify-between">
-                    <Link href="/" className="text-blue-600 hover:underline">
-                        ← 戻る
-                    </Link>
-                </header>
-                <div className="text-center text-gray-600">{errorMessage ?? '課題が見つかりませんでした'}</div>
+            <div className="min-h-screen">
+                <Header />
+                <div className="container mx-auto px-4 py-8 pt-24">
+                    <header className="mb-6 flex items-center justify-between">
+                        <Link href="/" className="text-blue-200/80 hover:text-white transition-colors">
+                            ← 戻る
+                        </Link>
+                    </header>
+                    <div className="text-center text-blue-100/70">
+                        {errorMessage ?? '課題が見つかりませんでした'}
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <header className="mb-6 flex items-center justify-between">
-                <Link href="/" className="text-blue-600 hover:underline">
-                    ← 戻る
-                </Link>
-                <span className="text-sm text-gray-500">
-                    {new Date(assignment.created_at).toLocaleString('ja-JP')}
-                </span>
-            </header>
+        <div className="min-h-screen">
+            <Header />
+            <div className="container mx-auto px-4 py-8 pt-24">
+                <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2">
+                        <Link href="/" className="text-blue-200/80 hover:text-white transition-colors">
+                            ← 戻る
+                        </Link>
+                        <span className="text-sm text-blue-100/70">
+                            {new Date(assignment.created_at).toLocaleString('ja-JP')}
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleShare}
+                            disabled={isSharing}
+                            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20 disabled:opacity-60"
+                        >
+                            <Share2 className="h-4 w-4" />
+                            共有
+                        </button>
+                        {assignment.image_url && (
+                            <button
+                                type="button"
+                                onClick={handleDownload}
+                                disabled={isDownloading}
+                                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition hover:bg-white/20 disabled:opacity-60"
+                            >
+                                <Download className="h-4 w-4" />
+                                ダウンロード
+                            </button>
+                        )}
+                    </div>
+                </header>
 
-            <main className="max-w-3xl mx-auto">
-                <div className="border rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-800">
+                <main className="relative mx-auto max-w-5xl">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/20 blur-[100px] rounded-full pointer-events-none" />
+                    <div className="relative overflow-hidden rounded-[3rem] border border-white/10 bg-slate-900/30 backdrop-blur-xl shadow-2xl shadow-black/20">
                     {assignment.image_url && (
                         <>
                             <button
@@ -228,21 +302,22 @@ export default function AssignmentDetailClient({ id }: Props) {
                             )}
                         </>
                     )}
-                    <div className="p-6">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <div className="p-6 md:p-10">
+                        <h1 className="text-3xl font-bold tracking-tight text-white">
                             {assignment.title}
                         </h1>
-                        <p className="text-gray-700 dark:text-gray-300 mt-4 whitespace-pre-wrap">
+                        <p className="mt-4 whitespace-pre-wrap text-blue-100/80 leading-relaxed">
                             {assignment.description}
                         </p>
 
-                        <div className="mt-6 text-sm text-gray-500 dark:text-gray-400 flex flex-col gap-1">
+                        <div className="mt-6 text-sm text-blue-100/70 flex flex-col gap-1">
                             <span>投稿者: {assignment.user?.email || '不明'}</span>
                             <span>最終更新: {new Date(assignment.updated_at).toLocaleString('ja-JP')}</span>
                         </div>
                     </div>
-                </div>
-            </main>
+                    </div>
+                </main>
+            </div>
         </div>
     );
 }
