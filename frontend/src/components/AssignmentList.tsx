@@ -25,15 +25,21 @@ type Assignment = {
 
 type AssignmentListProps = {
   query?: string;
+  filters?: {
+    query?: string;
+    university?: string;
+    faculty?: string;
+    department?: string;
+  };
 };
 
 /**
- * Displays a grid of assignments and optionally filters them using a search query.
+ * Displays a grid of assignments and optionally filters them using a search query or dropdown filters.
  *
  * @param query - Optional search string used to filter assignments via Supabase RPC.
  * @returns JSX element rendering the assignment list, loading state, or empty state message.
  */
-export default function AssignmentList({ query }: AssignmentListProps) {
+export default function AssignmentList({ query, filters }: AssignmentListProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const { isAdmin, getAccessToken } = useAuth();
@@ -49,12 +55,29 @@ export default function AssignmentList({ query }: AssignmentListProps) {
     setLoading(true);
     try {
       let data;
-      
-      if (query) {
-        // 検索時はSupabaseの関数を使用
+      const effectiveFilters = {
+        query: filters?.query ?? query ?? '',
+        university: filters?.university ?? '',
+        faculty: filters?.faculty ?? '',
+        department: filters?.department ?? '',
+      };
+      const hasFilters = Boolean(
+        effectiveFilters.query ||
+          effectiveFilters.university ||
+          effectiveFilters.faculty ||
+          effectiveFilters.department,
+      );
+
+      if (hasFilters) {
+        // 検索/絞り込み時はSupabaseの関数を使用
         const { data: searchData, error: searchError } = await supabase
-          .rpc('search_assignments', { search_query: query });
-          
+          .rpc('search_assignments_filtered', {
+            search_query: effectiveFilters.query,
+            university_filter: effectiveFilters.university,
+            faculty_filter: effectiveFilters.faculty,
+            department_filter: effectiveFilters.department,
+          });
+
         if (searchError) throw searchError;
         data = searchData;
       } else {
@@ -80,7 +103,7 @@ export default function AssignmentList({ query }: AssignmentListProps) {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, filters?.query, filters?.university, filters?.faculty, filters?.department]);
 
   // 削除処理
   const handleDelete = async (id: string) => {
@@ -126,6 +149,7 @@ export default function AssignmentList({ query }: AssignmentListProps) {
   if (loading) {
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <span className="sr-only">読み込み中...</span>
         {Array.from({ length: 6 }).map((_, index) => (
           <div
             key={`skeleton-${index}`}

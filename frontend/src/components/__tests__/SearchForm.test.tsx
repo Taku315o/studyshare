@@ -3,6 +3,28 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SearchForm from '../SearchForm';
 
+jest.mock('@/lib/supabase', () => ({
+  __esModule: true,
+  default: {
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        eq: jest.fn(() => ({
+          order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
+      })),
+    })),
+  },
+}));
+
+jest.mock('react-hot-toast', () => ({
+  __esModule: true,
+  default: {
+    error: jest.fn(),
+    success: jest.fn(),
+  },
+}));
+
 describe('SearchForm', () => {
   const mockOnSearch = jest.fn();
 
@@ -68,7 +90,12 @@ describe('SearchForm', () => {
       await user.type(input, 'test query');
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('test query');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: 'test query',
+        university: '',
+        faculty: '',
+        department: '',
+      });
       expect(mockOnSearch).toHaveBeenCalledTimes(1);
     });
 
@@ -81,7 +108,12 @@ describe('SearchForm', () => {
       await user.type(input, 'test query');
       await user.keyboard('{Enter}');
 
-      expect(mockOnSearch).toHaveBeenCalledWith('test query');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: 'test query',
+        university: '',
+        faculty: '',
+        department: '',
+      });
       expect(mockOnSearch).toHaveBeenCalledTimes(1);
     });
 
@@ -108,7 +140,12 @@ describe('SearchForm', () => {
       await user.type(input, '  test query  ');
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('test query');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: 'test query',
+        university: '',
+        faculty: '',
+        department: '',
+      });
     });
 
     it('should handle empty input', async () => {
@@ -119,7 +156,12 @@ describe('SearchForm', () => {
 
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: '',
+        university: '',
+        faculty: '',
+        department: '',
+      });
     });
 
     it('should handle whitespace-only input', async () => {
@@ -132,7 +174,12 @@ describe('SearchForm', () => {
       await user.type(input, '   ');
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: '',
+        university: '',
+        faculty: '',
+        department: '',
+      });
     });
   });
 
@@ -148,14 +195,24 @@ describe('SearchForm', () => {
       await user.type(input, 'first query');
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('first query');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: 'first query',
+        university: '',
+        faculty: '',
+        department: '',
+      });
 
       // 入力をクリアして2回目の検索
       await user.clear(input);
       await user.type(input, 'second query');
       await user.click(submitButton);
 
-      expect(mockOnSearch).toHaveBeenCalledWith('second query');
+      expect(mockOnSearch).toHaveBeenCalledWith({
+        query: 'second query',
+        university: '',
+        faculty: '',
+        department: '',
+      });
       expect(mockOnSearch).toHaveBeenCalledTimes(2);
     });
 
