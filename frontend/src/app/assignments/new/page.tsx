@@ -72,7 +72,7 @@ export default function NewAssignmentPage() {
               <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_1.6s_infinite]" />
             </div>
           </main>
-          <style jsx>{`
+          <style>{`
             @keyframes shimmer {
               100% {
                 transform: translateX(100%);

@@ -10,6 +10,7 @@ jest.mock('@/lib/supabase', () => ({
   default: {
     auth: {
       getSession: jest.fn(),
+      getUser: jest.fn(),
       onAuthStateChange: jest.fn(),
       signInWithOAuth: jest.fn(),
       signOut: jest.fn(),
@@ -111,6 +112,11 @@ describe('AuthContext', () => {
         data: { session: mockSession },
         error: null,
       });
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
       
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -173,6 +179,10 @@ describe('AuthContext', () => {
     beforeEach(() => {
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
+        error: null,
+      });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
         error: null,
       });
       (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
@@ -240,6 +250,10 @@ describe('AuthContext', () => {
         data: { session: null },
         error: new Error('Session fetch failed'),
       });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
       (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
         data: { subscription: { unsubscribe: jest.fn() } },
       });
@@ -269,6 +283,10 @@ describe('AuthContext', () => {
 
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: { user: mockUser } },
+        error: null,
+      });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
         error: null,
       });
 
