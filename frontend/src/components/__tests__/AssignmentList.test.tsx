@@ -194,8 +194,11 @@ describe('AssignmentList', () => {
       render(<AssignmentList query="test query" />);
 
       await waitFor(() => {
-        expect(supabase.rpc).toHaveBeenCalledWith('search_assignments', {
+        expect(supabase.rpc).toHaveBeenCalledWith('search_assignments_filtered', {
           search_query: 'test query',
+          university_filter: '',
+          faculty_filter: '',
+          department_filter: '',
         });
         expect(screen.getByText('Test Assignment 1')).toBeInTheDocument();
         expect(screen.queryByText('Test Assignment 2')).not.toBeInTheDocument();

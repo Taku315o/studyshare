@@ -36,45 +36,45 @@ export type Database = {
     Tables: {
       assignments: {
         Row: {
+          course_name: string | null
           created_at: string
-          description: string
           department: string | null
+          description: string
           faculty: string | null
           id: string
           image_url: string | null
-          course_name: string | null
           teacher_name: string | null
           title: string
-          updated_at: string
           university: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
+          course_name?: string | null
           created_at?: string
-          description: string
           department?: string | null
+          description: string
           faculty?: string | null
           id?: string
           image_url?: string | null
-          course_name?: string | null
           teacher_name?: string | null
           title: string
-          updated_at?: string
           university?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
+          course_name?: string | null
           created_at?: string
-          description?: string
           department?: string | null
+          description?: string
           faculty?: string | null
           id?: string
           image_url?: string | null
-          course_name?: string | null
           teacher_name?: string | null
           title?: string
-          updated_at?: string
           university?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -86,6 +86,82 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      departments: {
+        Row: {
+          created_at: string
+          faculty_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          faculty_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          faculty_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faculties: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          university_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          university_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          university_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculties_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      universities: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       users: {
         Row: {
@@ -120,17 +196,45 @@ export type Database = {
       search_assignments: {
         Args: { search_query: string }
         Returns: {
+          course_name: string | null
           created_at: string
-          description: string
           department: string | null
+          description: string
           faculty: string | null
           id: string
           image_url: string | null
-          course_name: string | null
           teacher_name: string | null
           title: string
-          updated_at: string
           university: string | null
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "assignments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_assignments_filtered: {
+        Args: {
+          department_filter: string
+          faculty_filter: string
+          search_query: string
+          university_filter: string
+        }
+        Returns: {
+          course_name: string | null
+          created_at: string
+          department: string | null
+          description: string
+          faculty: string | null
+          id: string
+          image_url: string | null
+          teacher_name: string | null
+          title: string
+          university: string | null
+          updated_at: string
           user_id: string
         }[]
         SetofOptions: {
@@ -275,3 +379,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

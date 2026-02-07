@@ -10,6 +10,7 @@ jest.mock('@/lib/supabase', () => ({
   default: {
     auth: {
       getSession: jest.fn(),
+      getUser: jest.fn(),
       onAuthStateChange: jest.fn(),
       signInWithOAuth: jest.fn(),
       signOut: jest.fn(),
@@ -68,11 +69,7 @@ describe('AuthContext', () => {
 
   describe('初期状態', () => {
     it('should render loading state initially', () => {
-      const mockSession = { user: null };
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: mockSession },
-        error: null,
-      });
+      (supabase.auth.getSession as jest.Mock).mockReturnValue(new Promise(() => {}));
       (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
         data: { subscription: { unsubscribe: jest.fn() } },
       });
@@ -111,6 +108,11 @@ describe('AuthContext', () => {
         data: { session: mockSession },
         error: null,
       });
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
       
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -128,12 +130,18 @@ describe('AuthContext', () => {
       });
     });
 
+    const renderAuth = async () => {
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
+    };
+
     it('should display user information when authenticated', async () => {
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await renderAuth();
 
       await waitFor(() => {
         expect(screen.getByTestId('loading')).toHaveTextContent('Not loading');
@@ -157,11 +165,7 @@ describe('AuthContext', () => {
         }),
       });
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await renderAuth();
 
       await waitFor(() => {
         expect(screen.getByTestId('admin')).toHaveTextContent('Admin');
@@ -175,10 +179,24 @@ describe('AuthContext', () => {
         data: { session: null },
         error: null,
       });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
       (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
         data: { subscription: { unsubscribe: jest.fn() } },
       });
     });
+
+    const renderAuth = async () => {
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
+    };
 
     it('should call signInWithOAuth when signInWithGoogle is called', async () => {
       (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
@@ -186,11 +204,7 @@ describe('AuthContext', () => {
         error: null,
       });
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await renderAuth();
 
       await waitFor(() => {
         expect(screen.getByTestId('loading')).toHaveTextContent('Not loading');
@@ -213,11 +227,7 @@ describe('AuthContext', () => {
         error: null,
       });
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await renderAuth();
 
       await waitFor(() => {
         expect(screen.getByTestId('loading')).toHaveTextContent('Not loading');
@@ -240,15 +250,21 @@ describe('AuthContext', () => {
         data: { session: null },
         error: new Error('Session fetch failed'),
       });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
       (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
         data: { subscription: { unsubscribe: jest.fn() } },
       });
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
 
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith('セッション取得エラー:', expect.any(Error));
@@ -271,6 +287,10 @@ describe('AuthContext', () => {
         data: { session: { user: mockUser } },
         error: null,
       });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
 
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -287,11 +307,13 @@ describe('AuthContext', () => {
         data: { subscription: { unsubscribe: jest.fn() } },
       });
 
-      render(
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      );
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
 
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith('プロフィール取得エラー:', expect.any(Error));
