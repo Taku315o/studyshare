@@ -127,6 +127,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Audit frontend (prod deps)
-        run: pnpm --filter frontend audit --prod --audit-level high
+        run: pnpm -C frontend audit --prod --audit-level high
       - name: Audit backend (prod deps)
-        run: pnpm --filter backend audit --prod --audit-level high
+        run: pnpm -C backend audit --prod --audit-level high
