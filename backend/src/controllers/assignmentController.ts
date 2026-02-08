@@ -90,7 +90,8 @@ export const searchAssignmentsController = async (req: Request, res: Response): 
  */
 export const deleteAssignmentController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id;
+    const id = Array.isArray(rawId) ? rawId[0] : rawId;
     const user = req.user;
 
     if (!user) {
@@ -99,6 +100,11 @@ export const deleteAssignmentController = async (req: Request, res: Response): P
     }
 
     // サービス層で権限チェックも行う
+    if (!id) {
+      res.status(400).json({ error: '課題IDが必要です' });
+      return;
+    }
+
     const result = await deleteAssignment(id, user.id, user.role === 'admin');
     
     res.status(200).json(result);

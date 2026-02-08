@@ -2,7 +2,7 @@
 
 **現状**
 - frontend: Jest + React Testing Libraryの基盤あり
-- backend: テスト未整備（`npm run test` はplaceholder）
+- backend: テスト未整備（`pnpm --filter backend test` はplaceholder）
 
 **優先テスト**
 - UI

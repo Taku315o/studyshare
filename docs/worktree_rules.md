@@ -1,0 +1,6 @@
+- アクティブworktreeは2個まで
+- ビルドアーティファクトをgitignore。各worktreeで生成されるnode_modulesやtarget/などを無視してディスク節約。
+- 作業前にgit fetch → git rebase でメインを更新。
+- 定期的にpruneを実行。git worktree prune で古い/削除済みのworktreeを掃除。ディスクを食うのを防ぐ。
+- 
+- 

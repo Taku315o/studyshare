@@ -32,19 +32,19 @@ supabase/
 
 **開発コマンド**  
 フロントエンド (`studyshare/frontend/package.json`)  
-- `npm run dev`  
-- `npm run build`  
-- `npm run start`  
-- `npm run lint`  
-- `npm run test`  
-- `npm run test:watch`
+- `pnpm --filter frontend dev`  
+- `pnpm --filter frontend build`  
+- `pnpm --filter frontend start`  
+- `pnpm --filter frontend lint`  
+- `pnpm --filter frontend test`  
+- `pnpm --filter frontend test:watch`
 
 バックエンド (`studyshare/backend/package.json`)  
-- `npm run dev`  
-- `npm run build`  
-- `npm run start`  
-- `npm run seed`  
-- `npm run test`（現在は placeholder）
+- `pnpm --filter backend dev`  
+- `pnpm --filter backend build`  
+- `pnpm --filter backend start`  
+- `pnpm --filter backend seed`  
+- `pnpm --filter backend test`（現在は placeholder）
 
 **設計方針**  
 アーキテクチャ: @docs/architecture.md  
