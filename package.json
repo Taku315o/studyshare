@@ -1,4 +1,12 @@
 {
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm --filter frontend test"
+  },
   "devDependencies": {
     "supabase": "^2.72.8"
   }

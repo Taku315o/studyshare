@@ -36,7 +36,7 @@ studyshare/
 ## 必要なツール
 
 - Node.js 18 以上
-- npm 9 以上
+- pnpm 10 以上
 - Supabase プロジェクト（Auth、PostgreSQL、Storage を利用）
 
 ---
@@ -76,8 +76,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 2. **依存関係のインストール**
 
    ```bash
-   cd frontend && npm install
-   cd ../backend && npm install
+   pnpm install
    ```
 
 3. **環境変数ファイルの作成**（前述のテンプレートを使用）
@@ -87,8 +86,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
    - ローカル開発用に `backend/src/scripts/seed.ts` を実行するとテストユーザーと課題データを投入できます。
 
      ```bash
-     cd backend
-     npm run ts-node src/scripts/seed.ts
+     pnpm --filter backend seed
      ```
 
 5. **開発サーバーの起動**
@@ -97,12 +95,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
    ```bash
    # フロントエンド
-   cd frontend
-   npm run dev
+   pnpm dev:frontend
 
     # バックエンド
-   cd backend
-   npm run dev
+   pnpm dev:backend
    ```
 
    - フロントエンド: [http://localhost:3000](http://localhost:3000)
@@ -121,8 +117,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
 ## テスト
 
-- フロントエンド: `cd frontend && npm test`
-- バックエンド: 必要に応じて `npm run test` を追加してください（現状は未設定）。
+- フロントエンド: `pnpm test`
+- バックエンド: 必要に応じて `pnpm --filter backend test` を追加してください（現状は未設定）。
 
 ---
 
