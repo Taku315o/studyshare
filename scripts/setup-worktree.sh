@@ -149,10 +149,18 @@ if [[ "$START_SUPABASE" -eq 1 ]]; then
   fi
 fi
 
+MAIN_WORKTREE_PATH="$(git worktree list --porcelain \
+  | awk '$1=="worktree"{w=$2} $1=="branch" && $2=="refs/heads/main"{print w}' \
+  | head -n1)"
+
 if [[ "$RESET_DB" -eq 1 ]]; then
-  log "Resetting local database (destructive): npx supabase db reset"
+  if [[ "$WORKTREE_ROOT" != "$MAIN_WORKTREE_PATH" ]]; then
+    echo "[SAFEGUARD] db reset allowed only from MAIN worktree."
+    exit 1
+  fi
   npx supabase db reset
 fi
+
 
 if [[ "$GEN_TYPES" -eq 1 ]]; then
   # --local はローカルの Supabase に接続するので start 済みである必要がある
