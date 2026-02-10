@@ -9,5 +9,12 @@
   },
   "devDependencies": {
     "supabase": "^2.72.8"
-  }
+  },
+  "pnpm": {
+  "onlyBuiltDependencies": [
+    "sharp",
+    "supabase",
+    "unrs-resolver"
+  ]
+}
 }
