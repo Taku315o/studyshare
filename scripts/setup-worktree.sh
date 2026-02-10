@@ -1,28 +1,47 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # scripts/setup-worktree.sh
+#
+# Worktree setup helper:
+# - pnpm install (workspace root)
+# - copy env files from a "base" worktree (default: main)
+# - start Supabase local (optional)
+# - supabase db reset (guarded; optional)
+# - generate Supabase TS types (optional)
 
-#config
-set -e
+set -euo pipefail
 
+# -------------------------
+# Config
+# -------------------------
+
+# Env files to copy (relative to repo root)
 ENV_FILES_TO_COPY=(
   ".env"
   "frontend/.env.local"
   "backend/.env"
   "backend/.env.development"
   "supabase/.env"
-  "supabase/.env.loclal"
- 
+  "supabase/.env.local"
 )
 
 SUPABASE_TYPES_OUT="frontend/src/types/supabase.ts"
 
+# Default behavior
+FORCE_ENV=0
+GEN_TYPES=1
+START_SUPABASE=1
+RESET_DB=0
 
-#helper
+# Base branch used to detect "source worktree" for env copy and db-reset safeguard
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
+# -------------------------
+# Helpers
+# -------------------------
 
 log()  { printf "\n[setup] %s\n" "$*"; }
 warn() { printf "\n[setup][WARN] %s\n" "$*" >&2; }
 die()  { printf "\n[setup][ERROR] %s\n" "$*" >&2; exit 1; }
-
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Command not found: $1"
@@ -31,33 +50,75 @@ need_cmd() {
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/setup-worktree.sh [--force-env] [--gen-types] [--start-supabase] [--reset-db]
+  scripts/setup-worktree.sh [options]
 
 Options:
-  --force-env       既存の env を上書きコピーする（デフォは上書きしない）
-  --gen-types       Supabase の TypeScript 型を生成する（デフォは実行）
-  --start-supabase  Supabase が止まってたら起動する（デフォは実行）
-  --reset-db        supabase db reset を実行する（破壊的。必要な時だけ）
+  --base-branch <name>   envコピー元/ガード対象のブランチ（デフォ: main）
+  --force-env            既存の env を上書きコピーする（デフォは上書きしない）
+
+  --no-gen-types         Supabase の TypeScript 型生成をスキップ（デフォは実行）
+  --no-start-supabase    Supabase の自動起動をしない（デフォは実行）
+  --reset-db             supabase db reset を実行（破壊的 / ガード有り）
+
+  -h, --help             ヘルプ表示
+
+Examples:
+  scripts/setup-worktree.sh
+  scripts/setup-worktree.sh --base-branch dev
+  scripts/setup-worktree.sh --force-env --no-gen-types
+  BASE_BRANCH=dev scripts/setup-worktree.sh
 EOF
 }
 
-FORCE_ENV=0
-GEN_TYPES=1
-START_SUPABASE=1
-RESET_DB=0
+on_error() {
+  local code=$?
+  warn "Failed (exit=$code)."
+  exit "$code"
+}
+trap on_error ERR
 
-for arg in "${@:-}"; do
-  case "$arg" in
-    --force-env)      FORCE_ENV=1 ;;
-    --gen-types)      GEN_TYPES=1 ;;
-    --start-supabase) START_SUPABASE=1 ;;
-    --reset-db)       RESET_DB=1 ;;
-    -h|--help)        usage; exit 0 ;;
-    *) die "Unknown option: $arg (use --help)" ;;
+# -------------------------
+# Args
+# -------------------------
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base-branch)
+      shift
+      [[ $# -gt 0 ]] || die "--base-branch requires a value"
+      BASE_BRANCH="$1"
+      shift
+      ;;
+    --force-env)
+      FORCE_ENV=1
+      shift
+      ;;
+    --no-gen-types)
+      GEN_TYPES=0
+      shift
+      ;;
+    --no-start-supabase)
+      START_SUPABASE=0
+      shift
+      ;;
+    --reset-db)
+      RESET_DB=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "Unknown option: $1 (use --help)"
+      ;;
   esac
 done
 
-#detect paths
+# -------------------------
+# Detect paths / sanity
+# -------------------------
+
 need_cmd git
 
 WORKTREE_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die "Not inside a git repository."
@@ -65,26 +126,31 @@ cd "$WORKTREE_ROOT"
 
 log "Setting up worktree: $(basename "$WORKTREE_ROOT")"
 log "Worktree root: $WORKTREE_ROOT"
+log "Base branch: $BASE_BRANCH"
 
-# main worktree のパスを自動検出（refs/heads/main が割り当たっている worktree を探す）
-MAIN_WORKTREE_PATH="$(
+# Detect "base" worktree path (the worktree that has refs/heads/<BASE_BRANCH>)
+BASE_BRANCH_REF="refs/heads/${BASE_BRANCH}"
+BASE_WORKTREE_PATH="$(
   git worktree list --porcelain \
   | awk '
       $1=="worktree"{w=$2}
-      $1=="branch" && $2=="refs/heads/main"{print w}
+      $1=="branch" && $2=="'"$BASE_BRANCH_REF"'"{print w}
     ' \
   | head -n 1
 )"
 
-if [[ -z "${MAIN_WORKTREE_PATH:-}" ]]; then
-  warn "Could not auto-detect main worktree path. (No worktree with refs/heads/main)"
-  warn "Env copy will be skipped unless you checkout main somewhere as a worktree."
+if [[ -z "${BASE_WORKTREE_PATH:-}" ]]; then
+  warn "Could not auto-detect base worktree path. (No worktree with ${BASE_BRANCH_REF})"
+  warn "Env copy will be skipped unless you have ${BASE_BRANCH} checked out as a worktree somewhere."
 else
-  log "Main worktree detected: $MAIN_WORKTREE_PATH"
+  log "Base worktree detected: $BASE_WORKTREE_PATH"
 fi
 
-#pnpm install
+# -------------------------
+# pnpm install
+# -------------------------
 
+# Ensure pnpm is available (try corepack if needed)
 if ! command -v pnpm >/dev/null 2>&1; then
   if command -v corepack >/dev/null 2>&1; then
     log "pnpm not found. Trying: corepack enable"
@@ -93,15 +159,21 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 need_cmd pnpm
 
+if [[ ! -f "pnpm-workspace.yaml" ]]; then
+  warn "pnpm-workspace.yaml not found at repo root. pnpm install will still run, but monorepo settings may differ."
+fi
+
 log "Installing dependencies (pnpm install at workspace root)..."
 pnpm install
 
-# Env copy from main worktree
+# -------------------------
+# Env copy from base worktree
+# -------------------------
 
 copy_env_file() {
   local rel="$1"
-  local src="$MAIN_WORKTREE_PATH/$rel"
-  local dst="$WORKTREE_ROOT/$rel"
+  local src="${BASE_WORKTREE_PATH}/${rel}"
+  local dst="${WORKTREE_ROOT}/${rel}"
 
   [[ -f "$src" ]] || return 0
 
@@ -121,23 +193,35 @@ copy_env_file() {
   fi
 }
 
-if [[ -n "${MAIN_WORKTREE_PATH:-}" ]]; then
-  log "Copying env files from main worktree..."
+if [[ -n "${BASE_WORKTREE_PATH:-}" ]]; then
+  log "Copying env files from base worktree..."
   for f in "${ENV_FILES_TO_COPY[@]}"; do
     copy_env_file "$f"
   done
 else
-  warn "Skipping env copy (main worktree not detected)."
+  warn "Skipping env copy (base worktree not detected)."
 fi
 
-#Supabase: start / reset / types
+# -------------------------
+# Supabase: start / reset / types
+# -------------------------
 
-
-# supabase CLI は npx 経由で叩く前提（プロジェクトに依存させない）
 need_cmd npx
 
+# Prefer local/installed supabase CLI if available; fallback to npx.
+if command -v supabase >/dev/null 2>&1; then
+  SUPABASE_CMD=(supabase)
+else
+  SUPABASE_CMD=(npx supabase)
+fi
+
+supa() {
+  "${SUPABASE_CMD[@]}" "$@"
+}
+
 is_supabase_running() {
-  npx supabase status >/dev/null 2>&1
+  # status returns non-zero when not running
+  supa status >/dev/null 2>&1
 }
 
 if [[ "$START_SUPABASE" -eq 1 ]]; then
@@ -145,32 +229,29 @@ if [[ "$START_SUPABASE" -eq 1 ]]; then
     log "Supabase already running."
   else
     log "Supabase not running. Starting..."
-    npx supabase start
+    supa start
   fi
 fi
-
-MAIN_WORKTREE_PATH="$(git worktree list --porcelain \
-  | awk '$1=="worktree"{w=$2} $1=="branch" && $2=="refs/heads/main"{print w}' \
-  | head -n1)"
 
 if [[ "$RESET_DB" -eq 1 ]]; then
-  if [[ "$WORKTREE_ROOT" != "$MAIN_WORKTREE_PATH" ]]; then
-    echo "[SAFEGUARD] db reset allowed only from MAIN worktree."
-    exit 1
+  [[ -n "${BASE_WORKTREE_PATH:-}" ]] || die "--reset-db requires detectable base worktree (branch: ${BASE_BRANCH})"
+
+  if [[ "$WORKTREE_ROOT" != "$BASE_WORKTREE_PATH" ]]; then
+    die "[SAFEGUARD] db reset allowed only from BASE worktree (${BASE_BRANCH}) at: ${BASE_WORKTREE_PATH}"
   fi
-  npx supabase db reset
+
+  log "Running: supabase db reset (BASE worktree only)"
+  supa db reset
 fi
 
-
 if [[ "$GEN_TYPES" -eq 1 ]]; then
-  # --local はローカルの Supabase に接続するので start 済みである必要がある
   if ! is_supabase_running; then
-    die "Supabase is not running. Run: npx supabase start (or pass --start-supabase)."
+    die "Supabase is not running. Run: supabase start (or omit --no-start-supabase)."
   fi
 
   log "Generating Supabase TypeScript types -> $SUPABASE_TYPES_OUT"
   mkdir -p "$(dirname "$SUPABASE_TYPES_OUT")"
-  npx supabase gen types typescript --local --schema public > "$SUPABASE_TYPES_OUT"
+  supa gen types typescript --local --schema public > "$SUPABASE_TYPES_OUT"
 fi
 
 log "Environment is ready!"
