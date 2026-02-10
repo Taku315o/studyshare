@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       supabase:
-        specifier: ^2.72.8
-        version: 2.76.3
+        specifier: ^2.76.7
+        version: 2.76.7
 
   backend:
     dependencies:
@@ -3367,8 +3367,8 @@ packages:
       babel-plugin-macros:
         optional: true
 
-  supabase@2.76.3:
-    resolution: {integrity: sha512-xJLyTiPo0WfBwHvNeLcDhyV+A0qyo/VfzL0lijXbvPL0QCY5+aLoiSwJqLempMynMvhq4Hl9EGL00B2LYmvpmQ==}
+  supabase@2.76.7:
+    resolution: {integrity: sha512-tUseXvr7uLkw665cHdY3mg8NTHL5GABViRk7OhJkkbpOzvAJW/ydxQWAwLTcvXaI4P+cjbAmUgIv+6m8lOUe1Q==}
     engines: {npm: '>=8'}
     hasBin: true
 
@@ -7500,7 +7500,7 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.29.0
 
-  supabase@2.76.3:
+  supabase@2.76.7:
     dependencies:
       bin-links: 6.0.0
       https-proxy-agent: 7.0.6
