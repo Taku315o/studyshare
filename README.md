@@ -84,6 +84,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 4. **Supabase 初期化**
    - Supabase プロジェクトで `users` と `assignments` テーブル、および `search_assignments` RPC を設定してください。
    - ローカル開発用に `backend/src/scripts/seed.ts` を実行するとテストユーザーと課題データを投入できます。
+   - `backend/src/scripts/assets/` 配下の画像を Supabase Storage (`assignments` バケット) にアップロードし、`assignments.image_url` に公開 URL を保存します。
+   - seed は再実行時に `student@example.com` / `admin@example.com` の既存データと `seed/<userId>/` 配下の画像をクリーンアップしてから再投入します。
+   - seed で投入される課題は16件（専修大学12件、明治大学4件）で、`university` / `faculty` / `department` / `course_name` / `teacher_name` を含みます。
 
      ```bash
      pnpm --filter backend seed

@@ -22,3 +22,8 @@
 **検索関数**
 - `search_assignments(search_query text)`
 - `search_assignments_filtered(search_query text, university_filter text, faculty_filter text, department_filter text)`
+
+**開発用seedデータ注記**
+- `backend/src/scripts/seed.ts` は開発環境向けに、専修大学中心（12件）+ 明治大学（4件）の課題データを投入する。
+- seed投入時は `assignments.image_url` に Supabase Storage (`assignments` バケット) の公開URLを保存する。
+- `universities` / `faculties` / `departments` は seed から明示的に upsert され、検索フィルタ検証に必要なマスタが空にならないようにしている。
