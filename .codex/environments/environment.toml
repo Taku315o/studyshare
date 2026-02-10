@@ -3,7 +3,4 @@ version = 1
 name = "studyshare"
 
 [setup]
-script = '''
-chmod +x scripts/setup-worktree.sh
-./scripts/setup-worktree.sh
-'''
+script = "./scripts/setup-worktree.sh"

@@ -8,6 +8,13 @@
     "test": "pnpm --filter frontend test"
   },
   "devDependencies": {
-    "supabase": "^2.72.8"
+    "supabase": "^2.76.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "supabase",
+      "unrs-resolver"
+    ]
   }
 }
