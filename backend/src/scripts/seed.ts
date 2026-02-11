@@ -329,7 +329,8 @@ async function createSeedUsers(): Promise<Record<'student' | 'admin', SeedUser>>
       email: definition.email,
       password: definition.password,
       email_confirm: true,
-      user_metadata: { role: definition.role } //Supabaseのユーザーメタデータにroleを設定
+      user_metadata: { role: definition.role },
+      app_metadata: { role: definition.role },
     });
 
     if (error || !data.user) {
@@ -342,7 +343,6 @@ async function createSeedUsers(): Promise<Record<'student' | 'admin', SeedUser>>
       {
         id: user.id,
         email: definition.email,
-        role: definition.role,
       },
       { onConflict: 'id' }
     );
