@@ -210,6 +210,8 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, '');
 }
 
+
+//指定ディレクトリ(SEED_ASSETS_DIR)から画像ファイル（JPG、JPEG、PNG）を読み込み、メモリ上のバッファとして返す
 async function loadSeedImages(): Promise<SeedImage[]> {
   const entries = await fs.readdir(SEED_ASSETS_DIR, { withFileTypes: true });
   const imageEntries = entries.filter((entry) => entry.isFile());
@@ -239,6 +241,8 @@ async function loadSeedImages(): Promise<SeedImage[]> {
   return images;
 }
 
+
+//Supabaseの全ユーザーから、事前に決めたメールアドレスの人(SEED_USER_DEFINITIONS)だけ探し出してID付きで返す
 async function listSeedAuthUsers(): Promise<Array<{ id: string; email: string }>> {
   const users: Array<{ id: string; email: string }> = [];
   let page = 1;
@@ -261,6 +265,7 @@ async function listSeedAuthUsers(): Promise<Array<{ id: string; email: string }>
   return users;
 }
 
+//
 async function removeSeedStorageObjects(userIds: string[]): Promise<void> {
   for (const userId of userIds) {
     const { data: files, error: listError } = await supabase.storage
@@ -324,6 +329,7 @@ async function createSeedUsers(): Promise<Record<'student' | 'admin', SeedUser>>
       email: definition.email,
       password: definition.password,
       email_confirm: true,
+      user_metadata: { role: definition.role } //Supabaseのユーザーメタデータにroleを設定
     });
 
     if (error || !data.user) {
