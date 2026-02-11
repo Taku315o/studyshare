@@ -119,8 +119,13 @@ SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN
-  INSERT INTO public.users (id, email, role, created_at, updated_at)
-  VALUES (new.id, new.email, 'student', now(), now());
+  INSERT INTO public.users (id, email, role)
+  VALUES (
+    new.id, 
+    new.email, 
+    -- メタデータに role があればそれを使い、なければ 'student' にする
+    COALESCE(new.raw_user_meta_data->>'role', 'student')
+  );
   RETURN NEW;
 END;
 $$;
