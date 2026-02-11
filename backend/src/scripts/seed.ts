@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.development') });
 dotenv.config();
@@ -202,12 +203,16 @@ function getMimeType(ext: string): string {
 }
 
 function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fbf\u4e00-\u9fff]+/g, '-')
+  const normalized = value.trim().toLowerCase();
+  const base = normalized
+    .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
+  if (base) return base;
+
+  const hash = crypto.createHash('sha1').update(normalized).digest('hex').slice(0, 8);
+  return `assignment-${hash}`;
 }
 
 
