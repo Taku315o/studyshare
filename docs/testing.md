@@ -2,7 +2,7 @@
 
 **現状**
 - frontend: Jest + React Testing Libraryの基盤あり
-- backend: テスト未整備（`pnpm --filter backend test` はplaceholder）
+- backend: Jest + Supertest で API統合テスト + ユニットテストを実装
 
 **優先テスト**
 - UI
@@ -13,11 +13,24 @@
 - `POST /api/assignments` バリデーション/認証
 - `DELETE /api/assignments/:id` 管理者権限
 - `POST /api/upload` 画像バリデーション
+- backend unit
+- `middleware/auth` 認証・権限判定
+- `middleware/validate` 入力検証
+- `services/assignmentService` 作成/検索/削除
+- `services/uploadService` 画像検証/Storageアップロード
 
 **方針**
 - UIは振る舞い中心（ユーザー操作/表示）
 - APIは入力検証・認可・エラー応答を重点
-- SupabaseのRLS前提は、結合テストで境界を確認
+- backendテストでは Supabase依存を Jest モック化して安定実行
+- SupabaseのRLS前提は、将来の結合テストで境界を確認
+
+**コマンド**
+- frontend: `pnpm --filter frontend test`
+- frontend watch: `pnpm --filter frontend test:watch`
+- backend: `pnpm --filter backend test`
+- backend watch: `pnpm --filter backend test:watch`
+- backend CI: `pnpm --filter backend test:ci`
 
 **将来**
 - E2Eは必要になってから追加
