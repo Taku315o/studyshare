@@ -13,5 +13,5 @@
     "allowSyntheticDefaultImports": true       // デフォルト import を柔軟に
   },
   "include": ["src/**/*"],                     // ソースコードの対象
-  "exclude": ["node_modules", "dist"]          // ビルド対象外
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]          // ビルド対象外
 }

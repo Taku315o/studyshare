@@ -1,33 +1,13 @@
-// backend/src/index.ts
-
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-// 新しく作るassignmentsルーターをインポート
-import assignmentRoutes from './routes/assignments'; 
+import app from './app';
 
-dotenv.config({ path: '.env.development', override: true });//.env.development を優先して読み込む
+dotenv.config({ path: '.env.development', override: true });
 
-const app = express();
 const PORT = process.env.PORT || 3001;
-
-
-app.use(cors()); 
-app.use(express.json());
-
-// ルートを定義
-app.get('/', (req, res) => {
-  res.send('Hello from Express + TypeScript!');
-});
-
-// '/api' パスにルーターを適用
-///api パスに assignmentRoutes ルーターをマウントしている。ex) GET /assignments/search → 実際のエンドポイント: /api/assignments/search
-app.use('/api', assignmentRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-
 
 console.log('NODE_ENV =', process.env.NODE_ENV);
 console.log('SUPABASE_URL =', process.env.SUPABASE_URL);
