@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_ENV=development ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "NODE_ENV=production node dist/index.js",
     "seed": "ts-node src/scripts/seed.ts",
     "test": "jest --config jest.config.js",

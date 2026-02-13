@@ -10,8 +10,9 @@
     "strict": true,                            // 基本の型チェックを有効にする
     "skipLibCheck": true,                      // 依存ライブラリの型チェックはスキップ
     "resolveJsonModule": true,                 // `.json` を import できるように
-    "allowSyntheticDefaultImports": true       // デフォルト import を柔軟に
+    "allowSyntheticDefaultImports": true,      // デフォルト import を柔軟に
+    "types": ["node", "jest"]               // Node.js/Jest のグローバル型を有効化
   },
   "include": ["src/**/*"],                     // ソースコードの対象
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]          // ビルド対象外
+  "exclude": ["node_modules", "dist"]       // ビルド対象外
 }
