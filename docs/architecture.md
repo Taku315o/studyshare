@@ -8,8 +8,10 @@
 **データフロー**
 - 検索/一覧/詳細
 - frontend → Supabase RPC/SELECT（`search_assignments` / `search_assignments_filtered` / `assignments`）
-- 投稿/削除/アップロード
+- 投稿/管理者削除/アップロード
 - frontend → backend API → Supabase（DB/Storage）
+- マイページでの本人削除
+- frontend → Supabase DELETE（RLSで `auth.uid() = user_id` を強制）
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
@@ -21,6 +23,7 @@
 - `POST /api/assignments` 課題投稿（認証必須 + バリデーション）
 - `GET /api/assignments/search` 検索
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
+- `GET /profile` 自分の投稿一覧・編集導線・本人削除（Supabase直接削除）
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`

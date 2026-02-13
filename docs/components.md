@@ -10,7 +10,7 @@
 - 1コンポーネント1責務
 - 画面の状態管理はページ or 専用コンポーネントで完結
 - API呼び出しは `src/lib/api.ts` に集約
-- Supabase直接参照は読み取りに限定
+- Supabase直接参照は読み取りに限定（例外: `src/app/profile/page.tsx` の本人投稿削除。RLS前提）
 - 認証状態は `AuthContext` 経由で参照
 
 **命名・配置**
