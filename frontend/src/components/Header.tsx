@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Loader2, LogOut, PenSquare } from 'lucide-react';
+import { Loader2, LogOut, PenSquare, User } from 'lucide-react';
 
 export default function Header() {
   const { user, isLoading, signInWithGoogle, signOut } = useAuth();
@@ -30,6 +30,14 @@ export default function Header() {
               </div>
             ) : user ? (
               <>
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl text-white/85 hover:text-white hover:bg-white/10 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                >
+                  <User className="w-4 h-4" />
+                  <span className="hidden sm:inline">マイページ</span>
+                </Link>
+
                 {/* ⑤ CTAの色を統一：hoverで青→緑に変わるのをやめて一貫性を出す */}
                 <Link
                   href="/assignments/new"
