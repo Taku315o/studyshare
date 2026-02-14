@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 # scripts/setup-worktree.sh
 #
+# 使い方:
+#   1) 通常実行（依存インストール + envコピー + Supabase起動 + 型生成）
+#      ./scripts/setup-worktree.sh
+#
+#   2) オプション確認
+#      ./scripts/setup-worktree.sh --help
+#
+#   3) よく使う例
+#      ./scripts/setup-worktree.sh --base-branch dev
+#      ./scripts/setup-worktree.sh --force-env --no-gen-types
+#      BASE_BRANCH=dev ./scripts/setup-worktree.sh
+#
+# 注意:
+#   --reset-db は破壊的です。BASEブランチのworktreeでのみ実行可能です。
+#
 # Worktree setup helper:
 # - pnpm install (workspace root)
 # - copy env files from a "base" worktree (default: main)
