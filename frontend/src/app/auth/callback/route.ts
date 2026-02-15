@@ -10,7 +10,7 @@ import { createSupabaseClient } from '@/lib/supabase';
  * Handles the Supabase OAuth callback by exchanging the authorization code for a session and redirecting to the home page.
  *
  * @param request - Incoming Next.js request containing the authorization code query parameter.
- * @returns Redirect response to the root path with query parameters sanitized.
+ * @returns Redirect response to the top page or post-login home path with query parameters sanitized.
  */
 export async function GET(request: NextRequest) {
   const redirectUrl = request.nextUrl.clone();
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       // セッションが正常に設定されたことを確認
       if (data.session) {
         console.log('セッション正常に設定されました:', data.session.user.id);
+        redirectUrl.pathname = '/home';
       }
     }
     
