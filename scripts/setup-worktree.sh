@@ -18,7 +18,7 @@
 #
 # Worktree setup helper:
 # - pnpm install (workspace root)
-# - copy env files from a "base" worktree (default: main)
+# - copy env files from a "base" worktree (default: dev)
 # - start Supabase local (optional)
 # - supabase db reset (guarded; optional)
 # - generate Supabase TS types (optional)
@@ -48,7 +48,7 @@ START_SUPABASE=1
 RESET_DB=0
 
 # Base branch used to detect "source worktree" for env copy and db-reset safeguard
-BASE_BRANCH="${BASE_BRANCH:-main}"
+BASE_BRANCH="${BASE_BRANCH:-dev}"
 
 # -------------------------
 # Helpers
@@ -68,7 +68,7 @@ Usage:
   scripts/setup-worktree.sh [options]
 
 Options:
-  --base-branch <name>   envコピー元/ガード対象のブランチ（デフォ: main）
+  --base-branch <name>   envコピー元/ガード対象のブランチ（デフォ: dev）
   --force-env            既存の env を上書きコピーする（デフォは上書きしない）
 
   --no-gen-types         Supabase の TypeScript 型生成をスキップ（デフォは実行）
