@@ -56,4 +56,4 @@ supabase/
 **ルール**
 - main/dev以外の worktree では supabase db resetやsupabase migration up を絶対に自動実行しないこと。DBのスキーマを変える場合、supabase migration new でマイグレーションファイルだけを作成する
 - 機能の追加や、リファクタ、修正時など、必要であれば適宜、docsやtestをupdateしてください。
-- 
+- ルート直下にstrategy.mdがあるのでそれを頭に入れておいてください。設計思想です。今後段階的に設計・実装していく予定です。
