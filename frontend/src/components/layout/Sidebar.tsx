@@ -18,7 +18,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: 'ホーム', href: '/home', icon: Home },
-  { label: '検索 / 口コミ', href: '/reviews', icon: MessageSquareText, disabled: true },
+  { label: '授業・口コミ', href: '/offerings', icon: MessageSquareText },
   { label: '時間割', href: '/timetable', icon: CalendarDays, disabled: true },
   { label: 'コミュニティ', href: '/community', icon: Users, disabled: true },
   { label: 'マイページ', href: '/profile', icon: UserCircle2 },

@@ -22,3 +22,10 @@
 - `AssignmentList`: 一覧表示と検索結果表示
 - `AssignmentForm`: 投稿フォーム
 - `Header`: 認証状態に応じたヘッダーUI
+
+**Offering詳細ページ（追加）**
+- `src/app/(app)/offerings/[offeringId]/page.tsx`: Server Componentで offering 基本情報/件数/一覧初期データを取得
+- `src/components/offerings/OfferingHeader.tsx`: タイトル表示と「時間割に追加」CTA
+- `src/components/offerings/OfferingTabs.tsx`: タブ切替・投稿モーダル・ページング・リアクショントグル
+- `src/components/notes/NoteCard.tsx`: ノートカード（like/bookmark/comment件数）
+- `src/components/reviews/ReviewCard.tsx`: 口コミカード（評価・本文・投稿者）

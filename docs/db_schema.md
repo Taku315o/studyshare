@@ -54,6 +54,14 @@
 - `deleted_at` によるソフトデリート
 - 「同一ユーザー × 同一offeringは1件のみ（`deleted_at is null` の間）」をユニーク制約で保証
 
+### C. Questions
+- `questions`: `offering_id` に紐づく質問
+- カラム: `title`, `body`, `author_id`, `created_at`, `updated_at`, `deleted_at`
+- RLS:
+	- `select`: `can_view_question()`（同大学 or author）
+	- `insert`: `author_id = auth.uid()` かつ `is_enrolled(auth.uid(), offering_id)`
+	- `update/delete`: author のみ
+
 ## 安全機能（ブロック・通報・足跡）
 - `blocks`: 相互遮断判定 `is_blocked(a, b)` を提供
 - `reports`: `target_type(user/note/review/message)` + `target_id` + `reason`
@@ -71,6 +79,10 @@
 - `find_match_candidates(limit, min_shared)`
 	- `auth.uid` と共通Offeringがあるユーザーを返す。
 	- 返却情報は `profiles` の最小限（`display_name` / `avatar` / `faculty` / `department`）+ 共有数のみ。
+- `offering_enrollment_count(offering_id)`
+	- `enrollments` の `status='enrolled'` 件数のみ返す（受講者一覧は返さない）。
+- `offering_review_stats(offering_id)`
+	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
 
 ## DM（権限ゲーティング込み）
 
@@ -136,4 +148,5 @@
 2. 追加ボタン → `enrollments` に `(user_id, offering_id, status=enrolled/planned)`
 3. マッチング → `find_match_candidates()`（履修の中身は漏れない）
 4. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）
-5. DM → `create_direct_conversation()` → `messages` insert（`can_send_message` でゲート）
+5. 質問投稿 → `questions`（`offering_id` 紐付け）
+6. DM → `create_direct_conversation()` → `messages` insert（`can_send_message` でゲート）

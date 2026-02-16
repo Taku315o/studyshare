@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GET } from './route';
-import { createSupabaseClient } from '@/lib/supabase';
+import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server';
 
-jest.mock('@/lib/supabase', () => ({
-  createSupabaseClient: jest.fn(),
+jest.mock('@/lib/supabase/server', () => ({
+  createRouteHandlerSupabaseClient: jest.fn(),
 }));
 
 const mockExchangeCodeForSession = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (createSupabaseClient as jest.Mock).mockReturnValue({
+  (createRouteHandlerSupabaseClient as jest.Mock).mockReturnValue({
     auth: {
       exchangeCodeForSession: mockExchangeCodeForSession,
     },
@@ -21,6 +21,9 @@ beforeEach(() => {
 function createMockRequest(url: string): NextRequest {
   return {
     url,
+    cookies: {
+      get: jest.fn(),
+    },
     nextUrl: {
       clone: () => {
         const cloned = new URL(url);
@@ -46,7 +49,7 @@ describe('GET /auth/callback', () => {
 
     const response = await GET(request);
 
-    expect(createSupabaseClient).toHaveBeenCalled();
+    expect(createRouteHandlerSupabaseClient).toHaveBeenCalled();
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith(code);
     expect(response instanceof NextResponse).toBe(true);
     expect(response.headers.get('location')).toBe('https://example.com/home');
@@ -57,7 +60,7 @@ describe('GET /auth/callback', () => {
 
     const response = await GET(request);
 
-    expect(createSupabaseClient).not.toHaveBeenCalled();
+    expect(createRouteHandlerSupabaseClient).not.toHaveBeenCalled();
     expect(mockExchangeCodeForSession).not.toHaveBeenCalled();
     expect(response.headers.get('location')).toBe('https://example.com/');
   });

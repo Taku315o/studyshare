@@ -22,6 +22,8 @@ erDiagram
 
   course_offerings ||--o{ reviews : has
   auth_users ||--o{ reviews : writes
+  course_offerings ||--o{ questions : has
+  auth_users ||--o{ questions : writes
 
   auth_users ||--o{ blocks : blocks
   auth_users ||--o{ reports : reports
@@ -100,6 +102,13 @@ erDiagram
     uuid offering_id FK
     uuid author_id FK
     int rating_overall
+    timestamptz deleted_at
+  }
+  questions {
+    uuid id PK
+    uuid offering_id FK
+    uuid author_id FK
+    text title
     timestamptz deleted_at
   }
   conversations {
