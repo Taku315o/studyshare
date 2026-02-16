@@ -7,6 +7,12 @@ import type { OfferingMeta } from '@/types/offering';
 import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
 
+type EnrollmentWriteClient = {
+  from: (table: 'enrollments') => {
+    insert: (payload: Record<string, unknown>) => Promise<{ error: { code?: string; message?: string } | null }>;
+  };
+};
+
 type OfferingHeaderProps = {
   offeringId: string;
   offering: OfferingMeta;
@@ -23,6 +29,7 @@ export default function OfferingHeader({
   const router = useRouter();
   const [isEnrolled, setIsEnrolled] = useState(isEnrolledInitial);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const enrollmentClient = supabase as unknown as EnrollmentWriteClient;
 
   const handleEnroll = async () => {
     if (!canEnroll || isEnrolled || isSubmitting) return;
@@ -38,7 +45,7 @@ export default function OfferingHeader({
       return;
     }
 
-    const result = await supabase.from('enrollments').insert({
+    const result = await enrollmentClient.from('enrollments').insert({
       user_id: user.id,
       offering_id: offeringId,
       status: 'enrolled',

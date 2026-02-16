@@ -12,26 +12,19 @@ import type {
   ReviewListItem,
 } from '@/types/offering';
 
-type QuestionsBuilder = {
-  eq: (column: string, value: string) => {
-    is: (column: string, value: null) => unknown;
-    order: (column: string, options: { ascending: boolean }) => {
-      range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: { message?: string } | null }>;
-    };
-  };
+type OfferingRow = {
+  id: string;
+  instructor: string | null;
+  courses:
+    | { name: string | null; course_code: string | null }
+    | Array<{ name: string | null; course_code: string | null }>
+    | null;
+  terms: { year: number; season: string } | Array<{ year: number; season: string }> | null;
+  offering_slots: Array<{ day_of_week: number | null; period: number | null }> | null;
 };
 
-type QuestionsClient = {
-  from: (table: 'questions') => {
-    select: (columns: string, options?: { count?: 'exact'; head?: boolean }) => QuestionsBuilder;
-  };
-  rpc: (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<{
-    data: unknown;
-    error: { message?: string } | null;
-  }>;
+type OfferingRpcClient = {
+  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
 const PAGE_SIZE = 8;
@@ -76,8 +69,9 @@ async function fetchProfiles(
 ) {
   if (userIds.length === 0) return new Map<string, { display_name: string; avatar_url: string | null }>();
   const { data } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', userIds);
+  const profiles = (data ?? []) as Array<{ user_id: string; display_name: string; avatar_url: string | null }>;
   const map = new Map<string, { display_name: string; avatar_url: string | null }>();
-  (data ?? []).forEach((profile) => {
+  profiles.forEach((profile) => {
     map.set(profile.user_id, profile);
   });
   return map;
@@ -98,7 +92,7 @@ export default async function OfferingDetailPage({
   const questionsPage = parsePage(query.questionsPage);
 
   const supabase = await createServerSupabaseClient();
-  const unsafeSupabase = supabase as unknown as QuestionsClient;
+  const rpcClient = supabase as unknown as OfferingRpcClient;
 
   const {
     data: { user },
@@ -122,7 +116,7 @@ export default async function OfferingDetailPage({
     notFound();
   }
 
-  const offering = offeringRes.data;
+  const offering = offeringRes.data as OfferingRow;
   const term = Array.isArray(offering.terms) ? offering.terms[0] : offering.terms;
   const course = Array.isArray(offering.courses) ? offering.courses[0] : offering.courses;
   const slots = Array.isArray(offering.offering_slots) ? offering.offering_slots : [];
@@ -143,12 +137,12 @@ export default async function OfferingDetailPage({
       .select('id', { count: 'exact', head: true })
       .eq('offering_id', offeringId)
       .is('deleted_at', null),
-    unsafeSupabase
+    supabase
       .from('questions')
       .select('id', { count: 'exact', head: true })
       .eq('offering_id', offeringId)
       .is('deleted_at', null),
-    unsafeSupabase.rpc('offering_enrollment_count', { _offering_id: offeringId }),
+    rpcClient.rpc('offering_enrollment_count', { _offering_id: offeringId }),
     user
       ? supabase
           .from('enrollments')
@@ -189,18 +183,30 @@ export default async function OfferingDetailPage({
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .range(reviewsFrom, reviewsTo),
-    unsafeSupabase
+    supabase
       .from('questions')
       .select('id, title, body, created_at, author_id')
       .eq('offering_id', offeringId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .range(questionsFrom, questionsTo),
-    unsafeSupabase.rpc('offering_review_stats', { _offering_id: offeringId }),
+    rpcClient.rpc('offering_review_stats', { _offering_id: offeringId }),
   ]);
 
-  const rawNotes = notesRes.data ?? [];
-  const rawReviews = reviewsRes.data ?? [];
+  const rawNotes = (notesRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    body_md: string | null;
+    created_at: string;
+    author_id: string;
+  }>;
+  const rawReviews = (reviewsRes.data ?? []) as Array<{
+    id: string;
+    rating_overall: number;
+    comment: string | null;
+    created_at: string;
+    author_id: string;
+  }>;
   const rawQuestions = (questionsRes.data ?? []) as Array<{
     id: string;
     title: string;

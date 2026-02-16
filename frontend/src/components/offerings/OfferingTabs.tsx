@@ -21,6 +21,23 @@ type OfferingTabsProps = {
 
 type ModalType = 'none' | 'note' | 'review' | 'question';
 
+type NoteReactionClient = {
+  from: (table: 'note_reactions') => {
+    delete: () => {
+      eq: (column: string, value: string) => {
+        eq: (column: string, value: string) => { eq: (column: string, value: string) => Promise<{ error: { message?: string } | null }> };
+      };
+    };
+    insert: (payload: Record<string, unknown>) => Promise<{ error: { message?: string } | null }>;
+  };
+};
+
+type OfferingWriteClient = {
+  from: (table: 'notes' | 'reviews' | 'questions') => {
+    insert: (payload: Record<string, unknown>) => Promise<{ error: { message?: string } | null }>;
+  };
+};
+
 function ModalShell({
   title,
   onClose,
@@ -66,6 +83,8 @@ export default function OfferingTabs({
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState<NoteListItem[]>(data.notes);
   const [userId, setUserId] = useState<string | null>(null);
+  const reactionClient = supabase as unknown as NoteReactionClient;
+  const writeClient = supabase as unknown as OfferingWriteClient;
 
   useEffect(() => {
     setNotes(data.notes);
@@ -124,8 +143,8 @@ export default function OfferingTabs({
     }
 
     const result = active
-      ? await supabase.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', userId).eq('kind', kind)
-      : await supabase.from('note_reactions').insert({ note_id: noteId, user_id: userId, kind });
+      ? await reactionClient.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', userId).eq('kind', kind)
+      : await reactionClient.from('note_reactions').insert({ note_id: noteId, user_id: userId, kind });
 
     if (result.error) {
       setNotes(prev);
@@ -148,7 +167,7 @@ export default function OfferingTabs({
       return;
     }
 
-    const result = await supabase.from('notes').insert({
+    const result = await writeClient.from('notes').insert({
       offering_id: offeringId,
       author_id: userId,
       title,
@@ -181,7 +200,7 @@ export default function OfferingTabs({
       return;
     }
 
-    const result = await supabase.from('reviews').insert({
+    const result = await writeClient.from('reviews').insert({
       offering_id: offeringId,
       author_id: userId,
       rating_overall: rating,
@@ -213,12 +232,7 @@ export default function OfferingTabs({
       return;
     }
 
-    const questionsClient = supabase as unknown as {
-      from: (table: 'questions') => {
-        insert: (payload: Record<string, unknown>) => Promise<{ error: { message?: string } | null }>;
-      };
-    };
-    const result = await questionsClient.from('questions').insert({
+    const result = await writeClient.from('questions').insert({
       offering_id: offeringId,
       author_id: userId,
       title,

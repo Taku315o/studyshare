@@ -1,6 +1,16 @@
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+type OfferingListRow = {
+  id: string;
+  instructor: string | null;
+  courses:
+    | { name: string | null; course_code: string | null }
+    | Array<{ name: string | null; course_code: string | null }>
+    | null;
+  terms: { year: number; season: string } | Array<{ year: number; season: string }> | null;
+};
+
 const SEASON_LABELS: Record<string, string> = {
   spring: '春',
   summer: '夏',
@@ -31,7 +41,7 @@ export default async function OfferingsPage() {
       </section>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {(data ?? []).map((offering) => {
+        {((data ?? []) as OfferingListRow[]).map((offering) => {
           const course = Array.isArray(offering.courses) ? offering.courses[0] : offering.courses;
           const term = Array.isArray(offering.terms) ? offering.terms[0] : offering.terms;
           const termLabel = term ? `${term.year} ${SEASON_LABELS[term.season] ?? term.season}` : '未設定';

@@ -23,6 +23,18 @@ type Assignment = {
   };
 };
 
+type AssignmentSearchRpcClient = {
+  rpc: (
+    name: 'search_assignments_filtered',
+    args: {
+      search_query: string;
+      university_filter: string;
+      faculty_filter: string;
+      department_filter: string;
+    },
+  ) => Promise<{ data: Assignment[] | null; error: Error | null }>;
+};
+
 type AssignmentListProps = {
   query?: string;
   filters?: {
@@ -44,6 +56,7 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
   const [loading, setLoading] = useState(true);
   const { isAdmin, getAccessToken } = useAuth();
   const router = useRouter();
+  const rpcClient = supabase as unknown as AssignmentSearchRpcClient;
 
   // 課題一覧を取得する関数
   // useCallbackを使ってるのは、useEffectの無限ループを防ぐため！
@@ -70,8 +83,7 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
 
       if (hasFilters) {
         // 検索/絞り込み時はSupabaseの関数を使用
-        const { data: searchData, error: searchError } = await supabase
-          .rpc('search_assignments_filtered', {
+        const { data: searchData, error: searchError } = await rpcClient.rpc('search_assignments_filtered', {
             search_query: effectiveFilters.query,
             university_filter: effectiveFilters.university,
             faculty_filter: effectiveFilters.faculty,
@@ -103,7 +115,7 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
     } finally {
       setLoading(false);
     }
-  }, [query, filters?.query, filters?.university, filters?.faculty, filters?.department]);
+  }, [query, filters?.query, filters?.university, filters?.faculty, filters?.department, rpcClient]);
 
   // 削除処理
   const handleDelete = async (id: string) => {
