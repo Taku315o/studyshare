@@ -5,7 +5,7 @@
 // ユーザー認証状態を管理し、アプリケーション全体で共有するためのContextとProvider
 //ユーザー情報（user）、セッション（session）、プロフィール（profile）などを、アプリ内のどのコンポーネントからでも直接呼び出せるようにします。
 // Googleログインやログアウトの関数もここで定義されています。
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
@@ -48,15 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const getRoleFromUser = (currentUser: User): UserProfile['role'] => {
+  const getRoleFromUser = useCallback((currentUser: User): UserProfile['role'] => {
     const role = currentUser.app_metadata?.role;
     if (role === 'admin' || role === 'moderator') {
       return role;
     }
     return 'student';
-  };
+  }, []);
 
-  const fetchProfile = async (currentUser: User) => {
+  const fetchProfile = useCallback(async (currentUser: User) => {
     const { data: profileDataRaw, error: profileError } = await supabase
       .from('profiles')
       .select('user_id,display_name')
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: currentUser.email ?? '',
       role: getRoleFromUser(currentUser),
     });
-  };
+  }, [getRoleFromUser]);
 
   // セッション初期化
   useEffect(() => {
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   // Googleログイン
   const signInWithGoogle = async () => {
