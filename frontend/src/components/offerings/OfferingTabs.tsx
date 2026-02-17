@@ -250,17 +250,17 @@ export default function OfferingTabs({
   };
 
   return (
-    <section className="mt-6 space-y-4">
-      <div className="flex flex-wrap gap-2">
+    <section className="space-y-0">
+      <div className="border-b border-slate-100 bg-white px-6 py-2">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => pushQuery({ tab: tab.key, notesPage: '1', reviewsPage: '1', questionsPage: '1' })}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`mr-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${
               activeTab === tab.key
-                ? 'bg-slate-900 text-white'
-                : 'border border-slate-300 bg-white/70 text-slate-700 hover:bg-white'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
             {tab.label} {tab.count}
@@ -269,14 +269,14 @@ export default function OfferingTabs({
       </div>
 
       {activeTab === 'notes' && (
-        <div className="rounded-3xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">ノート {counts.notes}</h2>
+        <div className="rounded-b-3xl bg-white/85 px-6 pb-6 pt-5 shadow-sm backdrop-blur">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-4xl font-black tracking-tight text-slate-900">ノート {counts.notes}</h2>
             <button
               type="button"
               disabled={!canPost}
               onClick={() => setModal('note')}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
+              className="rounded-full border border-blue-100 bg-blue-50 px-5 py-2 text-sm font-semibold text-blue-600 disabled:bg-slate-200 disabled:text-slate-400"
             >
               ノートを投稿
             </button>
@@ -286,7 +286,7 @@ export default function OfferingTabs({
               まだノートは投稿されていません
             </p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {notes.map((note) => (
                 <NoteCard
                   key={note.id}
@@ -304,7 +304,7 @@ export default function OfferingTabs({
               <button
                 type="button"
                 onClick={() => pushQuery({ notesPage: String(notesPage + 1), tab: 'notes' })}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
               >
                 もっと見る
               </button>
@@ -314,7 +314,7 @@ export default function OfferingTabs({
       )}
 
       {activeTab === 'reviews' && (
-        <div className="rounded-3xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
+        <div className="rounded-b-3xl bg-white/85 px-6 pb-6 pt-5 shadow-sm backdrop-blur">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-slate-600">平均評価</p>
@@ -325,7 +325,7 @@ export default function OfferingTabs({
               type="button"
               disabled={!canPost}
               onClick={() => setModal('review')}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
+              className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
             >
               口コミを書く
             </button>
@@ -350,7 +350,7 @@ export default function OfferingTabs({
               まだ口コミは投稿されていません
             </p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
                 <ReviewCard key={review.id} review={review} />
               ))}
@@ -361,7 +361,7 @@ export default function OfferingTabs({
               <button
                 type="button"
                 onClick={() => pushQuery({ reviewsPage: String(reviewsPage + 1), tab: 'reviews' })}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
               >
                 もっと見る
               </button>
@@ -371,14 +371,14 @@ export default function OfferingTabs({
       )}
 
       {activeTab === 'questions' && (
-        <div className="rounded-3xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
+        <div className="rounded-b-3xl bg-white/85 px-6 pb-6 pt-5 shadow-sm backdrop-blur">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">質問 {counts.questions}</h2>
             <button
               type="button"
               disabled={!canPost}
               onClick={() => setModal('question')}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
+              className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
             >
               質問を投稿
             </button>
@@ -405,7 +405,7 @@ export default function OfferingTabs({
               <button
                 type="button"
                 onClick={() => pushQuery({ questionsPage: String(questionsPage + 1), tab: 'questions' })}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
               >
                 もっと見る
               </button>
@@ -415,7 +415,7 @@ export default function OfferingTabs({
       )}
 
       {activeTab === 'students' && (
-        <div className="rounded-3xl border border-white/50 bg-white/70 p-8 text-center shadow-sm backdrop-blur">
+        <div className="rounded-b-3xl bg-white/85 p-8 text-center shadow-sm backdrop-blur">
           <p className="text-sm text-slate-500">受講者人数</p>
           <p className="mt-2 text-4xl font-bold text-slate-900">{counts.students}</p>
           <p className="mt-2 text-xs text-slate-500">受講者の詳細一覧は非公開設定です</p>

@@ -346,7 +346,7 @@ export default async function OfferingDetailPage({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/70 shadow-sm backdrop-blur">
       <OfferingHeader offeringId={offeringId} offering={offeringMeta} canEnroll={Boolean(user)} isEnrolledInitial={isEnrolled} />
       <OfferingTabs
         offeringId={offeringId}

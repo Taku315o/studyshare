@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { OfferingMeta } from '@/types/offering';
 import { useRouter } from 'next/navigation';
@@ -70,15 +70,17 @@ export default function OfferingHeader({
   };
 
   return (
-    <section className="rounded-3xl border border-white/50 bg-white/70 p-6 shadow-sm backdrop-blur">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Offering Detail</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">{offering.courseTitle}</h1>
-          <div className="flex flex-wrap gap-2 text-sm text-slate-600">
-            <span className="rounded-full bg-slate-100 px-3 py-1">教員: {offering.instructorName ?? '未設定'}</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">学期: {offering.termLabel}</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">曜日コマ: {offering.timeslotLabel}</span>
+    <section className="overflow-hidden rounded-t-3xl bg-white/85 backdrop-blur">
+      <div className="flex flex-col gap-4 px-6 pb-5 pt-6 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-3">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">{offering.courseTitle}</h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+              <User className="h-3.5 w-3.5" />
+              {offering.instructorName ?? '未設定'}
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">{offering.termLabel}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">{offering.timeslotLabel}</span>
             {offering.courseCode && <span className="rounded-full bg-slate-100 px-3 py-1">{offering.courseCode}</span>}
           </div>
         </div>
@@ -87,12 +89,13 @@ export default function OfferingHeader({
           type="button"
           disabled={!canEnroll || isEnrolled || isSubmitting}
           onClick={handleEnroll}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           <Plus className="h-4 w-4" />
           {isEnrolled ? '追加済み' : '時間割に追加'}
         </button>
       </div>
+      <div className="h-px bg-slate-100" />
     </section>
   );
 }

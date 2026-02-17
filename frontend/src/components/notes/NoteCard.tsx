@@ -20,7 +20,7 @@ function formatDate(date: string) {
 
 export default function NoteCard({ note, onToggleLike, onToggleBookmark }: NoteCardProps) {
   return (
-    <article className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
+    <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
           {note.authorName.slice(0, 1)}
@@ -31,10 +31,10 @@ export default function NoteCard({ note, onToggleLike, onToggleBookmark }: NoteC
         </div>
       </div>
 
-      <h3 className="line-clamp-1 text-base font-semibold text-slate-900">{note.title}</h3>
+      <h3 className="line-clamp-1 text-xl font-black tracking-tight text-slate-900">{note.title}</h3>
       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">{note.body ?? '本文なし'}</p>
 
-      <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
+      <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
         <button
           type="button"
           className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-rose-50"

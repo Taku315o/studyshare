@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       blocks: {
@@ -532,47 +507,6 @@ export type Database = {
         }
         Relationships: []
       }
-      questions: {
-        Row: {
-          author_id: string
-          body: string
-          created_at: string
-          deleted_at: string | null
-          id: string
-          offering_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          author_id: string
-          body: string
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          offering_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          author_id?: string
-          body?: string
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          offering_id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_offering_id_fkey"
-            columns: ["offering_id"]
-            isOneToOne: false
-            referencedRelation: "course_offerings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           allow_dm: boolean
@@ -896,13 +830,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      can_view_question: {
-        Args: {
-          _question: Database["public"]["Tables"]["questions"]["Row"]
-          _uid: string
-        }
-        Returns: boolean
-      }
       can_view_review: {
         Args: {
           _review: Database["public"]["Tables"]["reviews"]["Row"]
@@ -938,22 +865,6 @@ export type Database = {
       is_enrolled: {
         Args: { _offering_id: string; _uid: string }
         Returns: boolean
-      }
-      offering_enrollment_count: {
-        Args: { _offering_id: string }
-        Returns: number
-      }
-      offering_review_stats: {
-        Args: { _offering_id: string }
-        Returns: {
-          avg_rating: number
-          rating_1_count: number
-          rating_2_count: number
-          rating_3_count: number
-          rating_4_count: number
-          rating_5_count: number
-          review_count: number
-        }[]
       }
       shared_offering_count: {
         Args: { _a: string; _b: string }
@@ -1118,9 +1029,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       connection_status: ["requested", "accepted", "rejected", "blocked"],
@@ -1152,3 +1060,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -28,8 +28,8 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="h-full border-r border-slate-200 bg-white">
-      <div className="px-4 py-5">
+    <aside className="h-full rounded-3xl border border-white/60 bg-white/75 shadow-sm backdrop-blur">
+      <div className="px-5 py-5">
         <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Navigation</p>
       </div>
 
@@ -63,7 +63,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
               className={[
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-blue-500 text-white shadow-sm'
                   : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900',
               ].join(' ')}
             >
