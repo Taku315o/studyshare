@@ -8,8 +8,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
+import type { Database } from '@/types/supabase';
 import { setAuthToken } from '@/lib/api';//401 はバックエンドが認証トークンを受け取れていない可能性が高いので、セッション変更時に必ず Authorization を同期するように修正しました。
 import { useRouter } from 'next/navigation';//Next.js 13+ の App Router で使用されるライブラリでページ遷移やURL操作を扱うためのフックや関数
+
+type ProfileRow = Pick<Database['public']['Tables']['profiles']['Row'], 'user_id' | 'display_name'>;
 
 type UserProfile = {
   id: string;
@@ -54,12 +57,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchProfile = async (currentUser: User) => {
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profileDataRaw, error: profileError } = await supabase
       .from('profiles')
-      .select('user_id, display_name')
+      .select('user_id,display_name')
       .eq('user_id', currentUser.id)
       .single();
-　　
+
+    const profileData = profileDataRaw as ProfileRow | null;
+
+    if (profileError) {
+      console.error('プロフィール取得エラー:', profileError);
     }
 
     if (profileData) {
