@@ -18,4 +18,12 @@ describe('Sidebar', () => {
     const timetableLink = screen.getByRole('link', { name: '時間割' });
     expect(timetableLink).toHaveAttribute('href', '/timetable');
   });
+
+  it('renders community as an enabled navigation link', () => {
+    render(<Sidebar />);
+
+    const communityLink = screen.getByRole('link', { name: 'コミュニティ' });
+    expect(communityLink).toHaveAttribute('href', '/community');
+    expect(screen.queryByText('準備中')).not.toBeInTheDocument();
+  });
 });
