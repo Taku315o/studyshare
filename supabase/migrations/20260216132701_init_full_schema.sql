@@ -11,7 +11,7 @@ create extension if not exists unaccent;
 
 -- 1) Enums
 do $$ begin
-  create type public.term_season as enum ('spring','summer','fall','winter');
+  create type public.term_season as enum ('first_half','second_half');
 exception when duplicate_object then null; end $$;
 
 do $$ begin

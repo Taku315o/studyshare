@@ -12,10 +12,8 @@ type OfferingListRow = {
 };
 
 const SEASON_LABELS: Record<string, string> = {
-  spring: '春',
-  summer: '夏',
-  fall: '秋',
-  winter: '冬',
+  first_half: '前期',
+  second_half: '後期',
 };
 
 export default async function OfferingsPage() {

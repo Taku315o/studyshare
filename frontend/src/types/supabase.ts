@@ -903,7 +903,7 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "incomplete"
-      term_season: "spring" | "summer" | "fall" | "winter"
+      term_season: "first_half" | "second_half"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1056,7 +1056,7 @@ export const Constants = {
         "canceled",
         "incomplete",
       ],
-      term_season: ["spring", "summer", "fall", "winter"],
+      term_season: ["first_half", "second_half"],
     },
   },
 } as const

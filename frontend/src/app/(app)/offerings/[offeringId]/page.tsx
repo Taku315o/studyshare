@@ -31,10 +31,8 @@ const PAGE_SIZE = 8;
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 const SEASON_LABELS: Record<string, string> = {
-  spring: '春',
-  summer: '夏',
-  fall: '秋',
-  winter: '冬',
+  first_half: '前期',
+  second_half: '後期',
 };
 
 function parseTab(value?: string): OfferingTab {

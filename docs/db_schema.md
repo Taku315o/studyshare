@@ -12,7 +12,7 @@
 
 ### B. Term（学期）
 - `terms`: `(university_id, year, season)` が一意
-- 例: 専修大学 2026 spring
+- 例: 専修大学 2026 first_half（前期）
 
 ### C. Course（科目の恒久枠）
 - `courses`: 「科目コード / 科目名」の恒久枠
