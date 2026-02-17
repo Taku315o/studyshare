@@ -37,8 +37,12 @@ c as (
   insert into public.courses (university_id, course_code, name, created_by)
   select t2.university_id, 'ICT216', '応用プログラミング３', auth.uid()
   from t2
-  on conflict (university_id, course_code)
-  do update set name = excluded.name
+  where not exists (
+    select 1
+    from public.courses co
+    where co.university_id = t2.university_id
+      and co.course_code = 'ICT216'
+  )
   returning id, course_code
 ),
 c2 as (
