@@ -88,7 +88,7 @@ describe('AuthContext', () => {
     const mockUser = {
       id: 'user-1',
       email: 'test@example.com',
-      app_metadata: {},
+      app_metadata: { role: 'student' },
       user_metadata: {},
     };
 
@@ -98,9 +98,8 @@ describe('AuthContext', () => {
     };
 
     const mockProfile = {
-      id: 'user-1',
-      email: 'test@example.com',
-      role: 'student' as const,
+      user_id: 'user-1',
+      display_name: 'test-user',
     };
 
     beforeEach(() => {
@@ -153,12 +152,23 @@ describe('AuthContext', () => {
     });
 
     it('should show admin status for admin users', async () => {
-      const adminProfile = { ...mockProfile, role: 'admin' as const };
+      const adminUser = { ...mockUser, app_metadata: { role: 'admin' } };
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: { ...mockSession, user: adminUser } },
+        error: null,
+      });
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: adminUser },
+        error: null,
+      });
+
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             single: jest.fn().mockResolvedValue({
-              data: adminProfile,
+              data: mockProfile,
               error: null,
             }),
           }),

@@ -13,8 +13,10 @@ import { useRouter } from 'next/navigation';//Next.js 13+ の App Router で使�
 
 type UserProfile = {
   id: string;
+  user_id: string;
+  display_name: string;
   email: string;
-  role: 'student' | 'admin';
+  role: 'student' | 'admin' | 'moderator';
 };
 
 type AuthContextType = {
@@ -43,6 +45,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  const getRoleFromUser = (currentUser: User): UserProfile['role'] => {
+    const role = currentUser.app_metadata?.role;
+    if (role === 'admin' || role === 'moderator') {
+      return role;
+    }
+    return 'student';
+  };
+
+  const fetchProfile = async (currentUser: User) => {
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id, display_name')
+      .eq('user_id', currentUser.id)
+      .single();
+　　
+    }
+
+    if (profileData) {
+      const mappedProfile: UserProfile = {
+        id: profileData.user_id,
+        user_id: profileData.user_id,
+        display_name: profileData.display_name,
+        email: currentUser.email ?? '',
+        role: getRoleFromUser(currentUser),
+      };
+      setProfile(mappedProfile);
+      return;
+    }
+
+    setProfile({
+      id: currentUser.id,
+      user_id: currentUser.id,
+      display_name: currentUser.user_metadata?.name ?? currentUser.email ?? 'user',
+      email: currentUser.email ?? '',
+      role: getRoleFromUser(currentUser),
+    });
+  };
+
   // セッション初期化
   useEffect(() => {
     const fetchSession = async () => {
@@ -69,19 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('プロフィール取得エラー:', profileError);
-          }
-
-          if (profileData) {
-            setProfile(profileData as unknown as UserProfile);
-          }
+          await fetchProfile(session.user);
         }
       } catch (error) {
         console.error('セッション初期化エラー:', error);
@@ -102,19 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthToken(session?.access_token ?? null);
         
         if (session?.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('プロフィール取得エラー:', profileError);
-          }
-
-          if (profileData) {
-            setProfile(profileData as unknown as UserProfile);
-          }
+          await fetchProfile(session.user);
         } else {
           setProfile(null);
         }
