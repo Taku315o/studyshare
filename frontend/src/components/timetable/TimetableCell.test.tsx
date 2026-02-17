@@ -1,0 +1,72 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useRouter } from 'next/navigation';
+import TimetableCell from './TimetableCell';
+import type { TimetableOfferingItem } from '@/types/timetable';
+
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
+}));
+
+describe('TimetableCell', () => {
+  const mockPush = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
+  });
+
+  it('renders offering information and navigates to offering detail on click', () => {
+    const item: TimetableOfferingItem = {
+      offeringId: 'offering-1',
+      courseTitle: 'データベース概論',
+      instructorName: '山田 太郎',
+      startTime: '9:00',
+      dayOfWeek: 1,
+      period: 1,
+      status: 'enrolled',
+      colorToken: 'sky',
+      createdAt: '2026-02-17T00:00:00.000Z',
+    };
+
+    render(
+      <TimetableCell
+        dayOfWeek={1}
+        period={1}
+        item={item}
+        overlapCount={1}
+        onOpenAdd={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('データベース概論')).toBeInTheDocument();
+    expect(screen.getByText('山田 太郎')).toBeInTheDocument();
+    expect(screen.getByText('9:00')).toBeInTheDocument();
+    expect(screen.getByText('履修中')).toBeInTheDocument();
+    expect(screen.getByLabelText('お気に入り（準備中）')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /データベース概論/ }));
+    expect(mockPush).toHaveBeenCalledWith('/offerings/offering-1');
+  });
+
+  it('shows add lesson hint on hover and calls add handler when empty cell is clicked', () => {
+    const onOpenAdd = jest.fn();
+
+    render(
+      <TimetableCell
+        dayOfWeek={2}
+        period={3}
+        item={null}
+        overlapCount={0}
+        onOpenAdd={onOpenAdd}
+      />,
+    );
+
+    const emptyButton = screen.getByRole('button', { name: '空きコマ' });
+    fireEvent.mouseEnter(emptyButton);
+
+    expect(screen.getByText('＋ 授業を追加')).toBeInTheDocument();
+
+    fireEvent.click(emptyButton);
+    expect(onOpenAdd).toHaveBeenCalledWith(2, 3);
+  });
+});
