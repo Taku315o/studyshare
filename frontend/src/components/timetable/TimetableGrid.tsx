@@ -338,21 +338,21 @@ export default function TimetableGrid() {
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{errorMessage}</div>
       ) : null}
 
-      {!isLoading && !errorMessage && items.length === 0 ? (
-        <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <p className="text-sm text-slate-600">履修中または予定の授業がありません。</p>
-          <button
-            type="button"
-            onClick={() => setSearchModalState({ isOpen: true, source: 'empty-cell' })}
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
-          >
-            ＋ 授業を追加
-          </button>
-        </div>
-      ) : null}
-
-      {!isLoading && !errorMessage && items.length > 0 ? (
+      {!isLoading && !errorMessage ? (
         <>
+          {items.length === 0 ? (
+            <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <p className="text-sm text-slate-600">履修中または予定の授業がありません。空きコマから授業を追加できます。</p>
+              <button
+                type="button"
+                onClick={() => setSearchModalState({ isOpen: true, source: 'empty-cell' })}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                ＋ 授業を追加
+              </button>
+            </div>
+          ) : null}
+
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[860px] table-fixed border-separate border-spacing-0 text-sm">
               <thead>
