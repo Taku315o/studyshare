@@ -12,6 +12,11 @@
 - `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）
 - `TimetableCell` セル表示（授業カード/空セル）と遷移動作
 - `Sidebar` の `/timetable` 導線有効化
+- `Sidebar` の `/community` 導線有効化
+- `CommunityPane` の候補0件空状態
+- `MessagesPane` のスレッド0件空状態
+- `MessageComposer` の Enter送信と送信ボタン送信
+- `community/page` の DM制約時ローカルフォールバック
 - API
 - `POST /api/assignments` バリデーション/認証
 - `DELETE /api/assignments/:id` 管理者権限

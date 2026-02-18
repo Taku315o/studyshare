@@ -40,3 +40,18 @@
 - Offeringを主語に表示する（`course_offerings` をUI上「Offering」として扱う）
 - グリッドは固定枠（月-金、1-5限）を維持し、空セルにも追加導線を表示する
 - 重複コマは「主表示1件 + `+N` バッジ」で表現し、詳細はモーダルで補完する
+
+**コミュニティページ（追加）**
+- `src/app/(app)/community/page.tsx`: Client Componentでマッチング候補・スレッド・会話状態を統合管理
+- `src/components/community/CommunityPane.tsx`: 左ペイン（タブ/検索/チップ/候補一覧）
+- `src/components/community/MatchCard.tsx`: 候補カード表示と「メッセージを送る」CTA
+- `src/components/community/MessagesPane.tsx`: 右ペイン全体（スレッド一覧 + 会話 + Composer）
+- `src/components/community/ThreadList.tsx`: スレッド一覧表示と選択制御
+- `src/components/community/ChatView.tsx`: 会話バブル表示（自分/相手の左右寄せ）
+- `src/components/community/MessageComposer.tsx`: 送信フォーム（Enter送信対応）
+- `src/types/community.ts`: コミュニティUI専用ViewModel型
+
+**コミュニティ実装ルール**
+- マッチングは `find_match_candidates` の集計結果のみ利用し、他ユーザーの生 `enrollments` は参照しない
+- DM作成は `create_direct_conversation` RPC を使い、作成/送信に失敗した場合はローカル会話モードへフォールバックする
+- モバイルではメッセージペインをモーダル表示し、PCでは2ペイン表示を維持する

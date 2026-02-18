@@ -84,6 +84,12 @@
 - `offering_review_stats(offering_id)`
 	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
 
+### UI実装メモ（community）
+- `/community` は `find_match_candidates()` を利用して候補表示する（共有件数のみ）。
+- `conversations` / `conversation_members` / `messages` を使って会話を表示・送信する。
+- `create_direct_conversation()` が `can_dm` 制約で失敗した場合、MVPではローカル会話（非永続）にフォールバックする。
+- 本実装でも `enrollments` の他者生データは参照しない。
+
 ## DM（権限ゲーティング込み）
 
 ### A. 収益化/解放の考え方（entitlements）

@@ -15,6 +15,9 @@
 - 時間割表示（`/timetable`）
 - frontend(Client Component) → Supabase SELECT（`enrollments` + `course_offerings` + `courses` + `offering_slots`）
 - 表示対象は `status in ('enrolled','planned')` がデフォルト。`dropped` はUIトグルで表示
+- コミュニティ表示（`/community`）
+- frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
+- DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
@@ -28,7 +31,9 @@
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
 - `GET /profile` 自分の投稿一覧・編集導線・本人削除（Supabase直接削除）
 - `GET /timetable` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
+- `GET /community` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`
+- Supabase RPC: `find_match_candidates`, `create_direct_conversation`
 - Storage bucket: `assignments`
