@@ -17,6 +17,11 @@
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
 - `community/page` の DM制約時ローカルフォールバック
+- `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
+- `ProfileCard` の display_name 編集モーダル開閉と保存
+- `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）
+- `TimetableSummary` の空状態/授業表示
+- `/profile` と `/mypage` の `/me` リダイレクト
 - API
 - `POST /api/assignments` バリデーション/認証
 - `DELETE /api/assignments/:id` 管理者権限

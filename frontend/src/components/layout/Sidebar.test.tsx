@@ -26,4 +26,11 @@ describe('Sidebar', () => {
     expect(communityLink).toHaveAttribute('href', '/community');
     expect(screen.queryByText('準備中')).not.toBeInTheDocument();
   });
+
+  it('renders mypage link as /me', () => {
+    render(<Sidebar />);
+
+    const myPageLink = screen.getByRole('link', { name: 'マイページ' });
+    expect(myPageLink).toHaveAttribute('href', '/me');
+  });
 });

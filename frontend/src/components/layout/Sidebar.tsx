@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { label: '授業・口コミ', href: '/offerings', icon: MessageSquareText },
   { label: '時間割', href: '/timetable', icon: CalendarDays },
   { label: 'コミュニティ', href: '/community', icon: Users },
-  { label: 'マイページ', href: '/profile', icon: UserCircle2 },
+  { label: 'マイページ', href: '/me', icon: UserCircle2 },
 ];
 
 export default function Sidebar({ onNavigate }: SidebarProps) {

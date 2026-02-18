@@ -18,6 +18,9 @@
 - コミュニティ表示（`/community`）
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
 - DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
+- マイページ表示（`/me`）
+- frontend(Client Component) → Supabase SELECT（`profiles` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
+- 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
@@ -29,9 +32,10 @@
 - `POST /api/assignments` 課題投稿（認証必須 + バリデーション）
 - `GET /api/assignments/search` 検索
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
-- `GET /profile` 自分の投稿一覧・編集導線・本人削除（Supabase直接削除）
+- `GET /profile` は互換リダイレクトとして `/me` へ転送
 - `GET /timetable` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `GET /community` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
+- `GET /me` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`

@@ -28,7 +28,7 @@ describe('Header', () => {
     render(<Header />);
 
     const profileLink = screen.getByRole('link', { name: 'マイページ' });
-    expect(profileLink).toHaveAttribute('href', '/profile');
+    expect(profileLink).toHaveAttribute('href', '/me');
   });
 
   it('does not render profile link for unauthenticated users', () => {

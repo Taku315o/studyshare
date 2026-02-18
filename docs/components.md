@@ -55,3 +55,18 @@
 - マッチングは `find_match_candidates` の集計結果のみ利用し、他ユーザーの生 `enrollments` は参照しない
 - DM作成は `create_direct_conversation` RPC を使い、作成/送信に失敗した場合はローカル会話モードへフォールバックする
 - モバイルではメッセージペインをモーダル表示し、PCでは2ペイン表示を維持する
+
+**マイページ（/me）（追加）**
+- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`notes`/`reviews`/`enrollments` を取得
+- `src/components/me/ProfileCard.tsx`: avatar・display_name・所属表示と display_name 編集モーダル
+- `src/components/me/MyAssetsTabs.tsx`: 「ノート/口コミ/保存」タブ切り替えと資産表示
+- `src/components/me/MyNotesList.tsx`: 自分のノート一覧表示
+- `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
+- `src/components/me/TimetableSummary.tsx`: 今学期履修数と今日の授業サマリ表示
+- `src/components/me/SettingsPanel.tsx`: ログアウトと公開範囲（UI先行）設定
+- `src/types/me.ts`: マイページのViewModel型定義
+
+**マイページ実装ルール**
+- `/me` は Supabase Browser Client + RLS で本人データのみ参照する
+- `profiles` の主キーは `user_id` として扱う
+- `保存` タブと `公開範囲` 保存は Phase2 前提で、現段階はUIプレースホルダとする

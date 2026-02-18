@@ -1,13 +1,13 @@
-import ProfileRedirectPage from './page';
+import MyPageRedirectPage from './page';
 import { redirect } from 'next/navigation';
 
 jest.mock('next/navigation', () => ({
   redirect: jest.fn(),
 }));
 
-describe('ProfileRedirectPage', () => {
+describe('MyPageRedirectPage', () => {
   it('redirects to /me', () => {
-    ProfileRedirectPage();
+    MyPageRedirectPage();
     expect(redirect).toHaveBeenCalledWith('/me');
   });
 });

@@ -57,7 +57,7 @@ export default function TopBar({ onOpenMobileMenu }: TopBarProps) {
           </Link>
 
           <Link
-            href="/profile"
+            href="/me"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
             aria-label="マイページ"
           >
