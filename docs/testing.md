@@ -9,6 +9,9 @@
 - `AssignmentForm` 投稿フロー
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
+- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）
+- `TimetableCell` セル表示（授業カード/空セル）と遷移動作
+- `Sidebar` の `/timetable` 導線有効化
 - API
 - `POST /api/assignments` バリデーション/認証
 - `DELETE /api/assignments/:id` 管理者権限
@@ -21,6 +24,7 @@
 
 **方針**
 - UIは振る舞い中心（ユーザー操作/表示）
+- レスポンシブUIは desktop/mobile でDOMが併存するため、テストは `getAllBy*` を基本に評価
 - APIは入力検証・認可・エラー応答を重点
 - backendテストでは Supabase依存を Jest モック化して安定実行
 - SupabaseのRLS前提は、将来の結合テストで境界を確認
