@@ -55,16 +55,44 @@ c2 as (
   limit 1
 )
 
--- 4) offering (その学期・その教員の実体)
-insert into public.course_offerings (course_id, term_id, section, instructor, created_by)
-select c2.id, t2.id, null, '田中 健太', auth.uid()
-from c2
-cross join t2
+
+-- 4) offering (その学期・その教員の実体) + slots(木5)
+, o as (
+  insert into public.course_offerings (course_id, term_id, section, instructor, created_by)
+  select c2.id, t2.id, null, '田中 健太', auth.uid()
+  from c2
+  cross join t2
+  where not exists (
+    select 1
+    from public.course_offerings o
+    where o.course_id = c2.id
+      and o.term_id = t2.id
+      and coalesce(o.section, '') = coalesce(null, '')
+      and o.instructor = '田中 健太'
+  )
+  returning id
+),
+o2 as (
+  -- 既に存在していた場合も含めて offering_id を必ず1件取る
+  select id from o
+  union all
+  select o.id
+  from public.course_offerings o
+  join c2 on c2.id = o.course_id
+  join t2 on t2.id = o.term_id
+  where coalesce(o.section, '') = coalesce(null, '')
+    and o.instructor = '田中 健太'
+  limit 1
+)
+
+insert into public.offering_slots (offering_id, weekday, period)
+select o2.id, 4, 5
+from o2
 where not exists (
   select 1
-  from public.course_offerings o
-  where o.course_id = c2.id
-    and o.term_id = t2.id
-    and coalesce(o.section, '') = coalesce(null, '')
-    and o.instructor = '田中 健太'
+  from public.offering_slots s
+  where s.offering_id = o2.id
+    and s.weekday = 4
+    and s.period = 5
 );
+
