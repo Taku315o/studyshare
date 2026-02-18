@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import CommunityPane from '@/components/community/CommunityPane';
 import MessagesPane from '@/components/community/MessagesPane';
 import { createSupabaseClient } from '@/lib/supabase/client';
@@ -58,6 +59,7 @@ function mapMessageRow(row: Pick<MessageRow, 'id' | 'conversation_id' | 'sender_
 
 export default function CommunityPage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
+  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -85,7 +87,7 @@ export default function CommunityPage() {
     setMatchingErrorMessage(null);
 
     try {
-      const { data, error } = await supabase.rpc('find_match_candidates', {
+      const { data, error } = await typedSupabase.rpc('find_match_candidates', {
         _limit: MATCH_LIMIT,
         _min_shared: 1,
       });
@@ -426,7 +428,7 @@ export default function CommunityPage() {
       }
 
       try {
-        const { data, error } = await supabase.rpc('create_direct_conversation', {
+        const { data, error } = await typedSupabase.rpc('create_direct_conversation', {
           _other_user_id: candidate.userId,
         });
 
@@ -512,7 +514,7 @@ export default function CommunityPage() {
       }
 
       try {
-        const { data, error } = await supabase
+        const { data, error } = await typedSupabase
           .from('messages')
           .insert({
             conversation_id: selectedThread.threadId,

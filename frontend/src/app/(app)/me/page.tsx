@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
@@ -308,6 +308,7 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
 
 export default function MePage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
+  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -442,7 +443,7 @@ export default function MePage() {
       setIsSavingProfile(true);
 
       try {
-        const { data, error } = await supabase
+        const { data, error } = await typedSupabase
           .from('profiles')
           .upsert(
             {
@@ -472,7 +473,7 @@ export default function MePage() {
         setIsSavingProfile(false);
       }
     },
-    [currentUserId, supabase],
+    [currentUserId, typedSupabase],
   );
 
   return (

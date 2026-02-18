@@ -222,7 +222,8 @@ export default function TimetableGrid() {
         const nextItems: TimetableOfferingItem[] = [];
 
         rows.forEach((row) => {
-          if (!isStatus(row.status)) return;
+          const status = row.status;
+          if (!isStatus(status)) return;
           const offering = normalizeOne(row.offering);
           if (!offering) return;
 
@@ -240,7 +241,7 @@ export default function TimetableGrid() {
               startTime: formatTime(slot.start_time, fallbackStartTime),
               dayOfWeek: slot.day_of_week,
               period: slot.period,
-              status: row.status,
+              status,
               colorToken: resolveColorToken(offering.id),
               createdAt: row.created_at,
             });
