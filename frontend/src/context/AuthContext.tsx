@@ -5,16 +5,21 @@
 // ユーザー認証状態を管理し、アプリケーション全体で共有するためのContextとProvider
 //ユーザー情報（user）、セッション（session）、プロフィール（profile）などを、アプリ内のどのコンポーネントからでも直接呼び出せるようにします。
 // Googleログインやログアウトの関数もここで定義されています。
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
+import type { Database } from '@/types/supabase';
 import { setAuthToken } from '@/lib/api';//401 はバックエンドが認証トークンを受け取れていない可能性が高いので、セッション変更時に必ず Authorization を同期するように修正しました。
 import { useRouter } from 'next/navigation';//Next.js 13+ の App Router で使用されるライブラリでページ遷移やURL操作を扱うためのフックや関数
 
+type ProfileRow = Pick<Database['public']['Tables']['profiles']['Row'], 'user_id' | 'display_name'>;
+
 type UserProfile = {
   id: string;
+  user_id: string;
+  display_name: string;
   email: string;
-  role: 'student' | 'admin';
+  role: 'student' | 'admin' | 'moderator';
 };
 
 type AuthContextType = {
@@ -43,6 +48,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  const getRoleFromUser = useCallback((currentUser: User): UserProfile['role'] => {
+    const role = currentUser.app_metadata?.role;
+    if (role === 'admin' || role === 'moderator') {
+      return role;
+    }
+    return 'student';
+  }, []);
+
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    const { data: profileDataRaw, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id,display_name')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    const profileData = profileDataRaw as ProfileRow | null;
+
+    if (profileError) {
+      console.error('プロフィール取得エラー:', profileError);
+    }
+
+    if (profileData) {
+      const mappedProfile: UserProfile = {
+        id: profileData.user_id,
+        user_id: profileData.user_id,
+        display_name: profileData.display_name,
+        email: currentUser.email ?? '',
+        role: getRoleFromUser(currentUser),
+      };
+      setProfile(mappedProfile);
+      return;
+    }
+
+    setProfile({
+      id: currentUser.id,
+      user_id: currentUser.id,
+      display_name: currentUser.user_metadata?.name ?? currentUser.email ?? 'user',
+      email: currentUser.email ?? '',
+      role: getRoleFromUser(currentUser),
+    });
+  }, [getRoleFromUser]);
+
   // セッション初期化
   useEffect(() => {
     const fetchSession = async () => {
@@ -69,19 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('プロフィール取得エラー:', profileError);
-          }
-
-          if (profileData) {
-            setProfile(profileData as unknown as UserProfile);
-          }
+          await fetchProfile(session.user);
         }
       } catch (error) {
         console.error('セッション初期化エラー:', error);
@@ -102,19 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthToken(session?.access_token ?? null);
         
         if (session?.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('プロフィール取得エラー:', profileError);
-          }
-
-          if (profileData) {
-            setProfile(profileData as unknown as UserProfile);
-          }
+          await fetchProfile(session.user);
         } else {
           setProfile(null);
         }
@@ -126,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   // Googleログイン
   const signInWithGoogle = async () => {

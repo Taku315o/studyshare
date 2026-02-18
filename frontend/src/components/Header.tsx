@@ -31,7 +31,7 @@ export default function Header() {
             ) : user ? (
               <>
                 <Link
-                  href="/profile"
+                  href="/me"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl text-white/85 hover:text-white hover:bg-white/10 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                 >
                   <User className="w-4 h-4" />
