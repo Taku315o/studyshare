@@ -169,7 +169,7 @@ export default async function OfferingDetailPage({
   const [notesRes, reviewsRes, questionsRes, reviewStatsRes] = await Promise.all([
     supabase
       .from('notes')
-      .select('id, title, body_md, created_at, author_id')
+      .select('id, title, body_md, image_url, created_at, author_id')
       .eq('offering_id', offeringId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -195,6 +195,7 @@ export default async function OfferingDetailPage({
     id: string;
     title: string;
     body_md: string | null;
+    image_url: string | null;
     created_at: string;
     author_id: string;
   }>;
@@ -271,6 +272,7 @@ export default async function OfferingDetailPage({
       id: note.id,
       title: note.title,
       body: note.body_md,
+      imageUrl: note.image_url,
       createdAt: note.created_at,
       authorId: note.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',

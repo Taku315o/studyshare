@@ -7,6 +7,7 @@ import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from 
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
 import supabase from '@/lib/supabase';
+import { uploadNoteImage } from '@/lib/api';
 
 type OfferingTabsProps = {
   offeringId: string;
@@ -158,6 +159,7 @@ export default function OfferingTabs({
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
+    const image = formData.get('image');
     if (!title || !body) return;
 
     setSubmitting(true);
@@ -167,11 +169,24 @@ export default function OfferingTabs({
       return;
     }
 
+    let uploadedImageUrl: string | null = null;
+    if (image instanceof File && image.size > 0) {
+      try {
+        const uploadResult = await uploadNoteImage(image);
+        uploadedImageUrl = uploadResult.url;
+      } catch {
+        setSubmitting(false);
+        toast.error('ノート画像のアップロードに失敗しました');
+        return;
+      }
+    }
+
     const result = await writeClient.from('notes').insert({
       offering_id: offeringId,
       author_id: userId,
       title,
       body_md: body,
+      image_url: uploadedImageUrl,
       visibility: 'university',
     });
     setSubmitting(false);
@@ -437,6 +452,15 @@ export default function OfferingTabs({
               className="h-40 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
               required
             />
+            <label className="block text-sm text-slate-700">
+              画像（任意）
+              <input
+                type="file"
+                name="image"
+                accept="image/png,image/jpeg,image/webp"
+                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              />
+            </label>
             <button
               type="submit"
               disabled={submitting}

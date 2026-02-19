@@ -10,7 +10,7 @@ import {
   searchAssignmentsController, 
   deleteAssignmentController 
 } from '../controllers/assignmentController';
-import { uploadController } from '../controllers/uploadControllers';
+import { uploadController, uploadNoteImageController } from '../controllers/uploadControllers';
 /**
  * Express router exposing assignment CRUD endpoints and image upload handling.
  */
@@ -30,6 +30,12 @@ router.get('/assignments/search', searchAssignmentsController);
  * POST /api/upload
  */
 router.post('/upload', authenticate, upload.single('image'), uploadController);
+
+/**
+ * ノート画像アップロード API
+ * POST /api/notes/upload
+ */
+router.post('/notes/upload', authenticate, upload.single('image'), uploadNoteImageController);
 
 
 /**

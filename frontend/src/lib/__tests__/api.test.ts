@@ -1,5 +1,5 @@
 import MockAdapter from 'axios-mock-adapter';
-import { uploadImage, createAssignment, searchAssignments, deleteAssignment, setAuthToken } from '../api';
+import { uploadImage, uploadNoteImage, createAssignment, searchAssignments, deleteAssignment, setAuthToken } from '../api';
 import api from '../api';
 
 // API用のモックを作成（デフォルトのaxiosインスタンスではなく、API用のインスタンスをモック）
@@ -45,6 +45,28 @@ describe('API Functions', () => {
       mock.onPost('/upload').reply(500, { error: 'Upload failed' });
       
       await expect(uploadImage(mockFile)).rejects.toThrow();
+    });
+  });
+
+  describe('uploadNoteImage', () => {
+    it('should upload note image successfully', async () => {
+      const mockFile = new File(['test'], 'note.png', { type: 'image/png' });
+      const mockResponse = { url: 'https://example.com/notes/image.png' };
+
+      mock.onPost('/notes/upload').reply(200, mockResponse);
+
+      const result = await uploadNoteImage(mockFile);
+
+      expect(result).toEqual(mockResponse);
+      expect(mock.history.post[0].url).toBe('/notes/upload');
+    });
+
+    it('should handle note image upload error', async () => {
+      const mockFile = new File(['test'], 'note.png', { type: 'image/png' });
+
+      mock.onPost('/notes/upload').reply(500, { error: 'Upload failed' });
+
+      await expect(uploadNoteImage(mockFile)).rejects.toThrow();
     });
   });
 

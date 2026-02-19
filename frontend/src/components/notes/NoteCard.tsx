@@ -33,6 +33,14 @@ export default function NoteCard({ note, onToggleLike, onToggleBookmark }: NoteC
 
       <h3 className="line-clamp-1 text-xl font-black tracking-tight text-slate-900">{note.title}</h3>
       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">{note.body ?? '本文なし'}</p>
+      {note.imageUrl ? (
+        <img
+          src={note.imageUrl}
+          alt={`${note.title} の添付画像`}
+          className="mt-3 h-44 w-full rounded-xl border border-slate-200 object-cover"
+          loading="lazy"
+        />
+      ) : null}
 
       <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
         <button

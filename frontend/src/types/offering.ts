@@ -20,6 +20,7 @@ export type NoteListItem = {
   id: string;
   title: string;
   body: string | null;
+  imageUrl: string | null;
   createdAt: string;
   authorId: string;
   authorName: string;
