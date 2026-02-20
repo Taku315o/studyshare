@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import type { MeVisibilityUiState } from '@/types/me';
+import supabase from '@/lib/supabase';
 
 const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
   private: '履修の公開を行いません（将来機能）。',
@@ -13,10 +14,71 @@ const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
 
 export default function SettingsPanel() {
   const { signOut } = useAuth();
+  const supabaseClient = supabase as any;
   const [visibilityState, setVisibilityState] = useState<MeVisibilityUiState>({
     selected: 'match_only',
     helpText: VISIBILITY_HELP_TEXT.match_only,
   });
+  const [isLoadingVisibility, setIsLoadingVisibility] = useState(true);
+  const [isSavingVisibility, setIsSavingVisibility] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadVisibility = async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          throw userError;
+        }
+
+        if (!user) {
+          return;
+        }
+
+        const { data, error } = await supabaseClient
+          .from('profiles')
+          .select('enrollment_visibility_default')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        const selected =
+          (data?.enrollment_visibility_default ?? 'match_only') as MeVisibilityUiState['selected'];
+
+        if (!active) {
+          return;
+        }
+
+        setVisibilityState({
+          selected,
+          helpText: VISIBILITY_HELP_TEXT[selected],
+        });
+      } catch (error) {
+        console.error('[SettingsPanel] 公開範囲取得エラー:', error);
+        if (active) {
+          toast.error('公開範囲の取得に失敗しました');
+        }
+      } finally {
+        if (active) {
+          setIsLoadingVisibility(false);
+        }
+      }
+    };
+
+    loadVisibility();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleVisibilityChange = (nextValue: MeVisibilityUiState['selected']) => {
     setVisibilityState({
@@ -25,8 +87,28 @@ export default function SettingsPanel() {
     });
   };
 
-  const handleVisibilitySave = () => {
-    toast.error('公開範囲の保存は Phase2 で対応予定です。');
+  const handleVisibilitySave = async () => {
+    if (isSavingVisibility || isLoadingVisibility) {
+      return;
+    }
+
+    setIsSavingVisibility(true);
+    try {
+      const { error } = await supabaseClient.rpc('update_visibility_settings', {
+        new_visibility: visibilityState.selected,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('公開範囲を保存し、履修データへ反映しました');
+    } catch (error) {
+      console.error('[SettingsPanel] 公開範囲保存エラー:', error);
+      toast.error('公開範囲の保存に失敗しました');
+    } finally {
+      setIsSavingVisibility(false);
+    }
   };
 
   return (
@@ -39,6 +121,7 @@ export default function SettingsPanel() {
         <select
           value={visibilityState.selected}
           onChange={(event) => handleVisibilityChange(event.target.value as MeVisibilityUiState['selected'])}
+          disabled={isSavingVisibility || isLoadingVisibility}
           className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
         >
           <option value="private">private</option>
@@ -49,9 +132,10 @@ export default function SettingsPanel() {
         <button
           type="button"
           onClick={handleVisibilitySave}
+          disabled={isSavingVisibility || isLoadingVisibility}
           className="mt-3 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
-          公開範囲を保存
+          {isSavingVisibility ? '保存中...' : '公開範囲を保存'}
         </button>
       </div>
 

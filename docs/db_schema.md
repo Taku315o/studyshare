@@ -32,6 +32,7 @@
 ## ユーザー領域（プロフィール・統計）
 - `profiles`: `auth.users` と1:1の公開プロフィール
 	- `university_id`, `display_name`, `handle`, `dm_scope`, `allow_dm` など
+	- `enrollment_visibility_default`: 履修登録時の初期公開範囲（`private` / `match_only` / `public`）
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）
 	- ノート/レビューの INSERT・soft-delete をトリガーに更新
