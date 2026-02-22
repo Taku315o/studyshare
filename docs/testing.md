@@ -9,6 +9,7 @@
 - `AssignmentForm` 投稿フロー
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
+- `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
 - `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）
 - `TimetableCell` セル表示（授業カード/空セル）と遷移動作
 - `Sidebar` の `/timetable` 導線有効化
@@ -17,8 +18,10 @@
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
 - `community/page` の DM制約時ローカルフォールバック
+- `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
-- `ProfileCard` の display_name 編集モーダル開閉と保存
+- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年）
+- `onboarding/page` の大学・学年入力と保存導線（将来追加優先）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）
 - `TimetableSummary` の空状態/授業表示
 - `/profile` と `/mypage` の `/me` リダイレクト
@@ -38,6 +41,16 @@
 - APIは入力検証・認可・エラー応答を重点
 - backendテストでは Supabase依存を Jest モック化して安定実行
 - SupabaseのRLS前提は、将来の結合テストで境界を確認
+- RLSで可視性が変わる機能（ノート/口コミ/質問）は、UIテストだけでなく「同大学 / 別大学 / 大学未設定」の手動確認観点を必ず残す
+
+**手動確認チェック（追加）**
+- 授業詳細（`/offerings/[offeringId]`）
+- 同大学ユーザー: ノート/口コミ/質問が見える
+- 別大学ユーザー: 他人投稿が見えない（仕様どおり）
+- 大学未設定ユーザー: `/onboarding` に誘導される
+- `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
+- 投稿導線（ノート/口コミ/質問）
+- ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 
 **コマンド**
 - frontend: `pnpm --filter frontend test`
