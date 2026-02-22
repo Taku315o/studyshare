@@ -13,13 +13,20 @@ import type {
   MeProfileViewModel,
   MeReviewItemViewModel,
   MeTimetableSummaryViewModel,
+  MeUniversityOption,
 } from '@/types/me';
 import type { Database } from '@/types/supabase';
 
-type ProfileRow = Pick<
-  Database['public']['Tables']['profiles']['Row'],
-  'user_id' | 'display_name' | 'avatar_url' | 'faculty' | 'department'
->;
+type ProfileRow = {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  faculty: string | null;
+  department: string | null;
+  university_id: string | null;
+  grade_year: number | null;
+  university: { name: string | null } | Array<{ name: string | null }> | null;
+};
 
 type NoteQueryRow = {
   id: string;
@@ -146,12 +153,16 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MePro
   const metadataName = typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null;
   const fallbackName = metadataName ?? user.email ?? 'ユーザー';
   const displayName = profileRow?.display_name?.trim() || fallbackName;
+  const university = normalizeOne(profileRow?.university ?? null);
 
   return {
     userId: user.id,
     displayName,
     avatarUrl: profileRow?.avatar_url ?? null,
     affiliation: buildAffiliation(profileRow?.faculty, profileRow?.department),
+    universityId: profileRow?.university_id ?? null,
+    universityName: university?.name ?? null,
+    gradeYear: profileRow?.grade_year ?? null,
   };
 }
 
@@ -314,6 +325,7 @@ export default function MePage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [profile, setProfile] = useState<MeProfileViewModel | null>(null);
+  const [universities, setUniversities] = useState<MeUniversityOption[]>([]);
   const [notes, setNotes] = useState<MeNoteItemViewModel[]>([]);
   const [reviews, setReviews] = useState<MeReviewItemViewModel[]>([]);
   const [timetableSummary, setTimetableSummary] = useState<MeTimetableSummaryViewModel | null>(null);
@@ -340,8 +352,13 @@ export default function MePage() {
 
       setCurrentUserId(user.id);
 
-      const [profileRes, notesRes, reviewsRes, enrollmentsRes] = await Promise.all([
-        supabase.from('profiles').select('user_id, display_name, avatar_url, faculty, department').eq('user_id', user.id).maybeSingle(),
+      const [profileRes, universitiesRes, notesRes, reviewsRes, enrollmentsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase.from('universities').select('id, name').order('name'),
         supabase
           .from('notes')
           .select(
@@ -398,16 +415,19 @@ export default function MePage() {
       ]);
 
       if (profileRes.error) throw profileRes.error;
+      if (universitiesRes.error) throw universitiesRes.error;
       if (notesRes.error) throw notesRes.error;
       if (reviewsRes.error) throw reviewsRes.error;
       if (enrollmentsRes.error) throw enrollmentsRes.error;
 
       const profileRow = (profileRes.data ?? null) as ProfileRow | null;
+      const universityRows = (universitiesRes.data ?? []) as MeUniversityOption[];
       const notesRows = (notesRes.data ?? []) as NoteQueryRow[];
       const reviewsRows = (reviewsRes.data ?? []) as ReviewQueryRow[];
       const enrollmentRows = (enrollmentsRes.data ?? []) as EnrollmentQueryRow[];
 
       setProfile(buildProfileViewModel(user, profileRow));
+      setUniversities(universityRows);
       setNotes(buildNoteItems(notesRows));
       setReviews(buildReviewItems(reviewsRows));
       setTimetableSummary(buildTimetableSummary(enrollmentRows));
@@ -415,6 +435,7 @@ export default function MePage() {
       console.error('マイページ取得エラー:', error);
       setErrorMessage('マイページ情報の取得に失敗しました。時間をおいて再度お試しください。');
       setProfile(null);
+      setUniversities([]);
       setNotes([]);
       setReviews([]);
       setTimetableSummary(null);
@@ -428,8 +449,16 @@ export default function MePage() {
     void fetchMeData();
   }, [fetchMeData]);
 
-  const handleSaveDisplayName = useCallback(
-    async (displayName: string) => {
+  const handleSaveProfile = useCallback(
+    async ({
+      displayName,
+      universityId,
+      gradeYear,
+    }: {
+      displayName: string;
+      universityId: string;
+      gradeYear: number;
+    }) => {
       if (!currentUserId) {
         throw new Error('ログインユーザーを取得できませんでした');
       }
@@ -438,6 +467,14 @@ export default function MePage() {
       if (!trimmed) {
         toast.error('表示名を入力してください');
         throw new Error('display_name is empty');
+      }
+      if (!universityId) {
+        toast.error('大学を選択してください');
+        throw new Error('university_id is empty');
+      }
+      if (!Number.isInteger(gradeYear) || gradeYear < 1 || gradeYear > 8) {
+        toast.error('学年を選択してください');
+        throw new Error('grade_year is invalid');
       }
 
       setIsSavingProfile(true);
@@ -449,20 +486,26 @@ export default function MePage() {
             {
               user_id: currentUserId,
               display_name: trimmed,
+              university_id: universityId,
+              grade_year: gradeYear,
             },
             { onConflict: 'user_id' },
           )
-          .select('user_id, display_name, avatar_url, faculty, department')
+          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year')
           .single();
 
         if (error) throw error;
 
         const row = data as ProfileRow;
+        const selectedUniversity = universities.find((university) => university.id === row.university_id);
         setProfile({
           userId: row.user_id,
           displayName: row.display_name,
           avatarUrl: row.avatar_url ?? null,
           affiliation: buildAffiliation(row.faculty, row.department),
+          universityId: row.university_id ?? null,
+          universityName: selectedUniversity?.name ?? null,
+          gradeYear: row.grade_year ?? null,
         });
         toast.success('プロフィールを更新しました');
       } catch (error) {
@@ -473,7 +516,7 @@ export default function MePage() {
         setIsSavingProfile(false);
       }
     },
-    [currentUserId, typedSupabase],
+    [currentUserId, typedSupabase, universities],
   );
 
   return (
@@ -489,9 +532,10 @@ export default function MePage() {
 
       <ProfileCard
         profile={profile}
+        universities={universities}
         isLoading={isLoading}
         isSaving={isSavingProfile}
-        onSaveDisplayName={handleSaveDisplayName}
+        onSaveProfile={handleSaveProfile}
       />
       <MyAssetsTabs notes={notes} reviews={reviews} isLoading={isLoading} />
       <TimetableSummary summary={timetableSummary} isLoading={isLoading} />

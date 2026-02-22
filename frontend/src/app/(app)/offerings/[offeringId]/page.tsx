@@ -348,6 +348,10 @@ export default async function OfferingDetailPage({
   return (
     <div className="mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/70 shadow-sm backdrop-blur">
       <OfferingHeader offeringId={offeringId} offering={offeringMeta} canEnroll={Boolean(user)} isEnrolledInitial={isEnrolled} />
+      <div className="border-t border-slate-100 bg-blue-50/80 px-6 py-3 text-xs text-blue-800">
+        ノート・口コミ・質問は同大学スコープで表示されます。大学・学年が未設定だと他ユーザーの投稿が表示されない場合があります（
+        <span className="font-mono">/me</span> のプロフィール編集で変更できます）。
+      </div>
       <OfferingTabs
         offeringId={offeringId}
         activeTab={activeTab}
