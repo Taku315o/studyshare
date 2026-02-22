@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
@@ -92,14 +92,49 @@ export default function OfferingTabs({
   }, [data.notes]);
 
   useEffect(() => {
-    const getUser = async () => {
+    let isMounted = true;
+    const syncUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!isMounted) return;
       setUserId(user?.id ?? null);
     };
-    void getUser();
+
+    void syncUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const resolveCurrentUserId = useCallback(async () => {
+    if (userId) return userId;
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error('投稿前の認証確認に失敗しました', error);
+      return null;
+    }
+
+    const nextUserId = user?.id ?? null;
+    if (nextUserId) {
+      setUserId(nextUserId);
+    }
+    return nextUserId;
+  }, [userId]);
 
   const tabs = useMemo(
     () =>
@@ -137,15 +172,16 @@ export default function OfferingTabs({
     });
 
     setNotes(next);
-    if (!userId) {
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       setNotes(prev);
       toast.error('ログインが必要です');
       return;
     }
 
     const result = active
-      ? await reactionClient.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', userId).eq('kind', kind)
-      : await reactionClient.from('note_reactions').insert({ note_id: noteId, user_id: userId, kind });
+      ? await reactionClient.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', currentUserId).eq('kind', kind)
+      : await reactionClient.from('note_reactions').insert({ note_id: noteId, user_id: currentUserId, kind });
 
     if (result.error) {
       setNotes(prev);
@@ -162,12 +198,12 @@ export default function OfferingTabs({
     const image = formData.get('image');
     if (!title || !body) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
     }
+    setSubmitting(true);
 
     let uploadedImageUrl: string | null = null;
     if (image instanceof File && image.size > 0) {
@@ -183,7 +219,7 @@ export default function OfferingTabs({
 
     const result = await writeClient.from('notes').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       title,
       body_md: body,
       image_url: uploadedImageUrl,
@@ -208,16 +244,16 @@ export default function OfferingTabs({
     const body = String(formData.get('body') ?? '').trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
     }
+    setSubmitting(true);
 
     const result = await writeClient.from('reviews').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       rating_overall: rating,
       comment: body || null,
     });
@@ -240,16 +276,16 @@ export default function OfferingTabs({
     const body = String(formData.get('body') ?? '').trim();
     if (!title || !body) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
     }
+    setSubmitting(true);
 
     const result = await writeClient.from('questions').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       title,
       body,
     });
