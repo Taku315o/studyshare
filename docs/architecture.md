@@ -19,11 +19,18 @@
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
 - DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
 - マイページ表示（`/me`）
-- frontend(Client Component) → Supabase SELECT（`profiles` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
+- frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
+- `profiles` の `display_name` / `university_id` / `grade_year` を `upsert` で更新
+- 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す
+
+- 初回オンボーディング（`/onboarding`）
+- frontend(Client Component) → Supabase SELECT（`profiles` / `universities`）
+- `profiles.university_id` / `grade_year` が未設定の認証済みユーザーに入力を要求し、保存後に元ページへ戻す
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
+- `AppRouteGuard` が認証済みユーザーの `profiles.university_id` / `grade_year` を確認し、未設定なら `/onboarding` へリダイレクト
 - backend へは Bearer JWT を付与
 - backend は Supabase Auth でトークン検証し、`users` から role を取得
 
