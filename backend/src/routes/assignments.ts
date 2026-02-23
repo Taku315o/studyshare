@@ -1,7 +1,6 @@
 // backend/src/routes/assignments.ts
 
 import { Router } from 'express';
-import multer from 'multer';
 import { authenticate, requireAdmin } from '../middleware/auth'; // 作成したミドルウェア
 import validate from '../middleware/validate';
 import { createAssignmentSchema } from '../validators/assignment';
@@ -10,33 +9,16 @@ import {
   searchAssignmentsController, 
   deleteAssignmentController 
 } from '../controllers/assignmentController';
-import { uploadController, uploadNoteImageController } from '../controllers/uploadControllers';
 /**
  * Express router exposing assignment CRUD endpoints and image upload handling.
  */
 const router = Router();
-
-// Multerの設定（画像をメモリ上に保存）
-const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * 課題一覧取得・検索 API
  * GET /api/assignments/search?query=...
  */
 router.get('/assignments/search', searchAssignmentsController);
-
-/**
- * 画像アップロード API
- * POST /api/upload
- */
-router.post('/upload', authenticate, upload.single('image'), uploadController);
-
-/**
- * ノート画像アップロード API
- * POST /api/notes/upload
- */
-router.post('/notes/upload', authenticate, upload.single('image'), uploadNoteImageController);
-
 
 /**
  * 課題投稿 API

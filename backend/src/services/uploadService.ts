@@ -18,6 +18,22 @@ interface File {
 
 type UploadTarget = 'assignments' | 'notes';
 
+const resolveBucketName = (target: UploadTarget): string => {
+  if (target === 'notes') {
+    return (
+      process.env.SUPABASE_NOTES_IMAGE_BUCKET ||
+      process.env.SUPABASE_STORAGE_BUCKET ||
+      'assignments'
+    );
+  }
+
+  return (
+    process.env.SUPABASE_ASSIGNMENTS_IMAGE_BUCKET ||
+    process.env.SUPABASE_STORAGE_BUCKET ||
+    'assignments'
+  );
+};
+
 /**
  * Determines whether the provided MIME type is an accepted image format.
  *
@@ -52,7 +68,7 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
     // ファイル名を固有のIDに変更
     const fileExtension = file.originalname.split('.').pop() ?? 'bin';
     const fileName = `${uuidv4()}.${fileExtension}`;
-    const bucketName = 'assignments';
+    const bucketName = resolveBucketName(target);
     const objectPath = target === 'notes' ? `notes/${userId}/${fileName}` : `${userId}/${fileName}`;
     
     // Supabase Storageにアップロード
@@ -64,7 +80,11 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
       });
     
     if (uploadError) {
-      console.error('アップロードエラー:', uploadError);
+      console.error('アップロードエラー:', {
+        bucketName,
+        objectPath,
+        message: uploadError.message,
+      });
       throw new Error('ファイルのアップロードに失敗しました');
     }
     
