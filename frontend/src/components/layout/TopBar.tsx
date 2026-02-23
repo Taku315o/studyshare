@@ -48,13 +48,16 @@ export default function TopBar({ onOpenMobileMenu }: TopBarProps) {
             <Bell className="h-5 w-5" />
           </button>
 
-          <Link
-            href="/assignments/new"
-            className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-400"
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="投稿導線は新仕様へ移行中です"
+            className="inline-flex items-center gap-1 rounded-full bg-slate-300 px-5 py-2 text-sm font-semibold text-slate-600 shadow-sm cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
-            投稿
-          </Link>
+            投稿準備中
+          </button>
 
           <Link
             href="/me"
