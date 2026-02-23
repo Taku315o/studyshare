@@ -20,6 +20,10 @@ type ProfileRow = {
   dm_scope: 'any' | 'shared_offering' | 'connections';
 };
 
+type UniversityNameRow = {
+  name: string;
+};
+
 export default async function UserProfilePage({ params }: ProfilePageProps) {
   const { userId } = await params;
   const supabase = await createServerSupabaseClient();
@@ -54,11 +58,13 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
   let universityName: string | null = null;
 
   if (profile.university_id) {
-    const { data: university } = await supabase
+    const universityResult = await supabase
       .from('universities')
       .select('name')
       .eq('id', profile.university_id)
       .maybeSingle();
+
+    const university = universityResult.data as UniversityNameRow | null;
     universityName = university?.name ?? null;
   }
 

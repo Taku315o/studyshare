@@ -9,6 +9,11 @@ type AppRouteGuardProps = {
   children: ReactNode;
 };
 
+type ProfileCompletionRow = {
+  university_id: string | null;
+  grade_year: number | null;
+};
+
 export default function AppRouteGuard({ children }: AppRouteGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,7 +56,8 @@ export default function AppRouteGuard({ children }: AppRouteGuardProps) {
         return;
       }
 
-      const completed = Boolean(data?.university_id && data?.grade_year);
+      const profile = data as ProfileCompletionRow | null;
+      const completed = Boolean(profile?.university_id && profile?.grade_year);
       setIsProfileComplete(completed);
       setIsProfileCheckLoading(false);
 

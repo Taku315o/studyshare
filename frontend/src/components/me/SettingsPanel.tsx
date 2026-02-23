@@ -12,6 +12,10 @@ const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
   public: '全体公開予定です（将来機能）。',
 };
 
+type VisibilityProfileRow = {
+  enrollment_visibility_default: MeVisibilityUiState['selected'] | null;
+};
+
 export default function SettingsPanel() {
   const { signOut } = useAuth();
   const supabaseClient = supabase;
@@ -50,8 +54,8 @@ export default function SettingsPanel() {
           throw error;
         }
 
-        const selected =
-          (data?.enrollment_visibility_default ?? 'match_only') as MeVisibilityUiState['selected'];
+        const profile = data as VisibilityProfileRow | null;
+        const selected = profile?.enrollment_visibility_default ?? 'match_only';
 
         if (!active) {
           return;
@@ -94,7 +98,13 @@ export default function SettingsPanel() {
 
     setIsSavingVisibility(true);
     try {
-      const { error } = await supabaseClient.rpc('update_visibility_settings', {
+      const rpcClient = supabaseClient as unknown as {
+        rpc: (
+          fn: 'update_visibility_settings',
+          args: { new_visibility: MeVisibilityUiState['selected'] }
+        ) => Promise<{ error: unknown | null }>;
+      };
+      const { error } = await rpcClient.rpc('update_visibility_settings', {
         new_visibility: visibilityState.selected,
       });
 

@@ -37,6 +37,12 @@ type AssignmentAuthorProfile = {
     allowDm: boolean | null;
 };
 
+type AuthorProfileRow = {
+    user_id: string;
+    display_name: string;
+    allow_dm: boolean | null;
+};
+
 
 
 export default function AssignmentDetailClient({ id }: Props) {
@@ -76,7 +82,8 @@ export default function AssignmentDetailClient({ id }: Props) {
                     return;
                 }
 
-                setAssignment(data);
+                const assignmentData = data as AssignmentDetail;
+                setAssignment(assignmentData);
 
                 const [
                     {
@@ -88,17 +95,19 @@ export default function AssignmentDetailClient({ id }: Props) {
                     supabase
                         .from('profiles')
                         .select('user_id, display_name, allow_dm')
-                        .eq('user_id', data.user_id)
+                        .eq('user_id', assignmentData.user_id)
                         .maybeSingle(),
                 ]);
 
                 setCurrentUserId(currentUser?.id ?? null);
+                const authorProfileData = authorProfileRes.data as AuthorProfileRow | null;
+
                 setAuthorProfile(
-                    authorProfileRes.data
+                    authorProfileData
                         ? {
-                              userId: authorProfileRes.data.user_id,
-                              displayName: authorProfileRes.data.display_name,
-                              allowDm: authorProfileRes.data.allow_dm ?? null,
+                              userId: authorProfileData.user_id,
+                              displayName: authorProfileData.display_name,
+                              allowDm: authorProfileData.allow_dm ?? null,
                           }
                         : null,
                 );

@@ -58,7 +58,10 @@ function useEnrollment(
         visibility: 'match_only',
       };
 
-      const { error } = await supabase.from('enrollments').insert(enrollmentData);
+      const enrollmentsTable = supabase.from('enrollments') as unknown as {
+        insert: (values: EnrollmentInsert) => Promise<{ error: SupabaseError | null }>;
+      };
+      const { error } = await enrollmentsTable.insert(enrollmentData);
 
       if (error) {
         // 重複登録の場合は成功として扱う
