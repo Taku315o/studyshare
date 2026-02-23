@@ -3,7 +3,7 @@ import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import AssignmentForm from '../AssignmentForm';
+import AssignmentForm from '../components/AssignmentForm';
 import { useAuth } from '@/context/AuthContext';
 import { uploadImage, createAssignment, setAuthToken } from '@/lib/api';
 

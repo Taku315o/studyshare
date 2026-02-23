@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import supabase from '@/lib/supabase';
-import Header from '@/components/Header';
+import Header from '@/legacy/assignments/components/Header';
 import UserContactActions from '@/components/community/UserContactActions';
 import toast from 'react-hot-toast';
 import { Download, Share2 } from 'lucide-react';
