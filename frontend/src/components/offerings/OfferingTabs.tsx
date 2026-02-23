@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
+import UserContactActions from '@/components/community/UserContactActions';
 import supabase from '@/lib/supabase';
 import { uploadNoteImage } from '@/lib/api';
 
@@ -18,6 +19,7 @@ type OfferingTabsProps = {
   reviewsPage: number;
   questionsPage: number;
   canPost: boolean;
+  currentUserId: string | null;
 };
 
 type ModalType = 'none' | 'note' | 'review' | 'question';
@@ -76,6 +78,7 @@ export default function OfferingTabs({
   reviewsPage,
   questionsPage,
   canPost,
+  currentUserId,
 }: OfferingTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -403,7 +406,7 @@ export default function OfferingTabs({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} currentUserId={currentUserId} />
               ))}
             </div>
           )}
@@ -447,6 +450,16 @@ export default function OfferingTabs({
                   <p className="mt-2 text-xs text-slate-500">
                     {question.authorName} / {new Date(question.createdAt).toLocaleString('ja-JP')}
                   </p>
+                  <div className="mt-3">
+                    <UserContactActions
+                      targetUserId={question.authorId}
+                      targetDisplayName={question.authorName}
+                      currentUserId={currentUserId}
+                      allowDm={question.authorAllowDm}
+                      compact
+                      source="question"
+                    />
+                  </div>
                 </article>
               ))}
             </div>

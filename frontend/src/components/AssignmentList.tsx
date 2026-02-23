@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { deleteAssignment, setAuthToken } from '@/lib/api';
+import UserContactActions from '@/components/community/UserContactActions';
 import toast from 'react-hot-toast';
 
 type Assignment = {
@@ -21,6 +22,12 @@ type Assignment = {
   user?: {
     email: string;
   };
+};
+
+type AssignmentAuthorProfile = {
+  user_id: string;
+  display_name: string;
+  allow_dm: boolean | null;
 };
 
 type AssignmentSearchRpcClient = {
@@ -53,6 +60,8 @@ type AssignmentListProps = {
  */
 export default function AssignmentList({ query, filters }: AssignmentListProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [authorProfileByUserId, setAuthorProfileByUserId] = useState<Record<string, AssignmentAuthorProfile>>({});
   const [loading, setLoading] = useState(true);
   const { isAdmin, getAccessToken } = useAuth();
   const router = useRouter();
@@ -108,7 +117,28 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
         data = assignData;
       }
       
-      setAssignments(data || []);
+      const nextAssignments = data || [];
+      setAssignments(nextAssignments);
+
+      const userIds = Array.from(new Set(nextAssignments.map((assignment) => assignment.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setAuthorProfileByUserId({});
+      } else {
+        try {
+          const { data: profileRows } = await supabase
+            .from('profiles')
+            .select('user_id, display_name, allow_dm')
+            .in('user_id', userIds);
+
+          const profileMap = Object.fromEntries(
+            ((profileRows ?? []) as AssignmentAuthorProfile[]).map((profile) => [profile.user_id, profile]),
+          );
+          setAuthorProfileByUserId(profileMap);
+        } catch (profileError) {
+          console.error('課題投稿者プロフィール取得エラー:', profileError);
+          setAuthorProfileByUserId({});
+        }
+      }
     } catch (error) {
       console.error('課題取得エラー:', error);
       toast.error('課題の取得に失敗しました');
@@ -158,6 +188,31 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
     fetchAssignments();
   }, [query, fetchAssignments]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!active) return;
+        setCurrentUserId(user?.id ?? null);
+      } catch (error) {
+        console.error('現在ユーザー取得エラー:', error);
+        if (active) {
+          setCurrentUserId(null);
+        }
+      }
+    };
+
+    void loadCurrentUser();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -203,15 +258,18 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {assignments.map((assignment) => (
-        <div
-          key={assignment.id}
-          className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/30 backdrop-blur-md shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/15 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/30"
-          role="button"
-          tabIndex={0}
-          onClick={() => handleOpenAssignment(assignment.id)}
-          onKeyDown={(event) => handleKeyDown(event, assignment.id)}
-        >
+      {assignments.map((assignment) => {
+        const authorProfile = authorProfileByUserId[assignment.user_id];
+
+        return (
+          <div
+            key={assignment.id}
+            className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/30 backdrop-blur-md shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/15 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/30"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleOpenAssignment(assignment.id)}
+            onKeyDown={(event) => handleKeyDown(event, assignment.id)}
+          >
           {assignment.image_url && (
             <div className="w-full h-48 overflow-hidden relative">
               <Image
@@ -239,6 +297,22 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
                   {new Date(assignment.created_at).toLocaleString('ja-JP')}
                 </span>
               </div>
+              {authorProfile ? (
+                <div
+                  className="mt-3"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <UserContactActions
+                    targetUserId={assignment.user_id}
+                    targetDisplayName={authorProfile.display_name}
+                    currentUserId={currentUserId}
+                    allowDm={authorProfile.allow_dm}
+                    compact
+                    source="assignment"
+                  />
+                </div>
+              ) : null}
             </div>
             
             {/* 管理者のみ削除ボタンを表示 */}
@@ -254,8 +328,9 @@ export default function AssignmentList({ query, filters }: AssignmentListProps) 
               </button>
             )}
           </div>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

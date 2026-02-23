@@ -1,8 +1,10 @@
 import { Star } from 'lucide-react';
+import UserContactActions from '@/components/community/UserContactActions';
 import type { ReviewListItem } from '@/types/offering';
 
 type ReviewCardProps = {
   review: ReviewListItem;
+  currentUserId: string | null;
 };
 
 function formatDate(date: string) {
@@ -14,7 +16,7 @@ function formatDate(date: string) {
   });
 }
 
-export default function ReviewCard({ review }: ReviewCardProps) {
+export default function ReviewCard({ review, currentUserId }: ReviewCardProps) {
   return (
     <article className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
       <div className="flex items-start justify-between">
@@ -30,6 +32,16 @@ export default function ReviewCard({ review }: ReviewCardProps) {
       <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
         {review.comment ?? 'コメントなし'}
       </p>
+      <div className="mt-4 border-t border-slate-200/80 pt-3">
+        <UserContactActions
+          targetUserId={review.authorId}
+          targetDisplayName={review.authorName}
+          currentUserId={currentUserId}
+          allowDm={review.authorAllowDm}
+          compact
+          source="review"
+        />
+      </div>
     </article>
   );
 }

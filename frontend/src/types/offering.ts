@@ -40,6 +40,7 @@ export type ReviewListItem = {
   authorId: string;
   authorName: string;
   authorAvatarUrl: string | null;
+  authorAllowDm: boolean | null;
 };
 
 export type QuestionListItem = {
@@ -50,6 +51,7 @@ export type QuestionListItem = {
   authorId: string;
   authorName: string;
   authorAvatarUrl: string | null;
+  authorAllowDm: boolean | null;
 };
 
 export type ReviewStats = {

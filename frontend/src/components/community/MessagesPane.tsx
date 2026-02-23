@@ -122,8 +122,13 @@ export default function MessagesPane({
               <MessageComposer onSend={onSendMessage} disabled={!currentUserId} />
             </>
           ) : (
-            <div className="flex h-full min-h-[20rem] items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
-              スレッドを選択すると会話が表示されます。
+            <div className="flex h-full min-h-[20rem] flex-col justify-center gap-3">
+              {fallbackNotice ? (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{fallbackNotice}</p>
+              ) : null}
+              <div className="flex min-h-[20rem] items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-500">
+                スレッドを選択すると会話が表示されます。
+              </div>
             </div>
           )}
         </div>

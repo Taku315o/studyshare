@@ -65,10 +65,23 @@ async function fetchProfiles(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   userIds: string[],
 ) {
-  if (userIds.length === 0) return new Map<string, { display_name: string; avatar_url: string | null }>();
-  const { data } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', userIds);
-  const profiles = (data ?? []) as Array<{ user_id: string; display_name: string; avatar_url: string | null }>;
-  const map = new Map<string, { display_name: string; avatar_url: string | null }>();
+  if (userIds.length === 0) {
+    return new Map<
+      string,
+      { display_name: string; avatar_url: string | null; allow_dm: boolean | null }
+    >();
+  }
+  const { data } = await supabase
+    .from('profiles')
+    .select('user_id, display_name, avatar_url, allow_dm')
+    .in('user_id', userIds);
+  const profiles = (data ?? []) as Array<{
+    user_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    allow_dm: boolean | null;
+  }>;
+  const map = new Map<string, { display_name: string; avatar_url: string | null; allow_dm: boolean | null }>();
   profiles.forEach((profile) => {
     map.set(profile.user_id, profile);
   });
@@ -295,6 +308,7 @@ export default async function OfferingDetailPage({
       authorId: review.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',
       authorAvatarUrl: profile?.avatar_url ?? null,
+      authorAllowDm: profile?.allow_dm ?? null,
     };
   });
 
@@ -308,6 +322,7 @@ export default async function OfferingDetailPage({
       authorId: question.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',
       authorAvatarUrl: profile?.avatar_url ?? null,
+      authorAllowDm: profile?.allow_dm ?? null,
     };
   });
 
@@ -361,6 +376,7 @@ export default async function OfferingDetailPage({
         reviewsPage={reviewsPage}
         questionsPage={questionsPage}
         canPost={Boolean(user)}
+        currentUserId={user?.id ?? null}
       />
     </div>
   );

@@ -96,6 +96,7 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost={false}
+        currentUserId={null}
       />,
     );
 
@@ -117,6 +118,7 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost
+        currentUserId={null}
       />,
     );
 
@@ -147,6 +149,7 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost
+        currentUserId={null}
       />,
     );
 

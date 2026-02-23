@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { useSearchParams } from 'next/navigation';
 import CommunityPane from '@/components/community/CommunityPane';
 import MessagesPane from '@/components/community/MessagesPane';
 import { createSupabaseClient } from '@/lib/supabase/client';
@@ -20,6 +21,10 @@ type MessageRow = Database['public']['Tables']['messages']['Row'];
 type ProfileRow = Pick<
   Database['public']['Tables']['profiles']['Row'],
   'user_id' | 'display_name' | 'avatar_url' | 'faculty' | 'department'
+>;
+type DmTargetProfileRow = Pick<
+  Database['public']['Tables']['profiles']['Row'],
+  'user_id' | 'display_name' | 'avatar_url' | 'faculty' | 'department' | 'allow_dm'
 >;
 
 type ParticipantSnapshot = {
@@ -60,6 +65,8 @@ function mapMessageRow(row: Pick<MessageRow, 'id' | 'conversation_id' | 'sender_
 export default function CommunityPage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const typedSupabase = supabase as unknown as SupabaseClient<Database>;
+  const searchParams = useSearchParams();
+  const lastDeepLinkAttemptRef = useRef<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -81,6 +88,23 @@ export default function CommunityPage() {
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
   const [isMobileMessagesOpen, setIsMobileMessagesOpen] = useState(false);
+
+  const fetchDmTargetProfile = useCallback(
+    async (userId: string) => {
+      const { data, error } = await typedSupabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url, faculty, department, allow_dm')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return (data ?? null) as DmTargetProfileRow | null;
+    },
+    [typedSupabase],
+  );
 
   const fetchMatchingCandidates = useCallback(async () => {
     setIsMatchingLoading(true);
@@ -114,7 +138,7 @@ export default function CommunityPage() {
     } finally {
       setIsMatchingLoading(false);
     }
-  }, [supabase]);
+  }, [typedSupabase]);
 
   const fetchThreads = useCallback(
     async (userId: string) => {
@@ -469,6 +493,17 @@ export default function CommunityPage() {
         }
       } catch (error) {
         console.error('新規DM開始エラー:', error);
+
+        try {
+          const targetProfile = await fetchDmTargetProfile(candidate.userId);
+          if (targetProfile?.allow_dm === false) {
+            setFallbackNotice('このユーザーはDM受信をオフにしているため、DMを開始できません。');
+            return;
+          }
+        } catch (profileError) {
+          console.error('DM相手プロフィール確認エラー:', profileError);
+        }
+
         const localThreadId = ensureLocalThread({
           userId: candidate.userId,
           displayName: candidate.displayName,
@@ -479,8 +514,72 @@ export default function CommunityPage() {
         setFallbackNotice('DM制約のためローカル会話モードで表示しています（保存されません）。');
       }
     },
-    [currentUserId, ensureLocalThread, fetchThreads, supabase, threads],
+    [currentUserId, ensureLocalThread, fetchDmTargetProfile, fetchThreads, threads, typedSupabase],
   );
+
+  useEffect(() => {
+    const composeTo = searchParams?.get('composeTo');
+    const composeName = searchParams?.get('composeName');
+
+    if (!composeTo || !currentUserId) {
+      return;
+    }
+
+    if (composeTo === currentUserId) {
+      if (lastDeepLinkAttemptRef.current !== composeTo) {
+        lastDeepLinkAttemptRef.current = composeTo;
+        setFallbackNotice('自分自身にはDMを送れません。');
+        setIsMobileMessagesOpen(true);
+      }
+      return;
+    }
+
+    if (lastDeepLinkAttemptRef.current === composeTo) {
+      return;
+    }
+
+    lastDeepLinkAttemptRef.current = composeTo;
+
+    let cancelled = false;
+
+    const startFromDeepLink = async () => {
+      setActiveTab('matching');
+      setFallbackNotice(null);
+      setIsMobileMessagesOpen(true);
+
+      try {
+        const profile = await fetchDmTargetProfile(composeTo);
+
+        if (cancelled) return;
+
+        if (profile?.allow_dm === false) {
+          setFallbackNotice('このユーザーはDM受信をオフにしているため、DMを開始できません。');
+          return;
+        }
+
+        await handleStartMessage({
+          userId: composeTo,
+          displayName: profile?.display_name ?? composeName ?? 'ユーザー',
+          avatarUrl: profile?.avatar_url ?? null,
+          faculty: profile?.faculty ?? null,
+          department: profile?.department ?? null,
+          sharedOfferingCount: 0,
+          summaryLabel: 'プロフィールからのDM',
+        });
+      } catch (error) {
+        console.error('プロフィール経由DM開始エラー:', error);
+        if (!cancelled) {
+          setFallbackNotice('DM開始の準備に失敗しました。時間をおいて再度お試しください。');
+        }
+      }
+    };
+
+    void startFromDeepLink();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, fetchDmTargetProfile, handleStartMessage, searchParams]);
 
   const handleSelectThread = useCallback((threadId: string) => {
     setSelectedThreadId(threadId);
@@ -571,7 +670,7 @@ export default function CommunityPage() {
         setFallbackNotice('DM制約のためローカル会話モードに切り替えました（保存されません）。');
       }
     },
-    [currentUserId, ensureLocalThread, messagesByThreadId, selectedThread, supabase, updateThreadLastMessage],
+    [currentUserId, ensureLocalThread, messagesByThreadId, selectedThread, typedSupabase, updateThreadLastMessage],
   );
 
   const filteredCandidates = useMemo(() => {
