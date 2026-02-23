@@ -23,7 +23,7 @@ const resolveBucketName = (target: UploadTarget): string => {
     return (
       process.env.SUPABASE_NOTES_IMAGE_BUCKET ||
       process.env.SUPABASE_STORAGE_BUCKET ||
-      'assignments'
+      'notes'
     );
   }
 

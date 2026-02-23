@@ -144,7 +144,7 @@ describe('uploadService', () => {
       );
 
       expect(result).toBe('https://example.com/notes/user-1/fixed-uuid.webp');
-      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('assignments');
+      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('notes');
       expect(uploadMock).toHaveBeenCalledWith(
         'notes/user-1/fixed-uuid.webp',
         expect.any(Buffer),
