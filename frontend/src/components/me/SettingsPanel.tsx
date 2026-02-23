@@ -14,7 +14,7 @@ const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
 
 export default function SettingsPanel() {
   const { signOut } = useAuth();
-  const supabaseClient = supabase as any;
+  const supabaseClient = supabase;
   const [visibilityState, setVisibilityState] = useState<MeVisibilityUiState>({
     selected: 'match_only',
     helpText: VISIBILITY_HELP_TEXT.match_only,
@@ -78,7 +78,7 @@ export default function SettingsPanel() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [supabaseClient]);
 
   const handleVisibilityChange = (nextValue: MeVisibilityUiState['selected']) => {
     setVisibilityState({

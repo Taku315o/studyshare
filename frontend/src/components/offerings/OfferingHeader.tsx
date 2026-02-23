@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import type { OfferingMeta } from '@/types/offering';
 import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
-import type { Database, TablesInsert } from '@/types/supabase';
+import type { TablesInsert } from '@/types/supabase';
 
 // エラー型の定義
 type SupabaseError = {
@@ -58,9 +58,7 @@ function useEnrollment(
         visibility: 'match_only',
       };
 
-      const { error } = await (supabase
-        .from('enrollments') as any)
-        .insert(enrollmentData);
+      const { error } = await supabase.from('enrollments').insert(enrollmentData);
 
       if (error) {
         // 重複登録の場合は成功として扱う
