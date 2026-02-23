@@ -21,7 +21,7 @@
 - `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
 - `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年）
-- `onboarding/page` の大学・学年入力と保存導線（将来追加優先）
+- `onboarding/page` の大学・学年入力と保存導線
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）
 - `TimetableSummary` の空状態/授業表示
 - `/profile` と `/mypage` の `/me` リダイレクト

@@ -40,7 +40,7 @@ export default function OnboardingPage() {
   const [gradeYear, setGradeYear] = useState('');
 
   useEffect(() => {
-    let isMounted = true;
+    let isMounted = true;// コンポーネントがアンマウントされた後に状態更新しないようにするフラグ。メモリリークを防ぐ。
 
     const load = async () => {
       setIsLoading(true);
@@ -110,7 +110,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    setIsSaving(true);
+    setIsSaving(true);// 二重送信を防止するため、保存処理中はフォームを無効化する
     try {
       const { error } = await typedSupabase
         .from('profiles')
@@ -133,7 +133,7 @@ export default function OnboardingPage() {
       console.error('オンボーディング保存エラー:', error);
       toast.error('初期設定の保存に失敗しました');
     } finally {
-      setIsSaving(false);
+      setIsSaving(false);// 保存処理が完了したらフォームを再度有効化する
     }
   };
 
