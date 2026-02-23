@@ -11,7 +11,7 @@ security definer
 set search_path = public
 as $$
   select
-    coalesce((select p.grade_year from public.profiles p where p.user_id = _uid), 0) = 1. -- allow first-year students to DM without unlocking
+    coalesce((select p.grade_year from public.profiles p where p.user_id = _uid), 0) = 1 -- allow first-year students to DM without unlocking
     or coalesce((select us.contributions_count from public.user_stats us where us.user_id = _uid), 0) >= 2 -- allow users with 2 or more contributions to DM without unlocking
     or public.has_active_entitlement(_uid, 'messaging'); --特別な権利(課金など)を持っているユーザーはDMが可能
 $$;
