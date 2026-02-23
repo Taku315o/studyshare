@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
-import AssignmentList from '../AssignmentList';
+import AssignmentList from '../components/AssignmentList';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { deleteAssignment } from '@/lib/api';

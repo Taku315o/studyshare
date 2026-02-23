@@ -65,10 +65,23 @@ async function fetchProfiles(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   userIds: string[],
 ) {
-  if (userIds.length === 0) return new Map<string, { display_name: string; avatar_url: string | null }>();
-  const { data } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', userIds);
-  const profiles = (data ?? []) as Array<{ user_id: string; display_name: string; avatar_url: string | null }>;
-  const map = new Map<string, { display_name: string; avatar_url: string | null }>();
+  if (userIds.length === 0) {
+    return new Map<
+      string,
+      { display_name: string; avatar_url: string | null; allow_dm: boolean | null }
+    >();
+  }
+  const { data } = await supabase
+    .from('profiles')
+    .select('user_id, display_name, avatar_url, allow_dm')
+    .in('user_id', userIds);
+  const profiles = (data ?? []) as Array<{
+    user_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    allow_dm: boolean | null;
+  }>;
+  const map = new Map<string, { display_name: string; avatar_url: string | null; allow_dm: boolean | null }>();
   profiles.forEach((profile) => {
     map.set(profile.user_id, profile);
   });
@@ -169,7 +182,7 @@ export default async function OfferingDetailPage({
   const [notesRes, reviewsRes, questionsRes, reviewStatsRes] = await Promise.all([
     supabase
       .from('notes')
-      .select('id, title, body_md, created_at, author_id')
+      .select('id, title, body_md, image_url, created_at, author_id')
       .eq('offering_id', offeringId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -195,6 +208,7 @@ export default async function OfferingDetailPage({
     id: string;
     title: string;
     body_md: string | null;
+    image_url: string | null;
     created_at: string;
     author_id: string;
   }>;
@@ -271,6 +285,7 @@ export default async function OfferingDetailPage({
       id: note.id,
       title: note.title,
       body: note.body_md,
+      imageUrl: note.image_url,
       createdAt: note.created_at,
       authorId: note.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',
@@ -293,6 +308,7 @@ export default async function OfferingDetailPage({
       authorId: review.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',
       authorAvatarUrl: profile?.avatar_url ?? null,
+      authorAllowDm: profile?.allow_dm ?? null,
     };
   });
 
@@ -306,6 +322,7 @@ export default async function OfferingDetailPage({
       authorId: question.author_id,
       authorName: profile?.display_name ?? '匿名ユーザー',
       authorAvatarUrl: profile?.avatar_url ?? null,
+      authorAllowDm: profile?.allow_dm ?? null,
     };
   });
 
@@ -346,6 +363,10 @@ export default async function OfferingDetailPage({
   return (
     <div className="mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/70 shadow-sm backdrop-blur">
       <OfferingHeader offeringId={offeringId} offering={offeringMeta} canEnroll={Boolean(user)} isEnrolledInitial={isEnrolled} />
+      <div className="border-t border-slate-100 bg-blue-50/80 px-6 py-3 text-xs text-blue-800">
+        ノート・口コミ・質問は同大学スコープで表示されます。大学・学年が未設定だと他ユーザーの投稿が表示されない場合があります（
+        <span className="font-mono">/me</span> のプロフィール編集で変更できます）。
+      </div>
       <OfferingTabs
         offeringId={offeringId}
         activeTab={activeTab}
@@ -355,6 +376,7 @@ export default async function OfferingDetailPage({
         reviewsPage={reviewsPage}
         questionsPage={questionsPage}
         canPost={Boolean(user)}
+        currentUserId={user?.id ?? null}
       />
     </div>
   );

@@ -113,10 +113,26 @@ describe('MePage', () => {
                   avatar_url: null,
                   faculty: '経済学部',
                   department: '経済学科',
+                  university_id: 'uni-1',
+                  grade_year: 2,
+                  university: { name: '専修大学' },
                 },
                 error: null,
               }),
             })),
+          })),
+        };
+      }
+      if (table === 'universities') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn().mockResolvedValue({
+              data: [
+                { id: 'uni-1', name: '専修大学' },
+                { id: 'uni-2', name: '明治大学' },
+              ],
+              error: null,
+            }),
           })),
         };
       }

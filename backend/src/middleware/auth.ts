@@ -48,32 +48,40 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     }
 
     const user = data.user;
+    const metadataRole = user.app_metadata?.role;
+    const fallbackRole =
+      metadataRole === 'admin' || metadataRole === 'moderator'
+        ? metadataRole
+        : 'student';
 
-    // 必要ならユーザーの追加情報をDBから取得（RLS有効）
-    const s = supabaseFromToken(token);
-    const { data: userData, error: userErr } = await s
-      .from('users')
-      .select('email, role')
-      .eq('id', user.id)
-      .single();
-
-    if (userErr) {
-      console.error('ユーザー情報取得エラー:', userErr);
-      res.status(500).json({ error: 'ユーザー情報取得に失敗しました' });
-      return;
-    }
-
-    if (!userData) {
-      res.status(404).json({ error: 'ユーザーが見つかりません' });
-      return;
-    }
-
-    // リクエストにユーザー情報をセット
+    // まずは auth.users 由来の情報だけで通す（新スキーマでは legacy users テーブルが存在しない）
     req.user = {
       id: user.id,
-      email: userData.email,
-      role: userData.role
+      email: user.email ?? undefined,
+      role: fallbackRole,
     };
+
+    // legacy互換: users テーブルが存在する環境では role/email を上書き
+    try {
+      const s = supabaseFromToken(token);
+      const { data: userData, error: userErr } = await s
+        .from('users')
+        .select('email, role')
+        .eq('id', user.id)
+        .single();
+
+      if (userErr) {
+        console.warn('[Auth] legacy usersテーブル参照をスキップ:', userErr.message);
+      } else if (userData) {
+        req.user = {
+          id: user.id,
+          email: userData.email ?? req.user.email,
+          role: userData.role ?? req.user.role,
+        };
+      }
+    } catch (legacyLookupError) {
+      console.warn('[Auth] legacy usersテーブル参照で例外。authユーザー情報で継続します:', legacyLookupError);
+    }
 
     next();
   } catch (error) {

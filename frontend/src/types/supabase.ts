@@ -516,6 +516,7 @@ export type Database = {
           department: string | null
           display_name: string
           dm_scope: Database["public"]["Enums"]["dm_scope"]
+          enrollment_visibility_default: Database["public"]["Enums"]["enrollment_visibility"]
           faculty: string | null
           gender: Database["public"]["Enums"]["gender"]
           grade_year: number | null
@@ -532,6 +533,7 @@ export type Database = {
           department?: string | null
           display_name: string
           dm_scope?: Database["public"]["Enums"]["dm_scope"]
+          enrollment_visibility_default?: Database["public"]["Enums"]["enrollment_visibility"]
           faculty?: string | null
           gender?: Database["public"]["Enums"]["gender"]
           grade_year?: number | null
@@ -548,6 +550,7 @@ export type Database = {
           department?: string | null
           display_name?: string
           dm_scope?: Database["public"]["Enums"]["dm_scope"]
+          enrollment_visibility_default?: Database["public"]["Enums"]["enrollment_visibility"]
           faculty?: string | null
           gender?: Database["public"]["Enums"]["gender"]
           grade_year?: number | null
@@ -878,6 +881,12 @@ export type Database = {
         Returns: undefined
       }
       user_university_id: { Args: { _uid: string }; Returns: string }
+      update_visibility_settings: {
+        Args: {
+          new_visibility: Database["public"]["Enums"]["enrollment_visibility"]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       connection_status: "requested" | "accepted" | "rejected" | "blocked"

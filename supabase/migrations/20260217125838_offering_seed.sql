@@ -85,14 +85,14 @@ o2 as (
   limit 1
 )
 
-insert into public.offering_slots (offering_id, weekday, period)
+insert into public.offering_slots (offering_id, day_of_week, period)
 select o2.id, 4, 5
 from o2
 where not exists (
   select 1
   from public.offering_slots s
   where s.offering_id = o2.id
-    and s.weekday = 4
+    and s.day_of_week = 4
     and s.period = 5
 );
 

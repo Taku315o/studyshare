@@ -51,6 +51,29 @@ const mockAuthenticatedUser = (role: 'student' | 'admin', userId = 'user-1') => 
   mockedSupabaseFromToken.mockReturnValue({ from: fromMock });
 };
 
+const mockAuthenticatedUserWithoutLegacyUsersTable = (userId = 'user-1') => {
+  mockedGetUser.mockResolvedValue({
+    data: {
+      user: {
+        id: userId,
+        email: `${userId}@example.com`,
+        app_metadata: {},
+      },
+    },
+    error: null,
+  });
+
+  const singleMock = jest.fn().mockResolvedValue({
+    data: null,
+    error: { message: 'relation "users" does not exist' },
+  });
+  const eqMock = jest.fn().mockReturnValue({ single: singleMock });
+  const selectMock = jest.fn().mockReturnValue({ eq: eqMock });
+  const fromMock = jest.fn().mockReturnValue({ select: selectMock });
+
+  mockedSupabaseFromToken.mockReturnValue({ from: fromMock });
+};
+
 describe('assignment routes', () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -160,7 +183,7 @@ describe('assignment routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: '無効なファイル形式です（png/jpgのみ）' });
+      expect(response.body).toEqual({ error: '無効なファイル形式です（png/jpg/webpのみ）' });
     });
 
     it('returns 400 when file size exceeds limit', async () => {
@@ -205,6 +228,64 @@ describe('assignment routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ url: 'https://example.com/user-1/image.png' });
+    });
+  });
+
+  describe('POST /api/notes/upload', () => {
+    it('returns 200 with url when upload succeeds', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'notes/user-1/image.webp' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const response = await request(app)
+        .post('/api/notes/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.webp',
+          contentType: 'image/webp',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+    });
+
+    it('works even when legacy users table lookup fails', async () => {
+      mockAuthenticatedUserWithoutLegacyUsersTable();
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'notes/user-1/image.webp' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const response = await request(app)
+        .post('/api/notes/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.webp',
+          contentType: 'image/webp',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
     });
   });
 

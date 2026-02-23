@@ -40,6 +40,7 @@ export default async function OfferingsPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {((data ?? []) as OfferingListRow[]).map((offering) => {
+          {/* coursesとtermsは現状1対1の関係だが、将来的に複数対応する可能性があるため配列で受け取る */}
           const course = Array.isArray(offering.courses) ? offering.courses[0] : offering.courses;
           const term = Array.isArray(offering.terms) ? offering.terms[0] : offering.terms;
           const termLabel = term ? `${term.year} ${SEASON_LABELS[term.season] ?? term.season}` : '未設定';

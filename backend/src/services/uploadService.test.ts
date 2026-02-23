@@ -34,9 +34,10 @@ describe('uploadService', () => {
   });
 
   describe('isValidImageType', () => {
-    it('accepts jpeg and png', () => {
+    it('accepts jpeg, png and webp', () => {
       expect(isValidImageType('image/jpeg')).toBe(true);
       expect(isValidImageType('image/png')).toBe(true);
+      expect(isValidImageType('image/webp')).toBe(true);
     });
 
     it('rejects unsupported mime types', () => {
@@ -115,6 +116,43 @@ describe('uploadService', () => {
           'user-1'
         )
       ).rejects.toThrow('ファイルのアップロード処理に失敗しました');
+    });
+
+    it('stores note images under notes prefix', async () => {
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'notes/user-1/fixed-uuid.webp' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/notes/user-1/fixed-uuid.webp' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const result = await uploadToStorage(
+        {
+          originalname: 'sample.webp',
+          mimetype: 'image/webp',
+          buffer: Buffer.from('image'),
+          size: 100,
+        },
+        'user-1',
+        'notes'
+      );
+
+      expect(result).toBe('https://example.com/notes/user-1/fixed-uuid.webp');
+      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('notes');
+      expect(uploadMock).toHaveBeenCalledWith(
+        'notes/user-1/fixed-uuid.webp',
+        expect.any(Buffer),
+        expect.objectContaining({
+          contentType: 'image/webp',
+          upsert: false,
+        })
+      );
     });
   });
 });

@@ -32,6 +32,7 @@
 ## ユーザー領域（プロフィール・統計）
 - `profiles`: `auth.users` と1:1の公開プロフィール
 	- `university_id`, `display_name`, `handle`, `dm_scope`, `allow_dm` など
+	- `enrollment_visibility_default`: 履修登録時の初期公開範囲（`private` / `match_only` / `public`）
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）
 	- ノート/レビューの INSERT・soft-delete をトリガーに更新
@@ -98,7 +99,8 @@
 - `subscriptions`: サブスク状態
 
 ### B. ゲート条件（スパム対策）
-- 「投稿2件以上」または「entitlement/subscriptionあり」で機能解放
+- 基本は「投稿2件以上」または「entitlement/subscriptionあり」で機能解放
+- ただし **一年生（`profiles.grade_year = 1`）はDM制約を免除**（MVP例外）
 - `can_send_message(uid)`
 - `can_view_footprints(uid)`
 
@@ -107,10 +109,14 @@
 	- ブロックされていない
 	- 送信者が `can_send_message` を満たす
 	- 受信者が `allow_dm = true`
+- MVPでは **共通授業(`shared_offering`)はDM制約に使わない**
+	- マッチング表示のための概念としては維持
+	- プロフィール/口コミ/掲示板経由で任意ユーザーへDM開始できる設計
+- 返信例外（MVP）
+	- 相手から先に届いたDMがある既存会話では、送信者が未解放でも返信可（ローカルDMに落とさない）
 - `dm_scope`
-	- `any`
-	- `shared_offering`（共通offeringが1以上）
-	- `connections`（友達承認済みのみ）
+	- スキーマ上は保持（将来の再導入用）
+	- MVPでは `can_dm` 判定では実質未使用（`allow_dm` を優先）
 
 ### D. データモデル
 - `conversations`: directのみ（`direct_key = small_uid:large_uid` で決定的）
@@ -121,6 +127,9 @@
 - `create_direct_conversation(other_user_id)`
 	- `can_dm` 通過後、既存 `direct_key` を探索し、なければ作成
 	- `members` に2人を insert
+- `messages` insert（RLS）
+	- 通常送信: `can_send_message`
+	- 返信送信: 既存会話に相手メッセージがあれば未解放でも許可（MVP）
 
 ## RLS設計（ざっくり）
 
@@ -155,4 +164,4 @@
 3. マッチング → `find_match_candidates()`（履修の中身は漏れない）
 4. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）
 5. 質問投稿 → `questions`（`offering_id` 紐付け）
-6. DM → `create_direct_conversation()` → `messages` insert（`can_send_message` でゲート）
+6. DM → `create_direct_conversation()` → `messages` insert（開始は `can_dm`、返信は既存会話例外あり）

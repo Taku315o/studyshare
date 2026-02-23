@@ -5,6 +5,14 @@ export type MeProfileViewModel = {
   displayName: string;
   avatarUrl: string | null;
   affiliation: string;
+  universityId: string | null;
+  universityName: string | null;
+  gradeYear: number | null;
+};
+
+export type MeUniversityOption = {
+  id: string;
+  name: string;
 };
 
 export type MeNoteItemViewModel = {

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import supabase from '@/lib/supabase';
-import Header from '@/components/Header';
+import Header from '@/legacy/assignments/components/Header';
+import UserContactActions from '@/components/community/UserContactActions';
 import toast from 'react-hot-toast';
 import { Download, Share2 } from 'lucide-react';
 
@@ -30,10 +31,24 @@ type Props = {
     id: string;
 };
 
+type AssignmentAuthorProfile = {
+    userId: string;
+    displayName: string;
+    allowDm: boolean | null;
+};
+
+type AuthorProfileRow = {
+    user_id: string;
+    display_name: string;
+    allow_dm: boolean | null;
+};
+
 
 
 export default function AssignmentDetailClient({ id }: Props) {
     const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [authorProfile, setAuthorProfile] = useState<AssignmentAuthorProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -67,7 +82,35 @@ export default function AssignmentDetailClient({ id }: Props) {
                     return;
                 }
 
-                setAssignment(data);
+                const assignmentData = data as AssignmentDetail;
+                setAssignment(assignmentData);
+
+                const [
+                    {
+                        data: { user: currentUser },
+                    },
+                    authorProfileRes,
+                ] = await Promise.all([
+                    supabase.auth.getUser(),
+                    supabase
+                        .from('profiles')
+                        .select('user_id, display_name, allow_dm')
+                        .eq('user_id', assignmentData.user_id)
+                        .maybeSingle(),
+                ]);
+
+                setCurrentUserId(currentUser?.id ?? null);
+                const authorProfileData = authorProfileRes.data as AuthorProfileRow | null;
+
+                setAuthorProfile(
+                    authorProfileData
+                        ? {
+                              userId: authorProfileData.user_id,
+                              displayName: authorProfileData.display_name,
+                              allowDm: authorProfileData.allow_dm ?? null,
+                          }
+                        : null,
+                );
             } catch (error) {
                 console.error('課題詳細の取得エラー:', error);
                 setErrorMessage('課題の取得に失敗しました');
@@ -328,6 +371,18 @@ export default function AssignmentDetailClient({ id }: Props) {
                             <span>投稿者: {assignment.user?.email || '不明'}</span>
                             <span>最終更新: {new Date(assignment.updated_at).toLocaleString('ja-JP')}</span>
                         </div>
+                        {authorProfile ? (
+                            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                                <p className="mb-2 text-xs font-semibold tracking-wide text-blue-100/70">投稿者プロフィール</p>
+                                <UserContactActions
+                                    targetUserId={authorProfile.userId}
+                                    targetDisplayName={authorProfile.displayName}
+                                    currentUserId={currentUserId}
+                                    allowDm={authorProfile.allowDm}
+                                    source="assignment"
+                                />
+                            </div>
+                        ) : null}
 
                         {(assignment.university ||
                             assignment.faculty ||

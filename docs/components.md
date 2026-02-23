@@ -17,6 +17,7 @@
 - 機能単位の命名を優先（例: `AssignmentList`, `AssignmentForm`, `SearchForm`, `Header`）
 - 共通UIは `src/components` に配置
 - 画面固有の構成は `src/app` に配置
+- 認証後の遷移制御（ログイン済み/未ログイン、初期設定完了判定）は `src/components/auth` のガードコンポーネントに寄せる
 
 **例**
 - `AssignmentList`: 一覧表示と検索結果表示
@@ -25,8 +26,9 @@
 
 **Offering詳細ページ（追加）**
 - `src/app/(app)/offerings/[offeringId]/page.tsx`: Server Componentで offering 基本情報/件数/一覧初期データを取得
+- `src/app/(app)/offerings/[offeringId]/page.tsx`: ノート/口コミ/質問の同大学スコープ表示に関する説明バナーを表示
 - `src/components/offerings/OfferingHeader.tsx`: タイトル表示と「時間割に追加」CTA
-- `src/components/offerings/OfferingTabs.tsx`: タブ切替・投稿モーダル・ページング・リアクショントグル
+- `src/components/offerings/OfferingTabs.tsx`: タブ切替・投稿モーダル・ページング・リアクショントグル・投稿直前の認証再確認
 - `src/components/notes/NoteCard.tsx`: ノートカード（like/bookmark/comment件数）
 - `src/components/reviews/ReviewCard.tsx`: 口コミカード（評価・本文・投稿者）
 
@@ -57,8 +59,8 @@
 - モバイルではメッセージペインをモーダル表示し、PCでは2ペイン表示を維持する
 
 **マイページ（/me）（追加）**
-- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`notes`/`reviews`/`enrollments` を取得
-- `src/components/me/ProfileCard.tsx`: avatar・display_name・所属表示と display_name 編集モーダル
+- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`enrollments` を取得
+- `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・所属表示とプロフィール編集モーダル（表示名/大学/学年）
 - `src/components/me/MyAssetsTabs.tsx`: 「ノート/口コミ/保存」タブ切り替えと資産表示
 - `src/components/me/MyNotesList.tsx`: 自分のノート一覧表示
 - `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
@@ -69,4 +71,9 @@
 **マイページ実装ルール**
 - `/me` は Supabase Browser Client + RLS で本人データのみ参照する
 - `profiles` の主キーは `user_id` として扱う
+- `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` も保存し、授業系投稿の同大学スコープと整合させる
 - `保存` タブと `公開範囲` 保存は Phase2 前提で、現段階はUIプレースホルダとする
+
+**オンボーディング（追加）**
+- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年）ページ
+- `src/components/auth/AppRouteGuard.tsx`: 未ログイン判定に加えて `profiles.university_id` / `grade_year` の完了判定を行い、必要時に `/onboarding` へ遷移

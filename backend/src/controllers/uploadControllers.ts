@@ -4,6 +4,32 @@
 import { Request, Response } from 'express';
 import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
 
+const validateUploadRequest = (req: Request, res: Response) => {
+  const file = req.file;
+  const user = req.user;
+
+  if (!file) {
+    res.status(400).json({ error: 'ファイルがアップロードされていません' });
+    return null;
+  }
+
+  if (!user) {
+    res.status(401).json({ error: '認証が必要です' });
+    return null;
+  }
+
+  if (!isValidImageType(file.mimetype)) {
+    res.status(400).json({ error: '無効なファイル形式です（png/jpg/webpのみ）' });
+    return null;
+  }
+  if (!isValidFileSize(file.size)) {
+    res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+    return null;
+  }
+
+  return { file, user };
+};
+
 /**
  * Validates and uploads an image file provided via multipart form data to Supabase Storage.
  *
@@ -13,28 +39,9 @@ import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/
  */
 export const uploadController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const file = req.file;
-    const user = req.user;
-
-    if (!file) {
-      res.status(400).json({ error: 'ファイルがアップロードされていません' });
-      return;
-    }
-
-    if (!user) {
-      res.status(401).json({ error: '認証が必要です' });
-      return;
-    }
-
-    // ファイル形式とサイズのバリデーション
-    if (!isValidImageType(file.mimetype)) {
-      res.status(400).json({ error: '無効なファイル形式です（png/jpgのみ）' });
-      return;
-    }
-    if (!isValidFileSize(file.size)) {
-      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
-      return;
-    }
+    const validated = validateUploadRequest(req, res);
+    if (!validated) return;
+    const { file, user } = validated;
 
     // Storageにアップロードして公開URLを取得
     const imageUrl = await uploadToStorage(file, user.id);
@@ -42,6 +49,21 @@ export const uploadController = async (req: Request, res: Response): Promise<voi
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {
     console.error('アップロードコントローラーエラー:', error);
+    res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
+  }
+};
+
+export const uploadNoteImageController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validated = validateUploadRequest(req, res);
+    if (!validated) return;
+    const { file, user } = validated;
+
+    const imageUrl = await uploadToStorage(file, user.id, 'notes');
+
+    res.status(200).json({ url: imageUrl });
+  } catch (error: any) {
+    console.error('ノート画像アップロードコントローラーエラー:', error);
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };

@@ -1,12 +1,14 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
+import UserContactActions from '@/components/community/UserContactActions';
 import supabase from '@/lib/supabase';
+import { uploadNoteImage } from '@/lib/api';
 
 type OfferingTabsProps = {
   offeringId: string;
@@ -17,6 +19,7 @@ type OfferingTabsProps = {
   reviewsPage: number;
   questionsPage: number;
   canPost: boolean;
+  currentUserId: string | null;
 };
 
 type ModalType = 'none' | 'note' | 'review' | 'question';
@@ -75,6 +78,7 @@ export default function OfferingTabs({
   reviewsPage,
   questionsPage,
   canPost,
+  currentUserId,
 }: OfferingTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -91,14 +95,49 @@ export default function OfferingTabs({
   }, [data.notes]);
 
   useEffect(() => {
-    const getUser = async () => {
+    let isMounted = true;
+    const syncUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (!isMounted) return;
       setUserId(user?.id ?? null);
     };
-    void getUser();
+
+    void syncUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const resolveCurrentUserId = useCallback(async () => {
+    if (userId) return userId;
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error('投稿前の認証確認に失敗しました', error);
+      return null;
+    }
+
+    const nextUserId = user?.id ?? null;
+    if (nextUserId) {
+      setUserId(nextUserId);
+    }
+    return nextUserId;
+  }, [userId]);
 
   const tabs = useMemo(
     () =>
@@ -136,15 +175,16 @@ export default function OfferingTabs({
     });
 
     setNotes(next);
-    if (!userId) {
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       setNotes(prev);
       toast.error('ログインが必要です');
       return;
     }
 
     const result = active
-      ? await reactionClient.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', userId).eq('kind', kind)
-      : await reactionClient.from('note_reactions').insert({ note_id: noteId, user_id: userId, kind });
+      ? await reactionClient.from('note_reactions').delete().eq('note_id', noteId).eq('user_id', currentUserId).eq('kind', kind)
+      : await reactionClient.from('note_reactions').insert({ note_id: noteId, user_id: currentUserId, kind });
 
     if (result.error) {
       setNotes(prev);
@@ -158,20 +198,34 @@ export default function OfferingTabs({
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
+    const image = formData.get('image');
     if (!title || !body) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
+    }
+    setSubmitting(true);
+
+    let uploadedImageUrl: string | null = null;
+    if (image instanceof File && image.size > 0) {
+      try {
+        const uploadResult = await uploadNoteImage(image);
+        uploadedImageUrl = uploadResult.url;
+      } catch {
+        setSubmitting(false);
+        toast.error('ノート画像のアップロードに失敗しました');
+        return;
+      }
     }
 
     const result = await writeClient.from('notes').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       title,
       body_md: body,
+      image_url: uploadedImageUrl,
       visibility: 'university',
     });
     setSubmitting(false);
@@ -193,16 +247,16 @@ export default function OfferingTabs({
     const body = String(formData.get('body') ?? '').trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
     }
+    setSubmitting(true);
 
     const result = await writeClient.from('reviews').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       rating_overall: rating,
       comment: body || null,
     });
@@ -225,16 +279,16 @@ export default function OfferingTabs({
     const body = String(formData.get('body') ?? '').trim();
     if (!title || !body) return;
 
-    setSubmitting(true);
-    if (!userId) {
-      setSubmitting(false);
+    const currentUserId = await resolveCurrentUserId();
+    if (!currentUserId) {
       toast.error('ログインが必要です');
       return;
     }
+    setSubmitting(true);
 
     const result = await writeClient.from('questions').insert({
       offering_id: offeringId,
-      author_id: userId,
+      author_id: currentUserId,
       title,
       body,
     });
@@ -352,7 +406,7 @@ export default function OfferingTabs({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} currentUserId={currentUserId} />
               ))}
             </div>
           )}
@@ -396,6 +450,16 @@ export default function OfferingTabs({
                   <p className="mt-2 text-xs text-slate-500">
                     {question.authorName} / {new Date(question.createdAt).toLocaleString('ja-JP')}
                   </p>
+                  <div className="mt-3">
+                    <UserContactActions
+                      targetUserId={question.authorId}
+                      targetDisplayName={question.authorName}
+                      currentUserId={currentUserId}
+                      allowDm={question.authorAllowDm}
+                      compact
+                      source="question"
+                    />
+                  </div>
                 </article>
               ))}
             </div>
@@ -437,6 +501,15 @@ export default function OfferingTabs({
               className="h-40 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
               required
             />
+            <label className="block text-sm text-slate-700">
+              画像（任意）
+              <input
+                type="file"
+                name="image"
+                accept="image/png,image/jpeg,image/webp"
+                className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              />
+            </label>
             <button
               type="submit"
               disabled={submitting}

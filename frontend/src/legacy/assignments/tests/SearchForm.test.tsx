@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SearchForm from '../SearchForm';
+import SearchForm from '../components/SearchForm';
 import supabase from '@/lib/supabase';
 
 jest.mock('@/lib/supabase', () => ({

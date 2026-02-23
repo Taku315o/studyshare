@@ -5,7 +5,6 @@
 
 
 import { v4 as uuidv4 } from 'uuid';
-import multer from 'multer';
 import { supabaseAdmin as supabase } from '../lib/supabase';
 
 // multerの型定義を修正
@@ -17,6 +16,24 @@ interface File {
   size: number;
 }
 
+type UploadTarget = 'assignments' | 'notes';
+
+const resolveBucketName = (target: UploadTarget): string => {
+  if (target === 'notes') {
+    return (
+      process.env.SUPABASE_NOTES_IMAGE_BUCKET ||
+      process.env.SUPABASE_STORAGE_BUCKET ||
+      'notes'
+    );
+  }
+
+  return (
+    process.env.SUPABASE_ASSIGNMENTS_IMAGE_BUCKET ||
+    process.env.SUPABASE_STORAGE_BUCKET ||
+    'assignments'
+  );
+};
+
 /**
  * Determines whether the provided MIME type is an accepted image format.
  *
@@ -24,7 +41,7 @@ interface File {
  * @returns True when the MIME type is either JPEG or PNG; otherwise false.
  */
 export const isValidImageType = (mimetype: string): boolean => {
-  return ['image/jpeg', 'image/png'].includes(mimetype);
+  return ['image/jpeg', 'image/png', 'image/webp'].includes(mimetype);
 };
 
 /**
@@ -46,35 +63,35 @@ export const isValidFileSize = (size: number): boolean => {
  * @returns The publicly accessible URL pointing to the uploaded asset.
  * @throws When Supabase fails to upload the file or generate a public URL.
  */
-export const uploadToStorage = async (
-  file: File,
-  userId: string
-): Promise<string> => {
+export const uploadToStorage = async (file: File, userId: string, target: UploadTarget = 'assignments'): Promise<string> => {
   try {
     // ファイル名を固有のIDに変更
-    const fileExtension = file.originalname.split('.').pop();
+    const fileExtension = file.originalname.split('.').pop() ?? 'bin';
     const fileName = `${uuidv4()}.${fileExtension}`;
-    
-    // バケット名
-    const bucketName = 'assignments';
+    const bucketName = resolveBucketName(target);
+    const objectPath = target === 'notes' ? `notes/${userId}/${fileName}` : `${userId}/${fileName}`;
     
     // Supabase Storageにアップロード
     const { error: uploadError, data } = await supabase.storage
       .from(bucketName)
-      .upload(`${userId}/${fileName}`, file.buffer, {
+      .upload(objectPath, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
       });
     
     if (uploadError) {
-      console.error('アップロードエラー:', uploadError);
+      console.error('アップロードエラー:', {
+        bucketName,
+        objectPath,
+        message: uploadError.message,
+      });
       throw new Error('ファイルのアップロードに失敗しました');
     }
     
     // 公開URLを生成
     const { data: publicURL } = supabase.storage
       .from(bucketName)
-      .getPublicUrl(`${userId}/${fileName}`);
+      .getPublicUrl(objectPath);
     
     return publicURL.publicUrl;
   } catch (error) {

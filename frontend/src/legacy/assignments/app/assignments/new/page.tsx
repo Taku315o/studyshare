@@ -8,8 +8,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import AssignmentForm from '@/components/AssignmentForm';
-import Header from '@/components/Header';
+import AssignmentForm from '@/legacy/assignments/components/AssignmentForm';
+import Header from '@/legacy/assignments/components/Header';
 //app/assignments/new/page.tsx に置いてあるこの関数は、URL /assignments/new にアクセスしたときに表示されるページ
 /**
  * Page that guards assignment creation behind authentication and renders the submission form for logged-in users.

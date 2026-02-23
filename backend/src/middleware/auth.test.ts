@@ -60,7 +60,7 @@ describe('authenticate', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when user profile lookup fails', async () => {
+  it('continues with auth user info when legacy user profile lookup fails', async () => {
     getUserMock.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -84,12 +84,16 @@ describe('authenticate', () => {
 
     await authenticate(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'ユーザー情報取得に失敗しました' });
-    expect(next).not.toHaveBeenCalled();
+    expect(req.user).toEqual({
+      id: 'user-1',
+      email: undefined,
+      role: 'student',
+    });
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when user profile does not exist', async () => {
+  it('continues when legacy user profile does not exist', async () => {
     getUserMock.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -113,9 +117,13 @@ describe('authenticate', () => {
 
     await authenticate(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: 'ユーザーが見つかりません' });
-    expect(next).not.toHaveBeenCalled();
+    expect(req.user).toEqual({
+      id: 'user-1',
+      email: undefined,
+      role: 'student',
+    });
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it('sets req.user and calls next when token and user profile are valid', async () => {

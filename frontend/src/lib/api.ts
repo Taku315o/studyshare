@@ -40,6 +40,21 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
 };
 
 /**
+ * Uploads a note image file to the backend and returns its public URL.
+ *
+ * @param file - Browser File object selected by the user.
+ * @returns A promise resolving to an object containing the uploaded image URL.
+ */
+export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await api.post<{ url: string }>('/notes/upload', formData);
+
+  return response.data;
+};
+
+/**
  * Sends a request to create a new assignment using the backend API.
  *
  * @param data - Assignment payload including title, description, and an optional image URL.

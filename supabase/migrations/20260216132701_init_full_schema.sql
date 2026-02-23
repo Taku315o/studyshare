@@ -227,7 +227,7 @@ create table if not exists public.enrollments (
   status public.enrollment_status not null default 'enrolled',
   visibility public.enrollment_visibility not null default 'match_only',
   created_at timestamptz not null default now(),
-  primary key(user_id, offering_id)
+  primary key(user_id, offering_id) -- 多対多の関係を表現するための複合主キー
 );
 
 create index if not exists enrollments_offering_idx on public.enrollments(offering_id);
