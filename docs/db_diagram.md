@@ -201,10 +201,10 @@ sequenceDiagram
   end
 
   rect rgb(245,245,245)
-  note over A,DB: DM gating: 2+ contributions<br/>OR entitlement/subscription
+  note over A,DB: DM gating (MVP): 2+ contributions<br/>OR entitlement/subscription<br/>OR first-year exempt<br/>Replies allowed after receiving a DM
   A->>RPC: create_direct_conversation(other_user_id)
   RPC->>RPC: can_dm(sender,recipient)?
-  RPC->>DB: checks blocks + dm_scope + shared_offering_count + can_send_message
+  RPC->>DB: checks blocks + allow_dm + can_send_message (MVP ignores dm_scope/shared_offering)
   alt allowed
     RPC->>DB: upsert conversations by direct_key
     RPC->>DB: insert conversation_members (2 users)
