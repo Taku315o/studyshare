@@ -38,7 +38,7 @@ const resolveBucketName = (target: UploadTarget): string => {
  * Determines whether the provided MIME type is an accepted image format.
  *
  * @param mimetype - MIME type string reported for an uploaded file.
- * @returns True when the MIME type is either JPEG or PNG; otherwise false.
+ * @returns True when the MIME type is JPEG, PNG, or WebP; otherwise false.
  */
 export const isValidImageType = (mimetype: string): boolean => {
   return ['image/jpeg', 'image/png', 'image/webp'].includes(mimetype);
