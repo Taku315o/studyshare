@@ -130,6 +130,9 @@
 - `messages` insert（RLS）
 	- 通常送信: `can_send_message`
 	- 返信送信: 既存会話に相手メッセージがあれば未解放でも許可（MVP）
+- `conversation_members` / `messages` / `conversations` のRLS注意点
+	- `conversation_members` のpolicy内で `conversation_members` を直接 `exists(...)` 再参照すると、RLS評価の自己再帰で `42P17 (infinite recursion)` が発生しうる
+	- メンバー判定は `security definer` 関数（例: `is_conversation_member(uid, conversation_id)`）経由に寄せる
 
 ## RLS設計（ざっくり）
 
@@ -157,6 +160,7 @@
 - `blocks`: 本人が管理
 - `reports`: insertはユーザー、selectはadminのみ
 - `footprints`: insertはviewer、selectはviewed本人かつ解放済み
+- Messaging系RLSは `conversation_members` 自己参照による再帰を避ける（helper関数経由）
 
 ## 典型フロー
 1. シラバス検索 → `courses / course_offerings` を作成 or 既存を選択

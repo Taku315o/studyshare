@@ -18,6 +18,8 @@
 - コミュニティ表示（`/community`）
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
 - DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
+- DM送信前に `auth.getUser()` で実セッションを再確認し、画面状態の `currentUserId` と不一致なら送信を中断して再ログイン/再読込を促す（同一ブラウザでのアカウント切替対策）
+- Messaging系RLSは `conversation_members` policyの自己参照で再帰エラーにならないよう、メンバー判定helper関数経由で実装する
 - マイページ表示（`/me`）
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
