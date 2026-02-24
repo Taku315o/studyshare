@@ -5,6 +5,7 @@
 - frontendはセッションを保持し、JWTをbackendに付与
 - backendはSupabase AuthでJWTを検証
 - 認証後のアプリ導線では `profiles.university_id` / `grade_year` の初期設定を必須化（未設定時は `/onboarding` へ誘導）
+- `next` クエリでの遷移は安全な内部パスのみ許可し、`/onboarding` への戻りループも拒否（`src/lib/nextPath.ts`）
 
 **権限制御**
 - `users` テーブルに `role` を保持（`student`/`admin`）
