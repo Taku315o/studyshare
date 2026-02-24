@@ -9,6 +9,7 @@ jest.mock('@/lib/supabase/client', () => ({
 
 describe('CommunityPage', () => {
   const getUserMock = jest.fn();
+  const onAuthStateChangeMock = jest.fn();
   const rpcMock = jest.fn();
   const eqMock = jest.fn();
   const selectMock = jest.fn();
@@ -64,10 +65,18 @@ describe('CommunityPage', () => {
       data: { user: { id: 'user-1' } },
       error: null,
     });
+    onAuthStateChangeMock.mockReturnValue({
+      data: {
+        subscription: {
+          unsubscribe: jest.fn(),
+        },
+      },
+    });
 
     (createSupabaseClient as jest.Mock).mockReturnValue({
       auth: {
         getUser: getUserMock,
+        onAuthStateChange: onAuthStateChangeMock,
       },
       rpc: rpcMock,
       from: fromMock,
