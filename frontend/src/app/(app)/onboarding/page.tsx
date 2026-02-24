@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveSafeNextPath } from '@/lib/nextPath';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 
@@ -127,7 +128,8 @@ export default function OnboardingPage() {
       if (error) throw error;
 
       toast.success('初期設定を保存しました');
-      router.replace(nextPath.startsWith('/') ? nextPath : '/home');
+      router.replace(resolveSafeNextPath(nextPath));
+
       router.refresh();
     } catch (error) {
       console.error('オンボーディング保存エラー:', error);
