@@ -42,7 +42,11 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
   
-  const response = await api.post<{ url: string }>('/upload', formData);
+  const response = await api.post<{ url: string }>('/upload', formData, {
+    headers: {
+      'Idempotency-Key': buildIdempotencyKey(),
+    },
+  });
   
   return response.data;
 };
@@ -57,7 +61,11 @@ export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await api.post<{ url: string }>('/notes/upload', formData);
+  const response = await api.post<{ url: string }>('/notes/upload', formData, {
+    headers: {
+      'Idempotency-Key': buildIdempotencyKey(),
+    },
+  });
 
   return response.data;
 };
