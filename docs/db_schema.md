@@ -1,5 +1,12 @@
 # StudyShare schema v1（Supabase/Postgres）
 
+## 実装メモ（2026-02-25）
+- 現行のノート画像添付は frontend から backend `POST /api/notes/upload` を呼び出し、Supabase Storage に保存して公開URLを `notes.image_url` に保存する構成。
+- backend の upload エンドポイントは `assignments` ルーターから分離済み（`uploads` ルーター）。
+- 旧 `assignments` 機能は frontend 本体導線から切り離し済みだが、backend には legacy 互換として一部残存。
+- Storage bucket は少なくとも `notes`（現行）と `assignments`（legacy互換）を用意する前提。
+- bucket 未作成時は backend ログに `Bucket not found` が出るため、Storage bucket 作成 migration の適用を確認すること。
+
 ## このDBが解いている問題（設計の核）
 - 「授業（Course）」と「その学期の実体（Offering）」と「自分の時間割（Enrollment）」を分離し、誤マッチやUX破綻を防ぐ。
 - ノート/レビューは「授業名」ではなく `Offering` に紐づけ、同名別クラス問題を防止する。
@@ -41,6 +48,7 @@
 
 ### A. Notes
 - `notes`: `offering_id` に紐づく（授業実体単位）
+- `image_url`: ノート画像添付の公開URL（backend upload API 経由で生成）
 - `visibility`: `public` / `university` / `offering_only` / `private`
 - `search_tsv`: `title` / `body` / `tags` を tsvector 化（`unaccent + simple`）
 - `deleted_at` によるソフトデリート
@@ -167,5 +175,6 @@
 2. 追加ボタン → `enrollments` に `(user_id, offering_id, status=enrolled/planned)`
 3. マッチング → `find_match_candidates()`（履修の中身は漏れない）
 4. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）
+   - 画像添付あり: 先に backend `POST /api/notes/upload` で Storage へアップロードし、返却URLを `notes.image_url` に保存
 5. 質問投稿 → `questions`（`offering_id` 紐付け）
 6. DM → `create_direct_conversation()` → `messages` insert（開始は `can_dm`、返信は既存会話例外あり）
