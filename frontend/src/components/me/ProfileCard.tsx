@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import type { MeProfileViewModel, MeUniversityOption } from '@/types/me';
 
 type ProfileCardProps = {
@@ -23,6 +23,7 @@ export default function ProfileCard({
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYearInput, setGradeYearInput] = useState('');
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!isModalOpen) return;
@@ -34,6 +35,9 @@ export default function ProfileCard({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmittingRef.current) {
+      return;
+    }
     const nextName = displayNameInput.trim();
     if (!nextName) {
       setSubmitErrorMessage('表示名を入力してください。');
@@ -50,6 +54,7 @@ export default function ProfileCard({
     }
 
     setSubmitErrorMessage(null);
+    isSubmittingRef.current = true;
 
     try {
       await onSaveProfile({
@@ -60,6 +65,8 @@ export default function ProfileCard({
       setIsModalOpen(false);
     } catch {
       setSubmitErrorMessage('プロフィール更新に失敗しました。');
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

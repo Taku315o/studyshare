@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
@@ -85,6 +85,7 @@ export default function OfferingTabs({
   const searchParams = useSearchParams();
   const [modal, setModal] = useState<ModalType>('none');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [notes, setNotes] = useState<NoteListItem[]>(data.notes);
   const [userId, setUserId] = useState<string | null>(null);
   const reactionClient = supabase as unknown as NoteReactionClient;
@@ -195,112 +196,132 @@ export default function OfferingTabs({
   const handleCreateNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
     const image = formData.get('image');
     if (!title || !body) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    let uploadedImageUrl: string | null = null;
-    if (image instanceof File && image.size > 0) {
-      try {
-        const uploadResult = await uploadNoteImage(image);
-        uploadedImageUrl = uploadResult.url;
-      } catch {
-        setSubmitting(false);
-        toast.error('ノート画像のアップロードに失敗しました');
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
         return;
       }
-    }
 
-    const result = await writeClient.from('notes').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      title,
-      body_md: body,
-      image_url: uploadedImageUrl,
-      visibility: 'university',
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? 'ノート投稿に失敗しました');
-      return;
-    }
+      let uploadedImageUrl: string | null = null;
+      if (image instanceof File && image.size > 0) {
+        try {
+          const uploadResult = await uploadNoteImage(image);
+          uploadedImageUrl = uploadResult.url;
+        } catch {
+          toast.error('ノート画像のアップロードに失敗しました');
+          return;
+        }
+      }
 
-    toast.success('ノートを投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('notes').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        title,
+        body_md: body,
+        image_url: uploadedImageUrl,
+        visibility: 'university',
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? 'ノート投稿に失敗しました');
+        return;
+      }
+
+      toast.success('ノートを投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const handleCreateReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const rating = Number(formData.get('rating'));
     const body = String(formData.get('body') ?? '').trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    const result = await writeClient.from('reviews').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      rating_overall: rating,
-      comment: body || null,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? '口コミ投稿に失敗しました');
-      return;
-    }
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
+        return;
+      }
 
-    toast.success('口コミを投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('reviews').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        rating_overall: rating,
+        comment: body || null,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? '口コミ投稿に失敗しました');
+        return;
+      }
+
+      toast.success('口コミを投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const handleCreateQuestion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
     if (!title || !body) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    const result = await writeClient.from('questions').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      title,
-      body,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? '質問投稿に失敗しました');
-      return;
-    }
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
+        return;
+      }
 
-    toast.success('質問を投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('questions').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        title,
+        body,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? '質問投稿に失敗しました');
+        return;
+      }
+
+      toast.success('質問を投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   return (
