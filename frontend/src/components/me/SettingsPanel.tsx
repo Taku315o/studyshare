@@ -149,13 +149,8 @@ export default function SettingsPanel() {
         </button>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-semibold text-amber-900">DM設定（MVP注記）</p>
-        <p className="mt-2 text-xs leading-relaxed text-amber-800">
-          `dm_scope` はスキーマ上は保持していますが、MVP中はDM判定に未反映です。現在のDM開始可否は主に
-          `allow_dm` と送信者側の解放条件で判定されます。
-        </p>
-      </div>
+      {/* NOTE: dm_scope はスキーマ上は保持しているが、MVP中はDM判定に未反映。
+          現在のDM開始可否は allow_dm と送信者側の解放条件で判定される。 */}
 
       <div className="mt-4">
         <button

@@ -1,10 +1,9 @@
+import Link from 'next/link';
 import { Star } from 'lucide-react';
-import UserContactActions from '@/components/community/UserContactActions';
 import type { ReviewListItem } from '@/types/offering';
 
 type ReviewCardProps = {
   review: ReviewListItem;
-  currentUserId: string | null;
 };
 
 function formatDate(date: string) {
@@ -16,13 +15,31 @@ function formatDate(date: string) {
   });
 }
 
-export default function ReviewCard({ review, currentUserId }: ReviewCardProps) {
+export default function ReviewCard({ review }: ReviewCardProps) {
   return (
     <article className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-800">{review.authorName}</p>
-          <p className="text-xs text-slate-500">{formatDate(review.createdAt)}</p>
+        <div className="flex items-center gap-3">
+          <Link href={`/profile/${review.authorId}`} className="shrink-0">
+            {review.authorAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={review.authorAvatarUrl}
+                alt={`${review.authorName}のアイコン`}
+                className="h-9 w-9 rounded-full border border-slate-200 object-cover"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                {review.authorName.slice(0, 1)}
+              </div>
+            )}
+          </Link>
+          <div>
+            <Link href={`/profile/${review.authorId}`} className="text-sm font-semibold text-slate-800 hover:underline">
+              {review.authorName}
+            </Link>
+            <p className="text-xs text-slate-500">{formatDate(review.createdAt)}</p>
+          </div>
         </div>
         <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
           <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
@@ -32,16 +49,6 @@ export default function ReviewCard({ review, currentUserId }: ReviewCardProps) {
       <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
         {review.comment ?? 'コメントなし'}
       </p>
-      <div className="mt-4 border-t border-slate-200/80 pt-3">
-        <UserContactActions
-          targetUserId={review.authorId}
-          targetDisplayName={review.authorName}
-          currentUserId={currentUserId}
-          allowDm={review.authorAllowDm}
-          compact
-          source="review"
-        />
-      </div>
     </article>
   );
 }
