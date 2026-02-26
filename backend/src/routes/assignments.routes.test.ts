@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../app';
 import { supabaseAdmin, supabaseAuth, supabaseFromToken } from '../lib/supabase';
+import { resetIdempotencyStoreForTests } from '../middleware/idempotency';
 
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'fixed-uuid'),
@@ -77,6 +78,7 @@ const mockAuthenticatedUserWithoutLegacyUsersTable = (userId = 'user-1') => {
 describe('assignment routes', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    resetIdempotencyStoreForTests();
   });
 
   describe('POST /api/assignments', () => {
@@ -128,6 +130,40 @@ describe('assignment routes', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toEqual(created);
+    });
+
+    it('replays cached response when same Idempotency-Key is retried', async () => {
+      mockAuthenticatedUser('student');
+
+      const created = { id: 'assignment-1', title: 'title' };
+      const singleMock = jest.fn().mockResolvedValue({ data: created, error: null });
+      const selectMock = jest.fn().mockReturnValue({ single: singleMock });
+      const insertMock = jest.fn().mockReturnValue({ select: selectMock });
+      mockedSupabaseAdmin.from.mockReturnValue({ insert: insertMock });
+
+      const requestBody = {
+        title: 'title',
+        description: 'description',
+      };
+
+      const first = await request(app)
+        .post('/api/assignments')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'same-key')
+        .send(requestBody);
+
+      const second = await request(app)
+        .post('/api/assignments')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'same-key')
+        .send(requestBody);
+
+      expect(first.status).toBe(201);
+      expect(first.body).toEqual(created);
+      expect(second.status).toBe(201);
+      expect(second.body).toEqual(created);
+      expect(second.headers['idempotency-replayed']).toBe('true');
+      expect(insertMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -229,6 +265,48 @@ describe('assignment routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ url: 'https://example.com/user-1/image.png' });
     });
+
+    it('replays cached response when same Idempotency-Key is retried', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'user-1/image.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/user-1/image.png' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const first = await request(app)
+        .post('/api/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.png',
+          contentType: 'image/png',
+        });
+
+      const second = await request(app)
+        .post('/api/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.png',
+          contentType: 'image/png',
+        });
+
+      expect(first.status).toBe(200);
+      expect(first.body).toEqual({ url: 'https://example.com/user-1/image.png' });
+      expect(second.status).toBe(200);
+      expect(second.body).toEqual({ url: 'https://example.com/user-1/image.png' });
+      expect(second.headers['idempotency-replayed']).toBe('true');
+      expect(uploadMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('POST /api/notes/upload', () => {
@@ -286,6 +364,48 @@ describe('assignment routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+    });
+
+    it('replays cached response when same Idempotency-Key is retried', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'notes/user-1/image.webp' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const first = await request(app)
+        .post('/api/notes/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'notes-upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.webp',
+          contentType: 'image/webp',
+        });
+
+      const second = await request(app)
+        .post('/api/notes/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'notes-upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.webp',
+          contentType: 'image/webp',
+        });
+
+      expect(first.status).toBe(200);
+      expect(first.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(second.status).toBe(200);
+      expect(second.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(second.headers['idempotency-replayed']).toBe('true');
+      expect(uploadMock).toHaveBeenCalledTimes(1);
     });
   });
 

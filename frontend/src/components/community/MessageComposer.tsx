@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, KeyboardEvent, useState } from 'react';
+import { FormEvent, KeyboardEvent, useRef, useState } from 'react';
 
 type MessageComposerProps = {
   onSend: (message: string) => Promise<void> | void;
@@ -10,16 +10,19 @@ type MessageComposerProps = {
 export default function MessageComposer({ onSend, disabled = false }: MessageComposerProps) {
   const [value, setValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const submit = async () => {
     const trimmed = value.trim();
-    if (!trimmed || disabled || isSubmitting) return;
+    if (!trimmed || disabled || isSubmittingRef.current) return;
 
     try {
+      isSubmittingRef.current = true;
       setIsSubmitting(true);
       await onSend(trimmed);
       setValue('');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

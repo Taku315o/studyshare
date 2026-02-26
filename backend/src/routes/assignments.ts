@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { authenticate, requireAdmin } from '../middleware/auth'; // 作成したミドルウェア
+import { idempotencyGuard } from '../middleware/idempotency';
 import validate from '../middleware/validate';
 import { createAssignmentSchema } from '../validators/assignment';
 import { 
@@ -27,6 +28,7 @@ router.get('/assignments/search', searchAssignmentsController);
 router.post(
   '/assignments',
   authenticate,
+  idempotencyGuard,
   validate(createAssignmentSchema),
   createAssignmentController
 );

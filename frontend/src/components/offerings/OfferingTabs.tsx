@@ -1,12 +1,12 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
+import Link from 'next/link';
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
-import UserContactActions from '@/components/community/UserContactActions';
 import supabase from '@/lib/supabase';
 import { uploadNoteImage } from '@/lib/api';
 
@@ -19,7 +19,6 @@ type OfferingTabsProps = {
   reviewsPage: number;
   questionsPage: number;
   canPost: boolean;
-  currentUserId: string | null;
 };
 
 type ModalType = 'none' | 'note' | 'review' | 'question';
@@ -78,13 +77,13 @@ export default function OfferingTabs({
   reviewsPage,
   questionsPage,
   canPost,
-  currentUserId,
 }: OfferingTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [modal, setModal] = useState<ModalType>('none');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [notes, setNotes] = useState<NoteListItem[]>(data.notes);
   const [userId, setUserId] = useState<string | null>(null);
   const reactionClient = supabase as unknown as NoteReactionClient;
@@ -195,112 +194,132 @@ export default function OfferingTabs({
   const handleCreateNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
     const image = formData.get('image');
     if (!title || !body) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    let uploadedImageUrl: string | null = null;
-    if (image instanceof File && image.size > 0) {
-      try {
-        const uploadResult = await uploadNoteImage(image);
-        uploadedImageUrl = uploadResult.url;
-      } catch {
-        setSubmitting(false);
-        toast.error('ノート画像のアップロードに失敗しました');
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
         return;
       }
-    }
 
-    const result = await writeClient.from('notes').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      title,
-      body_md: body,
-      image_url: uploadedImageUrl,
-      visibility: 'university',
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? 'ノート投稿に失敗しました');
-      return;
-    }
+      let uploadedImageUrl: string | null = null;
+      if (image instanceof File && image.size > 0) {
+        try {
+          const uploadResult = await uploadNoteImage(image);
+          uploadedImageUrl = uploadResult.url;
+        } catch {
+          toast.error('ノート画像のアップロードに失敗しました');
+          return;
+        }
+      }
 
-    toast.success('ノートを投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('notes').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        title,
+        body_md: body,
+        image_url: uploadedImageUrl,
+        visibility: 'university',
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? 'ノート投稿に失敗しました');
+        return;
+      }
+
+      toast.success('ノートを投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const handleCreateReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const rating = Number(formData.get('rating'));
     const body = String(formData.get('body') ?? '').trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    const result = await writeClient.from('reviews').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      rating_overall: rating,
-      comment: body || null,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? '口コミ投稿に失敗しました');
-      return;
-    }
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
+        return;
+      }
 
-    toast.success('口コミを投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('reviews').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        rating_overall: rating,
+        comment: body || null,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? '口コミ投稿に失敗しました');
+        return;
+      }
+
+      toast.success('口コミを投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const handleCreateQuestion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canPost) return;
+    if (submittingRef.current) return;
     const formData = new FormData(event.currentTarget);
     const title = String(formData.get('title') ?? '').trim();
     const body = String(formData.get('body') ?? '').trim();
     if (!title || !body) return;
 
-    const currentUserId = await resolveCurrentUserId();
-    if (!currentUserId) {
-      toast.error('ログインが必要です');
-      return;
-    }
+    submittingRef.current = true;
     setSubmitting(true);
 
-    const result = await writeClient.from('questions').insert({
-      offering_id: offeringId,
-      author_id: currentUserId,
-      title,
-      body,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      toast.error(result.error.message ?? '質問投稿に失敗しました');
-      return;
-    }
+    try {
+      const currentUserId = await resolveCurrentUserId();
+      if (!currentUserId) {
+        toast.error('ログインが必要です');
+        return;
+      }
 
-    toast.success('質問を投稿しました');
-    setModal('none');
-    router.refresh();
+      const result = await writeClient.from('questions').insert({
+        offering_id: offeringId,
+        author_id: currentUserId,
+        title,
+        body,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? '質問投稿に失敗しました');
+        return;
+      }
+
+      toast.success('質問を投稿しました');
+      setModal('none');
+      router.refresh();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -406,7 +425,7 @@ export default function OfferingTabs({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} currentUserId={currentUserId} />
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           )}
@@ -447,18 +466,28 @@ export default function OfferingTabs({
                 <article key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-base font-semibold text-slate-900">{question.title}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{question.body}</p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {question.authorName} / {new Date(question.createdAt).toLocaleString('ja-JP')}
-                  </p>
-                  <div className="mt-3">
-                    <UserContactActions
-                      targetUserId={question.authorId}
-                      targetDisplayName={question.authorName}
-                      currentUserId={currentUserId}
-                      allowDm={question.authorAllowDm}
-                      compact
-                      source="question"
-                    />
+                  <div className="mt-2 flex items-center gap-2">
+                    <Link href={`/profile/${question.authorId}`} className="shrink-0">
+                      {question.authorAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={question.authorAvatarUrl}
+                          alt={`${question.authorName}のアイコン`}
+                          className="h-6 w-6 rounded-full border border-slate-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                          {question.authorName.slice(0, 1)}
+                        </div>
+                      )}
+                    </Link>
+                    <p className="text-xs text-slate-500">
+                      <Link href={`/profile/${question.authorId}`} className="hover:underline">
+                        {question.authorName}
+                      </Link>
+                      {' / '}
+                      {new Date(question.createdAt).toLocaleString('ja-JP')}
+                    </p>
                   </div>
                 </article>
               ))}

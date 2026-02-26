@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveSafeNextPath } from '@/lib/nextPath';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 
@@ -32,6 +33,7 @@ export default function OnboardingPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
@@ -96,6 +98,9 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSavingRef.current) {
+      return;
+    }
     if (!userId) {
       toast.error('ログイン情報を取得できませんでした');
       return;
@@ -110,6 +115,7 @@ export default function OnboardingPage() {
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);// 二重送信を防止するため、保存処理中はフォームを無効化する
     try {
       const { error } = await typedSupabase
@@ -127,12 +133,14 @@ export default function OnboardingPage() {
       if (error) throw error;
 
       toast.success('初期設定を保存しました');
-      router.replace(nextPath.startsWith('/') ? nextPath : '/home');
+      router.replace(resolveSafeNextPath(nextPath));
+
       router.refresh();
     } catch (error) {
       console.error('オンボーディング保存エラー:', error);
       toast.error('初期設定の保存に失敗しました');
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);// 保存処理が完了したらフォームを再度有効化する
     }
   };

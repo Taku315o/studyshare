@@ -1,5 +1,9 @@
 **テスト戦略**
 
+**移行メモ（2026-02-25）**
+- 旧 `AssignmentForm` / `AssignmentList` / `SearchForm` / `Header` / `Hero` のテストは `frontend/src/legacy/assignments/tests/` へ退避（参照用）。
+- 現行の優先テスト対象は `/(app)` フロー（授業詳細・ノート・口コミ・コミュニティ）を中心にする。
+
 **現状**
 - frontend: Jest + React Testing Libraryの基盤あり
 - backend: Jest + Supertest で API統合テスト + ユニットテストを実装
@@ -29,6 +33,8 @@
 - `POST /api/assignments` バリデーション/認証
 - `DELETE /api/assignments/:id` 管理者権限
 - `POST /api/upload` 画像バリデーション
+- `POST /api/notes/upload` 画像バリデーション/認証（現行ノート画像添付）
+- `POST /api/notes/upload` で legacy `users` テーブル不在でも認証継続できること
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -51,6 +57,9 @@
 - `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
+- ノート画像添付アップロード
+- Storage bucket 未作成時に backend ログへ `Bucket not found` が出ることを確認できる（原因切り分け）
+- bucket 作成後に `image_url` 付きで `notes` insert が成功する
 
 **コマンド**
 - frontend: `pnpm --filter frontend test`

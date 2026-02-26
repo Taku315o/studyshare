@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback,useRef } from 'react';
 import { Plus, User, Loader2, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { OfferingMeta } from '@/types/offering';
@@ -31,11 +31,15 @@ function useEnrollment(
   onSuccess?: () => void
 ) {
   const [isEnrolled, setIsEnrolled] = useState(isEnrolledInitial);
+  const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const enroll = useCallback(async () => {
-    if (isSubmitting) return { success: false, error: 'Already submitting' };
+    if (isSubmittingRef.current) {
+    return { success: false, error: 'Already submitting' };
+  }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -61,6 +65,7 @@ function useEnrollment(
       const enrollmentsTable = supabase.from('enrollments') as unknown as {
         insert: (values: EnrollmentInsert) => Promise<{ error: SupabaseError | null }>;
       };
+      
       const { error } = await enrollmentsTable.insert(enrollmentData);
 
       if (error) {
@@ -83,13 +88,15 @@ function useEnrollment(
         error: error.message || '時間割への追加に失敗しました' 
       };
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [offeringId, isSubmitting, onSuccess]);
+  }, [offeringId, , onSuccess]);
 
   return { isEnrolled, isSubmitting, enroll, setIsEnrolled };
 }
 
+// カスタムコンポーネント：時間割ヘッダー
 export default function OfferingHeader({
   offeringId,
   offering,

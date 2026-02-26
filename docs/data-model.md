@@ -1,5 +1,10 @@
 **データモデル**
 
+**移行メモ（2026-02-25）**
+- このページは旧 `assignments` 中心のデータモデルを主に記載している。
+- 現行アプリの中心モデルは `profiles` / `notes` / `reviews` / `course_offerings` / `enrollments` など（詳細は `docs/db_schema.md` を優先参照）。
+- `assignments` 関連は legacy 互換として backend に一部残存しているが、frontend 本体フローからは切り離している。
+
 **主要テーブル**
 - `users`
 - `assignments`

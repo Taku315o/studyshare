@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { resolveSafeNextPath } from '@/lib/nextPath';
 import supabase from '@/lib/supabase';
 
 type AppRouteGuardProps = {
@@ -71,7 +72,7 @@ export default function AppRouteGuard({ children }: AppRouteGuardProps) {
 
       if (completed && pathname === '/onboarding') {
         const nextPath = searchParams?.get('next');
-        const safeNextPath = nextPath && nextPath !== '/onboarding' ? nextPath : '/home';
+        const safeNextPath = resolveSafeNextPath(nextPath);
         router.replace(safeNextPath);
       }
     };

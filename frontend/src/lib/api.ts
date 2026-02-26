@@ -11,6 +11,14 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001/api',
 });
 
+const buildIdempotencyKey = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 /**
  * Applies or removes the Authorization header used for authenticated API requests.
  *
@@ -34,7 +42,11 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
   
-  const response = await api.post<{ url: string }>('/upload', formData);
+  const response = await api.post<{ url: string }>('/upload', formData, {
+    headers: {
+      'Idempotency-Key': buildIdempotencyKey(),
+    },
+  });
   
   return response.data;
 };
@@ -49,7 +61,11 @@ export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await api.post<{ url: string }>('/notes/upload', formData);
+  const response = await api.post<{ url: string }>('/notes/upload', formData, {
+    headers: {
+      'Idempotency-Key': buildIdempotencyKey(),
+    },
+  });
 
   return response.data;
 };
@@ -70,7 +86,11 @@ export const createAssignment = async (data: {
   course_name?: string;
   teacher_name?: string;
 }) => {
-  const response = await api.post('/assignments', data);
+  const response = await api.post('/assignments', data, {
+    headers: {
+      'Idempotency-Key': buildIdempotencyKey(),
+    },
+  });
   return response.data;
 };
 

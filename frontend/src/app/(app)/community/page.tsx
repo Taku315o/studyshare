@@ -62,6 +62,19 @@ function mapMessageRow(row: Pick<MessageRow, 'id' | 'conversation_id' | 'sender_
   };
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+  return null;
+}
+
 export default function CommunityPage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const typedSupabase = supabase as unknown as SupabaseClient<Database>;
@@ -279,10 +292,18 @@ export default function CommunityPage() {
       }
     };
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
     void initialize();
 
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, [supabase]);
 
@@ -593,6 +614,38 @@ export default function CommunityPage() {
 
       const now = new Date().toISOString();
 
+      const {
+        data: { user: sessionUser },
+        error: sessionError,
+      } = await supabase.auth.getUser();
+
+      if (sessionError) {
+        console.error('送信前セッション確認エラー:', sessionError);
+        setMessagesErrorMessage('ログインセッションの確認に失敗しました。時間をおいて再度お試しください。');
+        setFallbackNotice('メッセージ送信を中断しました。ログイン状態を確認してください。');
+        return;
+      }
+
+      if (!sessionUser) {
+        setCurrentUserId(null);
+        setMessagesErrorMessage('ログインセッションが切れました。再ログインしてから再度お試しください。');
+        setFallbackNotice('メッセージ送信を中断しました。ログイン状態を確認してください。');
+        return;
+      }
+
+      if (sessionUser.id !== currentUserId) {
+        console.warn('コミュニティ画面のユーザーIDとセッションが不一致です', {
+          currentUserId,
+          sessionUserId: sessionUser.id,
+        });
+        setCurrentUserId(sessionUser.id);
+        setMessagesErrorMessage(
+          '別アカウントのセッションに切り替わっています。画面を開き直して、送信元アカウントを確認してください。',
+        );
+        setFallbackNotice('セッション不一致を検出したため、ローカル送信へはフォールバックしませんでした。');
+        return;
+      }
+
       if (selectedThread.isLocal) {
         const localMessage: ChatMessageViewModel = {
           id: `local-message:${Date.now()}`,
@@ -638,6 +691,7 @@ export default function CommunityPage() {
         setMessagesErrorMessage(null);
       } catch (error) {
         console.error('メッセージ送信エラー:', error);
+        const errorMessage = getErrorMessage(error);
 
         const existingMessages = messagesByThreadId[selectedThread.threadId] ?? [];
 
@@ -667,10 +721,14 @@ export default function CommunityPage() {
 
         updateThreadLastMessage(localThreadId, body, now);
         setSelectedThreadId(localThreadId);
-        setFallbackNotice('DM制約のためローカル会話モードに切り替えました（保存されません）。');
+        setFallbackNotice(
+          errorMessage?.toLowerCase().includes('row-level security')
+            ? 'メッセージ保存でRLSエラーが発生したため、ローカル会話モードに切り替えました（保存されません）。'
+            : 'メッセージ保存に失敗したため、ローカル会話モードに切り替えました（保存されません）。',
+        );
       }
     },
-    [currentUserId, ensureLocalThread, messagesByThreadId, selectedThread, typedSupabase, updateThreadLastMessage],
+    [currentUserId, ensureLocalThread, messagesByThreadId, selectedThread, supabase.auth, typedSupabase, updateThreadLastMessage],
   );
 
   const filteredCandidates = useMemo(() => {

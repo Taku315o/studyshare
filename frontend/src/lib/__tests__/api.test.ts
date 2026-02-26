@@ -37,6 +37,7 @@ describe('API Functions', () => {
       
       expect(result).toEqual(mockResponse);
       expect(mock.history.post[0].url).toBe('/upload');
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBeTruthy();
     });
 
     it('should handle upload error', async () => {
@@ -59,6 +60,7 @@ describe('API Functions', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mock.history.post[0].url).toBe('/notes/upload');
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBeTruthy();
     });
 
     it('should handle note image upload error', async () => {
@@ -85,6 +87,7 @@ describe('API Functions', () => {
       
       expect(result).toEqual(mockResponse);
       expect(mock.history.post[0].url).toBe('/assignments');
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBeTruthy();
     });
 
     it('should create assignment without image', async () => {

@@ -38,7 +38,7 @@ const resolveBucketName = (target: UploadTarget): string => {
  * Determines whether the provided MIME type is an accepted image format.
  *
  * @param mimetype - MIME type string reported for an uploaded file.
- * @returns True when the MIME type is either JPEG or PNG; otherwise false.
+ * @returns True when the MIME type is JPEG, PNG, or WebP; otherwise false.
  */
 export const isValidImageType = (mimetype: string): boolean => {
   return ['image/jpeg', 'image/png', 'image/webp'].includes(mimetype);
@@ -56,10 +56,12 @@ export const isValidFileSize = (size: number): boolean => {
 };
 
 /**
- * Uploads an image to the Supabase Storage `assignments` bucket and returns its public URL.
+ * Uploads an image to the specified Supabase Storage bucket 
+ * ('assignments' or 'notes') and returns its public URL.
  *
  * @param file - Multer file object containing the binary data to store.
  * @param userId - Identifier of the user whose namespace the file should be stored under.
+ * @param target - The target bucket: 'assignments' or 'notes'.
  * @returns The publicly accessible URL pointing to the uploaded asset.
  * @throws When Supabase fails to upload the file or generate a public URL.
  */
