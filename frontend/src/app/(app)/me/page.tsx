@@ -12,6 +12,7 @@ import type {
   MeNoteItemViewModel,
   MeProfileViewModel,
   MeReviewItemViewModel,
+  MeSavedNoteItemViewModel,
   MeTimetableSummaryViewModel,
   MeUniversityOption,
 } from '@/types/me';
@@ -64,6 +65,30 @@ type ReviewQueryRow = {
         courses: { name: string | null } | Array<{ name: string | null }> | null;
       }>
     | null;
+};
+
+type SavedNoteQueryRow = {
+  note_id: string;
+  kind: string;
+  notes: {
+    id: string;
+    title: string;
+    body_md: string | null;
+    created_at: string;
+    offering:
+      | {
+          id: string;
+          instructor: string | null;
+          courses: { name: string | null } | Array<{ name: string | null }> | null;
+        }
+      | Array<{
+          id: string;
+          instructor: string | null;
+          courses: { name: string | null } | Array<{ name: string | null }> | null;
+        }>
+      | null;
+    profiles: { display_name: string | null } | null;
+  } | null;
 };
 
 type EnrollmentQueryRow = {
@@ -194,6 +219,42 @@ function buildReviewItems(rows: ReviewQueryRow[]): MeReviewItemViewModel[] {
       instructorName: offering?.instructor ?? '教員未設定',
     };
   });
+}
+
+function buildSavedNoteItems(rows: SavedNoteQueryRow[]): MeSavedNoteItemViewModel[] {
+  const noteMap = new Map<string, MeSavedNoteItemViewModel>();
+
+  rows.forEach((row) => {
+    const note = row.notes;
+    if (!note) return;
+    const existing = noteMap.get(note.id);
+    if (existing) {
+      noteMap.set(note.id, {
+        ...existing,
+        isLikedByMe: existing.isLikedByMe || row.kind === 'like',
+        isBookmarkedByMe: existing.isBookmarkedByMe || row.kind === 'bookmark',
+      });
+      return;
+    }
+    const offering = normalizeOne(note.offering);
+    const course = normalizeOne(offering?.courses ?? null);
+    noteMap.set(note.id, {
+      id: note.id,
+      title: note.title,
+      body: note.body_md,
+      createdAt: note.created_at,
+      offeringId: offering?.id ?? '',
+      offeringTitle: course?.name ?? '不明な授業',
+      instructorName: offering?.instructor ?? '教員未設定',
+      authorName: note.profiles?.display_name ?? '匿名ユーザー',
+      isLikedByMe: row.kind === 'like',
+      isBookmarkedByMe: row.kind === 'bookmark',
+    });
+  });
+
+  return Array.from(noteMap.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 }
 
 function isEnrollmentStatus(value: string): value is (typeof ENROLLMENT_STATUSES)[number] {
@@ -328,6 +389,7 @@ export default function MePage() {
   const [universities, setUniversities] = useState<MeUniversityOption[]>([]);
   const [notes, setNotes] = useState<MeNoteItemViewModel[]>([]);
   const [reviews, setReviews] = useState<MeReviewItemViewModel[]>([]);
+  const [savedNotes, setSavedNotes] = useState<MeSavedNoteItemViewModel[]>([]);
   const [timetableSummary, setTimetableSummary] = useState<MeTimetableSummaryViewModel | null>(null);
 
   const fetchMeData = useCallback(async () => {
@@ -346,13 +408,14 @@ export default function MePage() {
         setProfile(null);
         setNotes([]);
         setReviews([]);
+        setSavedNotes([]);
         setTimetableSummary(null);
         return;
       }
 
       setCurrentUserId(user.id);
 
-      const [profileRes, universitiesRes, notesRes, reviewsRes, enrollmentsRes] = await Promise.all([
+      const [profileRes, universitiesRes, notesRes, reviewsRes, enrollmentsRes, savedNoteReactionsRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
@@ -412,6 +475,28 @@ export default function MePage() {
           )
           .eq('user_id', user.id)
           .in('status', [...ENROLLMENT_STATUSES]),
+        supabase
+          .from('note_reactions')
+          .select(
+            `
+            note_id,
+            kind,
+            notes:note_id(
+              id,
+              title,
+              body_md,
+              created_at,
+              offering:course_offerings(
+                id,
+                instructor,
+                courses:course_id(name)
+              ),
+              profiles:author_id(display_name)
+            )
+          `,
+          )
+          .eq('user_id', user.id)
+          .in('kind', ['like', 'bookmark']),
       ]);
 
       if (profileRes.error) throw profileRes.error;
@@ -419,17 +504,20 @@ export default function MePage() {
       if (notesRes.error) throw notesRes.error;
       if (reviewsRes.error) throw reviewsRes.error;
       if (enrollmentsRes.error) throw enrollmentsRes.error;
+      if (savedNoteReactionsRes.error) throw savedNoteReactionsRes.error;
 
       const profileRow = (profileRes.data ?? null) as ProfileRow | null;
       const universityRows = (universitiesRes.data ?? []) as MeUniversityOption[];
       const notesRows = (notesRes.data ?? []) as NoteQueryRow[];
       const reviewsRows = (reviewsRes.data ?? []) as ReviewQueryRow[];
       const enrollmentRows = (enrollmentsRes.data ?? []) as EnrollmentQueryRow[];
+      const savedNoteRows = (savedNoteReactionsRes.data ?? []) as SavedNoteQueryRow[];
 
       setProfile(buildProfileViewModel(user, profileRow));
       setUniversities(universityRows);
       setNotes(buildNoteItems(notesRows));
       setReviews(buildReviewItems(reviewsRows));
+      setSavedNotes(buildSavedNoteItems(savedNoteRows));
       setTimetableSummary(buildTimetableSummary(enrollmentRows));
     } catch (error) {
       console.error('マイページ取得エラー:', error);
@@ -438,6 +526,7 @@ export default function MePage() {
       setUniversities([]);
       setNotes([]);
       setReviews([]);
+      setSavedNotes([]);
       setTimetableSummary(null);
       toast.error('マイページ情報の取得に失敗しました');
     } finally {
@@ -537,7 +626,7 @@ export default function MePage() {
         isSaving={isSavingProfile}
         onSaveProfile={handleSaveProfile}
       />
-      <MyAssetsTabs notes={notes} reviews={reviews} isLoading={isLoading} />
+      <MyAssetsTabs notes={notes} reviews={reviews} savedNotes={savedNotes} isLoading={isLoading} />
       <TimetableSummary summary={timetableSummary} isLoading={isLoading} />
       <SettingsPanel />
     </div>

@@ -33,6 +33,19 @@ export type MeReviewItemViewModel = {
   instructorName: string;
 };
 
+export type MeSavedNoteItemViewModel = {
+  id: string;
+  title: string;
+  body: string | null;
+  createdAt: string;
+  offeringId: string;
+  offeringTitle: string;
+  instructorName: string;
+  authorName: string;
+  isLikedByMe: boolean;
+  isBookmarkedByMe: boolean;
+};
+
 export type MeTodayClassItemViewModel = {
   offeringId: string;
   courseTitle: string;
