@@ -132,9 +132,9 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            {/* NOTE: dm_scope はスキーマ上は保持しているが、MVP中はDM判定に未反映。現在は allow_dm のみ判定に使用する。 */}
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">DM範囲 (dm_scope)</p>
             <p className="mt-1 text-sm font-semibold text-slate-800">{profile.dm_scope}</p>
-            <p className="mt-1 text-xs text-amber-700">MVP中は未反映です（現在は allow_dm のみ判定に使います）。</p>
           </div>
         </div>
       </section>

@@ -4,9 +4,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
+import Link from 'next/link';
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
-import UserContactActions from '@/components/community/UserContactActions';
 import supabase from '@/lib/supabase';
 import { uploadNoteImage } from '@/lib/api';
 
@@ -19,7 +19,6 @@ type OfferingTabsProps = {
   reviewsPage: number;
   questionsPage: number;
   canPost: boolean;
-  currentUserId: string | null;
 };
 
 type ModalType = 'none' | 'note' | 'review' | 'question';
@@ -78,7 +77,6 @@ export default function OfferingTabs({
   reviewsPage,
   questionsPage,
   canPost,
-  currentUserId,
 }: OfferingTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -406,7 +404,7 @@ export default function OfferingTabs({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} currentUserId={currentUserId} />
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           )}
@@ -447,18 +445,28 @@ export default function OfferingTabs({
                 <article key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-base font-semibold text-slate-900">{question.title}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{question.body}</p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {question.authorName} / {new Date(question.createdAt).toLocaleString('ja-JP')}
-                  </p>
-                  <div className="mt-3">
-                    <UserContactActions
-                      targetUserId={question.authorId}
-                      targetDisplayName={question.authorName}
-                      currentUserId={currentUserId}
-                      allowDm={question.authorAllowDm}
-                      compact
-                      source="question"
-                    />
+                  <div className="mt-2 flex items-center gap-2">
+                    <Link href={`/profile/${question.authorId}`} className="shrink-0">
+                      {question.authorAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={question.authorAvatarUrl}
+                          alt={`${question.authorName}のアイコン`}
+                          className="h-6 w-6 rounded-full border border-slate-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                          {question.authorName.slice(0, 1)}
+                        </div>
+                      )}
+                    </Link>
+                    <p className="text-xs text-slate-500">
+                      <Link href={`/profile/${question.authorId}`} className="hover:underline">
+                        {question.authorName}
+                      </Link>
+                      {' / '}
+                      {new Date(question.createdAt).toLocaleString('ja-JP')}
+                    </p>
                   </div>
                 </article>
               ))}
