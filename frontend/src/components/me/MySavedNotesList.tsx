@@ -1,11 +1,6 @@
 import Link from 'next/link';
 import { Bookmark, Heart } from 'lucide-react';
-import type { MeSavedNoteItemViewModel } from '@/types/me';
-
-type MySavedNotesListProps = {
-  savedNotes: MeSavedNoteItemViewModel[];
-  isLoading: boolean;
-};
+import type { MySavedNotesListProps } from '@/types/me';
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString('ja-JP', {

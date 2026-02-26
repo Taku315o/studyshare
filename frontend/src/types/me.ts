@@ -46,6 +46,11 @@ export type MeSavedNoteItemViewModel = {
   isBookmarkedByMe: boolean;
 };
 
+export type MySavedNotesListProps = {
+  savedNotes: MeSavedNoteItemViewModel[];
+  isLoading: boolean;
+};
+
 export type MeTodayClassItemViewModel = {
   offeringId: string;
   courseTitle: string;
