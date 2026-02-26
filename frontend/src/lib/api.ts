@@ -11,13 +11,20 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001/api',
 });
 
-const buildIdempotencyKey = (): string => {
+export const createIdempotencyKey = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
+
+type IdempotentRequestOptions = {
+  idempotencyKey?: string;
+};
+
+const resolveIdempotencyKey = (idempotencyKey?: string): string =>
+  idempotencyKey?.trim() || createIdempotencyKey();
 
 /**
  * Applies or removes the Authorization header used for authenticated API requests.
@@ -38,13 +45,16 @@ export const setAuthToken = (token: string | null) => {
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
  */
-export const uploadImage = async (file: File): Promise<{ url: string }> => {
+export const uploadImage = async (
+  file: File,
+  options?: IdempotentRequestOptions,
+): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
   
   const response = await api.post<{ url: string }>('/upload', formData, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
   
@@ -57,13 +67,16 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
  */
-export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
+export const uploadNoteImage = async (
+  file: File,
+  options?: IdempotentRequestOptions,
+): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
 
   const response = await api.post<{ url: string }>('/notes/upload', formData, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
 
@@ -85,10 +98,10 @@ export const createAssignment = async (data: {
   department?: string;
   course_name?: string;
   teacher_name?: string;
-}) => {
+}, options?: IdempotentRequestOptions) => {
   const response = await api.post('/assignments', data, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
   return response.data;

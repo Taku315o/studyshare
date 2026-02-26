@@ -47,6 +47,18 @@ describe('API Functions', () => {
       
       await expect(uploadImage(mockFile)).rejects.toThrow();
     });
+
+    it('should reuse provided idempotency key', async () => {
+      const mockFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const mockResponse = { url: 'https://example.com/image.jpg' };
+      const idempotencyKey = 'retry-key-1';
+
+      mock.onPost('/upload').reply(200, mockResponse);
+
+      await uploadImage(mockFile, { idempotencyKey });
+
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
+    });
   });
 
   describe('uploadNoteImage', () => {
@@ -113,6 +125,20 @@ describe('API Functions', () => {
       mock.onPost('/assignments').reply(400, { error: 'Bad request' });
       
       await expect(createAssignment(assignmentData)).rejects.toThrow();
+    });
+
+    it('should reuse provided idempotency key for create', async () => {
+      const assignmentData = {
+        title: 'Test Assignment',
+        description: 'Test Description',
+      };
+      const idempotencyKey = 'retry-key-create';
+
+      mock.onPost('/assignments').reply(200, { id: '1', ...assignmentData });
+
+      await createAssignment(assignmentData, { idempotencyKey });
+
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
     });
   });
 
