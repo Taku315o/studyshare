@@ -31,7 +31,7 @@
 - 授業・口コミ一覧 (`/offerings`)
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - 時間割 (`/timetable`) ※表示は実データ、検索/追加の一部はプレースホルダ
-- コミュニティ (`/community`) ※候補表示/DMあり、ローカルフォールバックあり
+- コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - マイページ (`/me`) ※プロフィール編集・投稿一覧・設定
 - オンボーディング (`/onboarding`) ※大学/学年の初期設定必須
 
@@ -290,7 +290,7 @@ backend or SQL RPCに寄せるべきもの:
 - 認証復元タイミングが絡む投稿導線（`OfferingTabs`）
 - `AppRouteGuard`（未ログイン / onboarding未完了）
 - `TimetableGrid`（表示/空状態/`dropped`切替）
-- `community/page` のDM制約時ローカルフォールバック
+- `community/page` のDM送信条件未達時警告（2年生以上は投稿2件以上）と送信抑止
 - `SettingsPanel` の公開範囲保存
 - backend `/api/notes/upload`（認証/バリデーション/Storage異常）
 
@@ -298,7 +298,7 @@ backend or SQL RPCに寄せるべきもの:
 - 同大学ユーザー / 別大学ユーザーで授業詳細の見え方が変わるか
 - 大学未設定ユーザーが `/onboarding` に誘導されるか
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
-- コミュニティで永続DMとローカルフォールバックの違いが把握できるか
+- コミュニティでDM送信条件未達時に警告表示され、送信/スレッド作成されないか
 
 ## 12. 直近の優先順位（strategy + memoを現状に合わせて要約）
 
@@ -308,7 +308,7 @@ backend or SQL RPCに寄せるべきもの:
 3. コミュニティのスレッド一覧取得基盤（RPC/view）整備
 
 ### P1（基盤強化）
-1. コミュニティのローカルDMフォールバック依存を縮小（障害時のみ）
+1. コミュニティDMのエラー分類整理（送信条件未達 / 相手のDM拒否 / 一時障害）
 2. チップフィルタを実データクエリに反映
 3. 重複講義追加フローの仕様化（検索優先・近似候補提示）
 4. shared offering preview系RPC（どの授業が被っているかの説明）
@@ -344,4 +344,3 @@ backend or SQL RPCに寄せるべきもの:
 - `supabase/migrations/20260216132701_init_full_schema.sql`
 - `supabase/migrations/20260220120000_add_enrollment_visibility_default_and_visibility_rpc.sql`
 - `supabase/migrations/20260224130000_fix_conversation_members_policy_recursion.sql`
-

@@ -21,7 +21,7 @@
 - `CommunityPane` の候補0件空状態
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
-- `community/page` の DM制約時ローカルフォールバック
+- `community/page` の DM送信条件未達時警告表示と送信抑止（ローカル会話に切り替えない）
 - `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
 - `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年）
