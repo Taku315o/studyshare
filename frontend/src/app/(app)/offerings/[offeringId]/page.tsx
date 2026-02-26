@@ -376,7 +376,6 @@ export default async function OfferingDetailPage({
         reviewsPage={reviewsPage}
         questionsPage={questionsPage}
         canPost={Boolean(user)}
-        currentUserId={user?.id ?? null}
       />
     </div>
   );
