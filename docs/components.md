@@ -59,11 +59,12 @@
 - モバイルではメッセージペインをモーダル表示し、PCでは2ペイン表示を維持する
 
 **マイページ（/me）（追加）**
-- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`enrollments` を取得
+- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`note_reactions`/`enrollments` を取得
 - `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・所属表示とプロフィール編集モーダル（表示名/大学/学年）
 - `src/components/me/MyAssetsTabs.tsx`: 「ノート/口コミ/保存」タブ切り替えと資産表示
 - `src/components/me/MyNotesList.tsx`: 自分のノート一覧表示
 - `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
+- `src/components/me/MySavedNotesList.tsx`: いいね/ブックマークしたノートの統合一覧表示
 - `src/components/me/TimetableSummary.tsx`: 今学期履修数と今日の授業サマリ表示
 - `src/components/me/SettingsPanel.tsx`: ログアウトと公開範囲（UI先行）設定
 - `src/types/me.ts`: マイページのViewModel型定義
@@ -72,7 +73,7 @@
 - `/me` は Supabase Browser Client + RLS で本人データのみ参照する
 - `profiles` の主キーは `user_id` として扱う
 - `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` も保存し、授業系投稿の同大学スコープと整合させる
-- `保存` タブと `公開範囲` 保存は Phase2 前提で、現段階はUIプレースホルダとする
+- `保存` タブは `note_reactions(kind in ['like','bookmark'])` を `note_id` 単位で統合し、重複表示しない
 
 **オンボーディング（追加）**
 - `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年）ページ

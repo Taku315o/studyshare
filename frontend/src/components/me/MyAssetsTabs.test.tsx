@@ -28,6 +28,19 @@ describe('MyAssetsTabs', () => {
             instructorName: '田中先生',
           },
         ]}
+        savedNotes={[
+          {
+            id: 'saved-note-1',
+            title: '保存済みノート',
+            body: '保存本文',
+            createdAt: '2026-02-16T10:00:00.000Z',
+            offeringTitle: 'データベース論',
+            instructorName: '佐藤先生',
+            savedAt: '2026-02-20T09:00:00.000Z',
+            savedByLike: true,
+            savedByBookmark: true,
+          },
+        ]}
         isLoading={false}
       />,
     );
@@ -37,7 +50,7 @@ describe('MyAssetsTabs', () => {
     await user.click(screen.getByRole('button', { name: /口コミ/ }));
     expect(screen.getByText('口コミA')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '保存' }));
-    expect(screen.getByText('保存機能は Phase2 で有効化予定です。')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /保存 \(1\)/ }));
+    expect(screen.getByText('保存済みノート')).toBeInTheDocument();
   });
 });

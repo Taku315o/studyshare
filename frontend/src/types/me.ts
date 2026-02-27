@@ -15,6 +15,7 @@ export type MeUniversityOption = {
   name: string;
 };
 
+// ユーザーが作成したノートの情報を表すViewModel
 export type MeNoteItemViewModel = {
   id: string;
   title: string;
@@ -24,6 +25,7 @@ export type MeNoteItemViewModel = {
   instructorName: string;
 };
 
+// ユーザーが作成したレビューの情報を表すViewModel
 export type MeReviewItemViewModel = {
   id: string;
   rating: number;
@@ -33,6 +35,20 @@ export type MeReviewItemViewModel = {
   instructorName: string;
 };
 
+// ユーザーが保存したノートの情報を表すViewModel
+export type MeSavedNoteItemViewModel = {
+  id: string;
+  title: string;
+  body: string | null;
+  createdAt: string;
+  offeringTitle: string;
+  instructorName: string;
+  savedAt: string;
+  savedByLike: boolean;
+  savedByBookmark: boolean;
+};
+
+// 今日の授業の情報を表すViewModel
 export type MeTodayClassItemViewModel = {
   offeringId: string;
   courseTitle: string;
@@ -42,6 +58,7 @@ export type MeTodayClassItemViewModel = {
   status: 'enrolled' | 'planned';
 };
 
+// マイページの時間割サマリーの情報を表すViewModel
 export type MeTimetableSummaryViewModel = {
   termLabel: string;
   currentTermEnrollmentCount: number;

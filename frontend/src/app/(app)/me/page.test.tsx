@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import MePage from './page';
 import { createSupabaseClient } from '@/lib/supabase/client';
 
@@ -101,6 +102,49 @@ describe('MePage', () => {
       error: null,
     });
 
+    const savedReactionsChain = {
+      eq: jest.fn(),
+      in: jest.fn(),
+      order: jest.fn(),
+    };
+    savedReactionsChain.eq.mockReturnValue(savedReactionsChain);
+    savedReactionsChain.in.mockReturnValue(savedReactionsChain);
+    savedReactionsChain.order.mockResolvedValue({
+      data: [
+        {
+          kind: 'bookmark',
+          created_at: '2026-02-20T10:00:00.000Z',
+          note: {
+            id: 'saved-note-1',
+            title: '保存対象ノート',
+            body_md: '保存本文',
+            created_at: '2026-02-10T09:00:00.000Z',
+            offering: {
+              id: 'offering-1',
+              instructor: '田中先生',
+              courses: { name: '応用プログラミング3' },
+            },
+          },
+        },
+        {
+          kind: 'like',
+          created_at: '2026-02-19T10:00:00.000Z',
+          note: {
+            id: 'saved-note-1',
+            title: '保存対象ノート',
+            body_md: '保存本文',
+            created_at: '2026-02-10T09:00:00.000Z',
+            offering: {
+              id: 'offering-1',
+              instructor: '田中先生',
+              courses: { name: '応用プログラミング3' },
+            },
+          },
+        },
+      ],
+      error: null,
+    });
+
     fromMock.mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
@@ -151,6 +195,11 @@ describe('MePage', () => {
           select: jest.fn(() => enrollmentsChain),
         };
       }
+      if (table === 'note_reactions') {
+        return {
+          select: jest.fn(() => savedReactionsChain),
+        };
+      }
       return {
         select: jest.fn(),
       };
@@ -185,5 +234,21 @@ describe('MePage', () => {
     expect(screen.getByRole('heading', { name: '自分の資産' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '時間割サマリ' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '設定' })).toBeInTheDocument();
+  });
+
+  it('shows deduplicated saved notes with like/bookmark badges in saved tab', async () => {
+    const user = userEvent.setup();
+    render(<MePage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /保存 \(1\)/ })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /保存 \(1\)/ }));
+
+    expect(screen.getByText('保存対象ノート')).toBeInTheDocument();
+    expect(screen.getByText('いいね済み')).toBeInTheDocument();
+    expect(screen.getByText('ブックマーク済み')).toBeInTheDocument();
+    expect(screen.getAllByText('保存対象ノート')).toHaveLength(1);
   });
 });
