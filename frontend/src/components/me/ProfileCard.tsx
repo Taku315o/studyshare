@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MeProfileViewModel, MeUniversityOption } from '@/types/me';
 
 type ProfileCardProps = {
@@ -32,6 +33,15 @@ export default function ProfileCard({
     setGradeYearInput(profile?.gradeYear ? String(profile.gradeYear) : '');
     setSubmitErrorMessage(null);
   }, [isModalOpen, profile?.displayName, profile?.gradeYear, profile?.universityId]);
+
+  useEffect(() => {
+    if (!isModalOpen || typeof document === 'undefined') return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isModalOpen]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -115,82 +125,85 @@ export default function ProfileCard({
         </button>
       </div>
 
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
-            <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年を更新できます。</p>
+      {isModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl">
+                <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
+                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年を更新できます。</p>
 
-            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">表示名</span>
-                <input
-                  name="displayName"
-                  type="text"
-                  value={displayNameInput}
-                  onChange={(event) => setDisplayNameInput(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                />
-              </label>
+                <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">表示名</span>
+                    <input
+                      name="displayName"
+                      type="text"
+                      value={displayNameInput}
+                      onChange={(event) => setDisplayNameInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                    />
+                  </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">所属大学</span>
-                <select
-                  name="universityId"
-                  value={selectedUniversityId}
-                  onChange={(event) => setSelectedUniversityId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                  disabled={isSaving || isLoading}
-                >
-                  <option value="">大学を選択してください</option>
-                  {universities.map((university) => (
-                    <option key={university.id} value={university.id}>
-                      {university.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">所属大学</span>
+                    <select
+                      name="universityId"
+                      value={selectedUniversityId}
+                      onChange={(event) => setSelectedUniversityId(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSaving || isLoading}
+                    >
+                      <option value="">大学を選択してください</option>
+                      {universities.map((university) => (
+                        <option key={university.id} value={university.id}>
+                          {university.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">学年</span>
-                <select
-                  name="gradeYear"
-                  value={gradeYearInput}
-                  onChange={(event) => setGradeYearInput(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                  disabled={isSaving || isLoading}
-                >
-                  <option value="">学年を選択してください</option>
-                  {[1, 2, 3, 4, 5, 6].map((year) => (
-                    <option key={year} value={year}>
-                      {year}年
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">学年</span>
+                    <select
+                      name="gradeYear"
+                      value={gradeYearInput}
+                      onChange={(event) => setGradeYearInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSaving || isLoading}
+                    >
+                      <option value="">学年を選択してください</option>
+                      {[1, 2, 3, 4, 5, 6].map((year) => (
+                        <option key={year} value={year}>
+                          {year}年
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              {submitErrorMessage ? <p className="text-sm text-red-600">{submitErrorMessage}</p> : null}
+                  {submitErrorMessage ? <p className="text-sm text-red-600">{submitErrorMessage}</p> : null}
 
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {isSaving ? '保存中...' : '保存'}
-                </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {isSaving ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }
