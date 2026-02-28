@@ -40,13 +40,17 @@ create policy "read all in notes" on storage.objects
 
 create policy "upload authenticated sets owner (notes)" on storage.objects
   for insert
-  with check (bucket_id = 'notes' and auth.role() = 'authenticated' and owner_id = auth.uid());
+  with check (
+    bucket_id = 'notes'
+    and auth.role() = 'authenticated'
+    and owner_id::text = auth.uid()::text
+  );
 
 create policy "delete own or admin (notes)" on storage.objects
   for delete
   using (
     bucket_id = 'notes'
-    and (owner_id = auth.uid() or public.is_admin(auth.uid()))
+    and (owner_id::text = auth.uid()::text or public.is_admin(auth.uid()))
   );
 
 -- assignments bucket policies
@@ -56,11 +60,15 @@ create policy "read all in assignments" on storage.objects
 
 create policy "upload authenticated sets owner (assignments)" on storage.objects
   for insert
-  with check (bucket_id = 'assignments' and auth.role() = 'authenticated' and owner_id = auth.uid());
+  with check (
+    bucket_id = 'assignments'
+    and auth.role() = 'authenticated'
+    and owner_id::text = auth.uid()::text
+  );
 
 create policy "delete own or admin (assignments)" on storage.objects
   for delete
   using (
     bucket_id = 'assignments'
-    and (owner_id = auth.uid() or public.is_admin(auth.uid()))
+    and (owner_id::text = auth.uid()::text or public.is_admin(auth.uid()))
   );

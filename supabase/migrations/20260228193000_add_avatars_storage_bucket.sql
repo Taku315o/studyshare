@@ -24,11 +24,15 @@ create policy "read all in avatars" on storage.objects
 
 create policy "upload authenticated sets owner (avatars)" on storage.objects
   for insert
-  with check (bucket_id = 'avatars' and auth.role() = 'authenticated' and owner_id = auth.uid());
+  with check (
+    bucket_id = 'avatars'
+    and auth.role() = 'authenticated'
+    and owner_id::text = auth.uid()::text
+  );
 
 create policy "delete own or admin (avatars)" on storage.objects
   for delete
   using (
     bucket_id = 'avatars'
-    and (owner_id = auth.uid() or public.is_admin(auth.uid()))
+    and (owner_id::text = auth.uid()::text or public.is_admin(auth.uid()))
   );
