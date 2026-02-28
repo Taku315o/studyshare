@@ -22,8 +22,10 @@
 
 **ストレージ**
 - `notes` bucket（現行ノート画像添付）
+- `avatars` bucket（プロフィールアバター画像）
 - `assignments` bucket（legacy 互換）
 - 読み取り: 全員
 - アップロード: 認証済みかつ owner = auth.uid()
 - 削除: owner または admin
 - backend の `/api/notes/upload` は Storage bucket が未作成だと `Bucket not found` で失敗するため、bucket 作成 migration の適用を前提とする
+- backend の `/api/profiles/avatar/upload` も同様に bucket 未作成時は失敗するため、`avatars` bucket migration の適用を前提とする

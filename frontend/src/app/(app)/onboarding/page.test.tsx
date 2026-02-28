@@ -63,6 +63,7 @@ describe('OnboardingPage', () => {
                   display_name: 'テストユーザー',
                   university_id: null,
                   grade_year: null,
+                  faculty: null,
                 },
                 error: null,
               }),
@@ -108,6 +109,7 @@ describe('OnboardingPage', () => {
 
     await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-1');
     await user.selectOptions(screen.getByLabelText('学年'), '2');
+    await user.type(screen.getByLabelText('学部（任意）'), '経済学部');
     await user.click(screen.getByRole('button', { name: '保存してはじめる' }));
 
     await waitFor(() => {
@@ -117,6 +119,7 @@ describe('OnboardingPage', () => {
           display_name: 'テストユーザー',
           university_id: 'uni-1',
           grade_year: 2,
+          faculty: '経済学部',
         },
         { onConflict: 'user_id' },
       );
@@ -125,5 +128,32 @@ describe('OnboardingPage', () => {
     expect(toast.success).toHaveBeenCalledWith('初期設定を保存しました');
     expect(mockReplace).toHaveBeenCalledWith('/offerings/offering-1?tab=notes');
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('saves successfully when faculty is left blank', async () => {
+    const user = userEvent.setup();
+
+    render(<OnboardingPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '初期設定' })).toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-1');
+    await user.selectOptions(screen.getByLabelText('学年'), '2');
+    await user.click(screen.getByRole('button', { name: '保存してはじめる' }));
+
+    await waitFor(() => {
+      expect(upsertMock).toHaveBeenCalledWith(
+        {
+          user_id: 'user-1',
+          display_name: 'テストユーザー',
+          university_id: 'uni-1',
+          grade_year: 2,
+          faculty: null,
+        },
+        { onConflict: 'user_id' },
+      );
+    });
   });
 });

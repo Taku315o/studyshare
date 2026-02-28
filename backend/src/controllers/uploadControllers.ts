@@ -67,3 +67,18 @@ export const uploadNoteImageController = async (req: Request, res: Response): Pr
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };
+
+export const uploadAvatarImageController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validated = validateUploadRequest(req, res);
+    if (!validated) return;
+    const { file, user } = validated;
+
+    const imageUrl = await uploadToStorage(file, user.id, 'avatars');
+
+    res.status(200).json({ url: imageUrl });
+  } catch (error: any) {
+    console.error('アバター画像アップロードコントローラーエラー:', error);
+    res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
+  }
+};

@@ -7,6 +7,7 @@ import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
+import { uploadAvatarImage } from '@/lib/api';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -178,10 +179,6 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function buildAffiliation(faculty: string | null | undefined, department: string | null | undefined) {
-  return [faculty, department].filter(Boolean).join(' / ') || '所属未設定';
-}
-
 function formatSeasonLabel(season: string) {
   if (season === 'first_half') return '前期';
   if (season === 'second_half') return '後期';
@@ -206,7 +203,7 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MePro
     userId: user.id,
     displayName,
     avatarUrl: profileRow?.avatar_url ?? null,
-    affiliation: buildAffiliation(profileRow?.faculty, profileRow?.department),
+    faculty: profileRow?.faculty ?? null,
     universityId: profileRow?.university_id ?? null,
     universityName: university?.name ?? null,
     gradeYear: profileRow?.grade_year ?? null,
@@ -568,10 +565,14 @@ export default function MePage() {
       displayName,
       universityId,
       gradeYear,
+      faculty,
+      avatarFile,
     }: {
       displayName: string;
       universityId: string;
       gradeYear: number;
+      faculty: string;
+      avatarFile: File | null;
     }) => {
       if (!currentUserId) {
         throw new Error('ログインユーザーを取得できませんでした');
@@ -581,6 +582,7 @@ export default function MePage() {
         displayName,
         universityId,
         gradeYear,
+        faculty,
       });
       if (!validation.success) {
         toast.error(getValidationErrorMessage(validation.error, 'プロフィールの入力内容を確認してください。'));
@@ -591,11 +593,24 @@ export default function MePage() {
         displayName: normalizedDisplayName,
         universityId: normalizedUniversityId,
         gradeYear: normalizedGradeYear,
+        faculty: normalizedFaculty,
       } = validation.data;
 
       setIsSavingProfile(true);
 
       try {
+        let uploadedAvatarUrl: string | null = null;
+        if (avatarFile) {
+          try {
+            const uploadResult = await uploadAvatarImage(avatarFile);
+            uploadedAvatarUrl = uploadResult.url;
+          } catch (uploadError) {
+            console.error('アバター画像アップロードエラー:', uploadError);
+            toast.error('アバター画像のアップロードに失敗しました');
+            throw uploadError;
+          }
+        }
+
         const { data, error } = await typedSupabase
           .from('profiles')
           .upsert(
@@ -604,6 +619,8 @@ export default function MePage() {
               display_name: normalizedDisplayName,
               university_id: normalizedUniversityId,
               grade_year: normalizedGradeYear,
+              faculty: normalizedFaculty || null,
+              ...(uploadedAvatarUrl ? { avatar_url: uploadedAvatarUrl } : {}),
             },
             { onConflict: 'user_id' },
           )
@@ -618,7 +635,7 @@ export default function MePage() {
           userId: row.user_id,
           displayName: row.display_name,
           avatarUrl: row.avatar_url ?? null,
-          affiliation: buildAffiliation(row.faculty, row.department),
+          faculty: row.faculty ?? null,
           universityId: row.university_id ?? null,
           universityName: selectedUniversity?.name ?? null,
           gradeYear: row.grade_year ?? null,

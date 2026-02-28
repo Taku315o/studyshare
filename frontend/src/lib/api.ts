@@ -84,6 +84,28 @@ export const uploadNoteImage = async (
 };
 
 /**
+ * Uploads a profile avatar image file to the backend and returns its public URL.
+ *
+ * @param file - Browser File object selected by the user.
+ * @returns A promise resolving to an object containing the uploaded avatar URL.
+ */
+export const uploadAvatarImage = async (
+  file: File,
+  options?: IdempotentRequestOptions,
+): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await api.post<{ url: string }>('/profiles/avatar/upload', formData, {
+    headers: {
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
+    },
+  });
+
+  return response.data;
+};
+
+/**
  * Sends a request to create a new assignment using the backend API.
  *
  * @param data - Assignment payload including title, description, and an optional image URL.

@@ -1,10 +1,15 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MePage from './page';
+import { uploadAvatarImage } from '@/lib/api';
 import { createSupabaseClient } from '@/lib/supabase/client';
 
 jest.mock('@/lib/supabase/client', () => ({
   createSupabaseClient: jest.fn(),
+}));
+
+jest.mock('@/lib/api', () => ({
+  uploadAvatarImage: jest.fn(),
 }));
 
 jest.mock('@/context/AuthContext', () => ({
@@ -13,12 +18,16 @@ jest.mock('@/context/AuthContext', () => ({
   }),
 }));
 
+const uploadAvatarImageMock = uploadAvatarImage as jest.Mock;
+
 describe('MePage', () => {
   const getUserMock = jest.fn();
   const fromMock = jest.fn();
+  const profilesUpsertMock = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    uploadAvatarImageMock.mockResolvedValue({ url: 'https://example.com/avatars/new-avatar.png' });
 
     const notesChain = {
       eq: jest.fn(),
@@ -145,6 +154,21 @@ describe('MePage', () => {
       error: null,
     });
 
+    const profilesUpsertSelectSingleMock = jest.fn().mockResolvedValue({
+      data: {
+        user_id: 'user-1',
+        display_name: '更新後ユーザー',
+        avatar_url: 'https://example.com/avatars/new-avatar.png',
+        faculty: '理工学部',
+        department: null,
+        university_id: 'uni-2',
+        grade_year: 3,
+      },
+      error: null,
+    });
+    const profilesUpsertSelectMock = jest.fn().mockReturnValue({ single: profilesUpsertSelectSingleMock });
+    profilesUpsertMock.mockReturnValue({ select: profilesUpsertSelectMock });
+
     fromMock.mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
@@ -165,6 +189,7 @@ describe('MePage', () => {
               }),
             })),
           })),
+          upsert: profilesUpsertMock,
         };
       }
       if (table === 'universities') {
@@ -250,5 +275,62 @@ describe('MePage', () => {
     expect(screen.getByText('いいね済み')).toBeInTheDocument();
     expect(screen.getByText('ブックマーク済み')).toBeInTheDocument();
     expect(screen.getAllByText('保存対象ノート')).toHaveLength(1);
+  });
+
+  it('uploads avatar through backend and includes faculty in profiles upsert payload', async () => {
+    const user = userEvent.setup();
+    const avatarFile = new File(['avatar'], 'avatar.png', { type: 'image/png' });
+
+    render(<MePage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'プロフィール編集' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'プロフィール編集' }));
+    await user.clear(screen.getByLabelText('表示名'));
+    await user.type(screen.getByLabelText('表示名'), '更新後ユーザー');
+    await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-2');
+    await user.selectOptions(screen.getByLabelText('学年'), '3');
+    await user.clear(screen.getByLabelText('学部（任意）'));
+    await user.type(screen.getByLabelText('学部（任意）'), '理工学部');
+    await user.upload(screen.getByLabelText('アバター画像（任意）'), avatarFile);
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile);
+      expect(profilesUpsertMock).toHaveBeenCalledWith(
+        {
+          user_id: 'user-1',
+          display_name: '更新後ユーザー',
+          university_id: 'uni-2',
+          grade_year: 3,
+          faculty: '理工学部',
+          avatar_url: 'https://example.com/avatars/new-avatar.png',
+        },
+        { onConflict: 'user_id' },
+      );
+    });
+  });
+
+  it('aborts profile save when avatar upload fails', async () => {
+    const user = userEvent.setup();
+    const avatarFile = new File(['avatar'], 'avatar.png', { type: 'image/png' });
+    uploadAvatarImageMock.mockRejectedValueOnce(new Error('upload failed'));
+
+    render(<MePage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'プロフィール編集' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'プロフィール編集' }));
+    await user.upload(screen.getByLabelText('アバター画像（任意）'), avatarFile);
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile);
+    });
+    expect(profilesUpsertMock).not.toHaveBeenCalled();
   });
 });

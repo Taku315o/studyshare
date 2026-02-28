@@ -45,5 +45,34 @@ describe('profile validation schemas', () => {
     }
     expect(getValidationErrorMessage(result.error)).toBe('大学を選択してください');
   });
-});
 
+  it('accepts empty faculty and normalizes to empty string', () => {
+    const result = profileEditSchema.safeParse({
+      displayName: 'テストユーザー',
+      universityId: 'uni-1',
+      gradeYear: 2,
+      faculty: '',
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error('Expected validation success');
+    }
+    expect(result.data.faculty).toBe('');
+  });
+
+  it('rejects too long faculty name', () => {
+    const result = profileEditSchema.safeParse({
+      displayName: 'テストユーザー',
+      universityId: 'uni-1',
+      gradeYear: 2,
+      faculty: 'a'.repeat(81),
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected validation failure');
+    }
+    expect(getValidationErrorMessage(result.error)).toBe('学部は80文字以内で入力してください。');
+  });
+});

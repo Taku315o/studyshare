@@ -28,7 +28,8 @@
 - マイページ表示（`/me`）
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
-- `profiles` の `display_name` / `university_id` / `grade_year` を `upsert` で更新
+- `profiles` の `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` を `upsert` で更新
+- アバター画像は backend `POST /api/profiles/avatar/upload` でアップロードしてから `avatar_url` に反映
 - プロフィール更新入力は `frontend/src/lib/validation/profile.ts` の `zod` schemaで検証（学年 `1..6`）
 - `ProfileCard` モーダルは外クリックで閉じるが、保存中は閉じない
 - 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す
@@ -37,6 +38,7 @@
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities`）
 - `profiles.university_id` / `grade_year` が未設定の認証済みユーザーに入力を要求し、保存後に元ページへ戻す
 - オンボーディングの大学/学年入力は `zod` schemaで検証し、学年は `1..6` で統一
+- `faculty` は任意項目として同じ保存導線で更新可能
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
@@ -48,6 +50,7 @@
 **主要APIと責務境界**
 - `POST /api/upload` 画像アップロード（認証必須）
 - `POST /api/notes/upload` ノート画像アップロード（認証必須）
+- `POST /api/profiles/avatar/upload` プロフィールアバター画像アップロード（認証必須）
 - `POST /api/assignments` 課題投稿（認証必須 + バリデーション）
 - `GET /api/assignments/search` 検索
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
@@ -61,4 +64,5 @@
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`
 - Supabase RPC: `find_match_candidates`, `create_direct_conversation`
 - Storage bucket: `notes`（現行ノート画像アップロード）
+- Storage bucket: `avatars`（プロフィールアバター画像アップロード）
 - Storage bucket: `assignments`（legacy 互換）

@@ -7,7 +7,7 @@ describe('ProfileCard', () => {
     userId: 'user-1',
     displayName: '旧表示名',
     avatarUrl: null,
-    affiliation: '所属未設定',
+    faculty: '経済学部',
     universityId: 'uni-1',
     universityName: '専修大学',
     gradeYear: 2,
@@ -21,6 +21,7 @@ describe('ProfileCard', () => {
   it('opens edit modal and updates display name', async () => {
     const user = userEvent.setup();
     const onSaveProfile = jest.fn().mockResolvedValue(undefined);
+    const avatarFile = new File(['avatar'], 'avatar.png', { type: 'image/png' });
 
     render(
       <ProfileCard
@@ -37,6 +38,9 @@ describe('ProfileCard', () => {
     await user.type(screen.getByLabelText('表示名'), '新しい表示名');
     await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-2');
     await user.selectOptions(screen.getByLabelText('学年'), '3');
+    await user.clear(screen.getByLabelText('学部（任意）'));
+    await user.type(screen.getByLabelText('学部（任意）'), '理工学部');
+    await user.upload(screen.getByLabelText('アバター画像（任意）'), avatarFile);
     await user.click(screen.getByRole('button', { name: '保存' }));
 
     await waitFor(() => {
@@ -44,6 +48,8 @@ describe('ProfileCard', () => {
         displayName: '新しい表示名',
         universityId: 'uni-2',
         gradeYear: 3,
+        faculty: '理工学部',
+        avatarFile,
       });
     });
   });
@@ -130,5 +136,19 @@ describe('ProfileCard', () => {
 
     expect(onSaveProfile).not.toHaveBeenCalled();
     expect(screen.getByText('表示名を入力してください。')).toBeInTheDocument();
+  });
+
+  it('shows 学部未設定 when faculty is empty', () => {
+    render(
+      <ProfileCard
+        profile={{ ...baseProfile, faculty: null }}
+        universities={universities}
+        isLoading={false}
+        isSaving={false}
+        onSaveProfile={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText('学部未設定')).toBeInTheDocument();
   });
 });

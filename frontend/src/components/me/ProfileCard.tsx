@@ -14,7 +14,13 @@ type ProfileCardProps = {
   universities: MeUniversityOption[];
   isLoading: boolean;
   isSaving: boolean;
-  onSaveProfile: (params: { displayName: string; universityId: string; gradeYear: number }) => Promise<void>;
+  onSaveProfile: (params: {
+    displayName: string;
+    universityId: string;
+    gradeYear: number;
+    faculty: string;
+    avatarFile: File | null;
+  }) => Promise<void>;
 };
 
 export default function ProfileCard({
@@ -28,6 +34,9 @@ export default function ProfileCard({
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYearInput, setGradeYearInput] = useState('');
+  const [facultyInput, setFacultyInput] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarInputKey, setAvatarInputKey] = useState(0);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,8 +44,11 @@ export default function ProfileCard({
     setDisplayNameInput(profile?.displayName ?? '');
     setSelectedUniversityId(profile?.universityId ?? '');
     setGradeYearInput(profile?.gradeYear ? String(profile.gradeYear) : '');
+    setFacultyInput(profile?.faculty ?? '');
+    setAvatarFile(null);
+    setAvatarInputKey((prev) => prev + 1);
     setSubmitErrorMessage(null);
-  }, [isModalOpen, profile?.displayName, profile?.gradeYear, profile?.universityId]);
+  }, [isModalOpen, profile?.displayName, profile?.faculty, profile?.gradeYear, profile?.universityId]);
 
   useEffect(() => {
     if (!isModalOpen || typeof document === 'undefined') return;
@@ -56,6 +68,7 @@ export default function ProfileCard({
       displayName: displayNameInput,
       universityId: selectedUniversityId,
       gradeYear: gradeYearInput,
+      faculty: facultyInput,
     });
     if (!validation.success) {
       setSubmitErrorMessage(getValidationErrorMessage(validation.error));
@@ -65,7 +78,10 @@ export default function ProfileCard({
     setSubmitErrorMessage(null);
 
     try {
-      await onSaveProfile(validation.data);
+      await onSaveProfile({
+        ...validation.data,
+        avatarFile,
+      });
       setIsModalOpen(false);
     } catch {
       setSubmitErrorMessage('プロフィール更新に失敗しました。');
@@ -101,7 +117,7 @@ export default function ProfileCard({
                 <p className="text-sm text-slate-600">
                   {profile?.universityName ? `${profile.universityName}${profile.gradeYear ? ` / ${profile.gradeYear}年` : ''}` : '大学・学年が未設定です'}
                 </p>
-                <p className="text-sm text-slate-600">{profile?.affiliation || '所属情報が未設定です'}</p>
+                <p className="text-sm text-slate-600">{profile?.faculty || '学部未設定'}</p>
               </>
             )}
           </div>
@@ -136,7 +152,7 @@ export default function ProfileCard({
                 onClick={(event) => event.stopPropagation()}
               >
                 <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
-                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年を更新できます。</p>
+                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年・学部・アバター画像を更新できます。</p>
 
                 <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
                   <label className="block">
@@ -184,6 +200,32 @@ export default function ProfileCard({
                         </option>
                       ))}
                     </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">学部（任意）</span>
+                    <input
+                      name="faculty"
+                      type="text"
+                      value={facultyInput}
+                      onChange={(event) => setFacultyInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSaving || isLoading}
+                      placeholder="例: 経済学部"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">アバター画像（任意）</span>
+                    <input
+                      key={avatarInputKey}
+                      name="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => setAvatarFile(event.currentTarget.files?.[0] ?? null)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSaving || isLoading}
+                    />
                   </label>
 
                   {submitErrorMessage ? <p className="text-sm text-red-600">{submitErrorMessage}</p> : null}

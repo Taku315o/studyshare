@@ -32,8 +32,8 @@
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - 時間割 (`/timetable`) ※表示は実データ、検索/追加の一部はプレースホルダ
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
-- マイページ (`/me`) ※プロフィール編集・投稿一覧・設定
-- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須
+- マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定
+- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意
 
 ### 互換/移行中の機能（legacy）
 - 旧 `assignments` UI は `frontend/src/legacy/assignments/` に退避済み
@@ -65,7 +65,7 @@
 - Express + TypeScript
 - 役割は主に:
   - legacy assignments API
-  - 画像アップロードAPI (`/api/upload`, `/api/notes/upload`)
+  - 画像アップロードAPI (`/api/upload`, `/api/notes/upload`, `/api/profiles/avatar/upload`)
 - JWT検証は Supabase Auth
 - legacy互換の `users` テーブル参照は補助扱い（無くても認証継続）
 
@@ -121,10 +121,12 @@
 
 ### Storage bucket 前提
 - `notes`（現行ノート画像）
+- `avatars`（プロフィールアバター画像）
 - `assignments`（legacy互換）
 
 bucket未作成時:
 - backend `/api/notes/upload` で `Bucket not found` が出る
+- backend `/api/profiles/avatar/upload` でも同様に `Bucket not found` が出る
 - migration適用状況を確認すること
 
 ## 5. 現在の実装状況（できること / 未完了）
@@ -132,9 +134,10 @@ bucket未作成時:
 ### 実装済み・反映済み（memo上の「過去の未解決」含む）
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
 - 初回オンボーディング導入（大学/学年必須）
-- `/me` で `display_name` / `university_id` / `grade_year` 編集
+- `/me` で `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` 編集
 - `/me` と `/onboarding` のプロフィール入力バリデーションを `zod` schemaへ統一
 - 学年入力ルールを `1..6` に統一（`ProfileCard` / `/me` / `/onboarding`）
+- `/onboarding` で `faculty`（任意）保存に対応
 - `ProfileCard` 編集モーダルで外クリック閉じる対応（保存中は閉じない）
 - 同大学スコープの説明表示（授業詳細UI）
 - マイページ設定の公開範囲保存（`update_visibility_settings` RPC 経由）

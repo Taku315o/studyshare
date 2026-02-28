@@ -61,7 +61,7 @@
 
 **マイページ（/me）（追加）**
 - `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`note_reactions`/`enrollments` を取得
-- `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・所属表示とプロフィール編集モーダル（表示名/大学/学年、外クリック閉じる、保存中は閉じない）
+- `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・学部表示とプロフィール編集モーダル（表示名/大学/学年/学部/アバター画像、外クリック閉じる、保存中は閉じない）
 - `src/components/me/MyAssetsTabs.tsx`: 「ノート/口コミ/保存」タブ切り替えと資産表示
 - `src/components/me/MyNotesList.tsx`: 自分のノート一覧表示
 - `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
@@ -74,11 +74,12 @@
 **マイページ実装ルール**
 - `/me` は Supabase Browser Client + RLS で本人データのみ参照する
 - `profiles` の主キーは `user_id` として扱う
-- `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` も保存し、授業系投稿の同大学スコープと整合させる
+- `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` / `faculty` / `avatar_url` を保存し、授業系投稿の同大学スコープと整合させる
+- アバター画像は frontend 直アップロードではなく backend `POST /api/profiles/avatar/upload` 経由で保存する
 - `ProfileCard` / `/me` 保存処理 / `/onboarding` は同一の `zod` schema群を使って整合性を保つ
 - 学年入力のドメインは `1..6` を正とする（select/validation とも一致させる）
 - `保存` タブは `note_reactions(kind in ['like','bookmark'])` を `note_id` 単位で統合し、重複表示しない
 
 **オンボーディング（追加）**
-- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年）ページ
+- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年必須、学部任意）ページ
 - `src/components/auth/AppRouteGuard.tsx`: 未ログイン判定に加えて `profiles.university_id` / `grade_year` の完了判定を行い、必要時に `/onboarding` へ遷移

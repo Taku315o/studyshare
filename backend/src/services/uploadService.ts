@@ -1,14 +1,6 @@
-
-//uploadController.ts
-// Supabase Storageへのファイルアップロードに関するロジックを実装している。
-// uuidv4でユニークなファイル名を生成し、ファイルをストレージにアップロード後、公開URLを返却する。
-
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin as supabase } from '../lib/supabase';
 
-// multerの型定義を修正
-// ファイル型の定義を変更
 interface File {
   originalname: string;
   mimetype: string;
@@ -16,9 +8,17 @@ interface File {
   size: number;
 }
 
-type UploadTarget = 'assignments' | 'notes';
+type UploadTarget = 'assignments' | 'notes' | 'avatars';
 
 const resolveBucketName = (target: UploadTarget): string => {
+  if (target === 'avatars') {
+    return (
+      process.env.SUPABASE_AVATARS_IMAGE_BUCKET ||
+      process.env.SUPABASE_STORAGE_BUCKET ||
+      'avatars'
+    );
+  }
+
   if (target === 'notes') {
     return (
       process.env.SUPABASE_NOTES_IMAGE_BUCKET ||
@@ -32,6 +32,18 @@ const resolveBucketName = (target: UploadTarget): string => {
     process.env.SUPABASE_STORAGE_BUCKET ||
     'assignments'
   );
+};
+
+const resolveObjectPath = (target: UploadTarget, userId: string, fileName: string): string => {
+  if (target === 'notes') {
+    return `notes/${userId}/${fileName}`;
+  }
+
+  if (target === 'avatars') {
+    return `avatars/${userId}/${fileName}`;
+  }
+
+  return `${userId}/${fileName}`;
 };
 
 /**
@@ -56,31 +68,29 @@ export const isValidFileSize = (size: number): boolean => {
 };
 
 /**
- * Uploads an image to the specified Supabase Storage bucket 
- * ('assignments' or 'notes') and returns its public URL.
+ * Uploads an image to the specified Supabase Storage bucket
+ * ('assignments', 'notes', or 'avatars') and returns its public URL.
  *
  * @param file - Multer file object containing the binary data to store.
  * @param userId - Identifier of the user whose namespace the file should be stored under.
- * @param target - The target bucket: 'assignments' or 'notes'.
+ * @param target - The target bucket: 'assignments', 'notes', or 'avatars'.
  * @returns The publicly accessible URL pointing to the uploaded asset.
  * @throws When Supabase fails to upload the file or generate a public URL.
  */
 export const uploadToStorage = async (file: File, userId: string, target: UploadTarget = 'assignments'): Promise<string> => {
   try {
-    // ファイル名を固有のIDに変更
     const fileExtension = file.originalname.split('.').pop() ?? 'bin';
     const fileName = `${uuidv4()}.${fileExtension}`;
     const bucketName = resolveBucketName(target);
-    const objectPath = target === 'notes' ? `notes/${userId}/${fileName}` : `${userId}/${fileName}`;
-    
-    // Supabase Storageにアップロード
-    const { error: uploadError, data } = await supabase.storage
+    const objectPath = resolveObjectPath(target, userId, fileName);
+
+    const { error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(objectPath, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
       });
-    
+
     if (uploadError) {
       console.error('アップロードエラー:', {
         bucketName,
@@ -89,12 +99,11 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
       });
       throw new Error('ファイルのアップロードに失敗しました');
     }
-    
-    // 公開URLを生成
+
     const { data: publicURL } = supabase.storage
       .from(bucketName)
       .getPublicUrl(objectPath);
-    
+
     return publicURL.publicUrl;
   } catch (error) {
     console.error('ストレージエラー:', error);

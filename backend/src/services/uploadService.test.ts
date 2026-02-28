@@ -154,5 +154,42 @@ describe('uploadService', () => {
         })
       );
     });
+
+    it('stores avatar images under avatars prefix', async () => {
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'avatars/user-1/fixed-uuid.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/avatars/user-1/fixed-uuid.png' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const result = await uploadToStorage(
+        {
+          originalname: 'avatar.png',
+          mimetype: 'image/png',
+          buffer: Buffer.from('image'),
+          size: 100,
+        },
+        'user-1',
+        'avatars'
+      );
+
+      expect(result).toBe('https://example.com/avatars/user-1/fixed-uuid.png');
+      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('avatars');
+      expect(uploadMock).toHaveBeenCalledWith(
+        'avatars/user-1/fixed-uuid.png',
+        expect.any(Buffer),
+        expect.objectContaining({
+          contentType: 'image/png',
+          upsert: false,
+        })
+      );
+    });
   });
 });
