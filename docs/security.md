@@ -3,6 +3,7 @@
 **移行メモ（2026-02-25）**
 - backend 認証ミドルウェアは新スキーマ互換のため、`public.users` が存在しない環境でも `auth.getUser(token)` の結果だけで認証を継続する。
 - `users` テーブル参照は legacy 互換の補助情報取得として扱う（存在時のみ利用）。
+- legacy assignments API と汎用 `/api/upload` は退避済みで、デフォルト無効（必要時のみ `ENABLE_LEGACY_ASSIGNMENTS_API=true` / `ENABLE_LEGACY_UPLOAD_API=true` で有効化）。
 
 **認証**
 - Supabase Auth（OAuth）でログイン
@@ -29,3 +30,4 @@
 - 削除: owner または admin
 - backend の `/api/notes/upload` は Storage bucket が未作成だと `Bucket not found` で失敗するため、bucket 作成 migration の適用を前提とする
 - backend の `/api/profiles/avatar/upload` も同様に bucket 未作成時は失敗するため、`avatars` bucket migration の適用を前提とする
+- backend の legacy `/api/upload` は `ENABLE_LEGACY_UPLOAD_API=true` で有効化した場合のみ利用可能

@@ -6,12 +6,15 @@ import { uploadAvatarImageController, uploadController, uploadNoteImageControlle
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const enableLegacyUploadApi = process.env.ENABLE_LEGACY_UPLOAD_API === 'true';
 
 /**
  * 画像アップロード API
  * POST /api/upload
  */
-router.post('/upload', authenticate, idempotencyGuard, upload.single('image'), uploadController);
+if (enableLegacyUploadApi) {
+	router.post('/upload', authenticate, idempotencyGuard, upload.single('image'), uploadController);
+}
 
 /**
  * ノート画像アップロード API

@@ -37,7 +37,7 @@
 
 ### 互換/移行中の機能（legacy）
 - 旧 `assignments` UI は `frontend/src/legacy/assignments/` に退避済み
-- backend の `assignments` API / `assignments` bucket は legacy互換として残存
+- backend の `assignments` API / `assignments` bucket は legacy互換として残存（APIはデフォルト無効、`ENABLE_LEGACY_ASSIGNMENTS_API=true` で有効化）
 - 現行の授業詳細ノート/口コミ/質問とは責務を分離して扱う
 
 ### 現在の大きな実装方針
@@ -64,8 +64,8 @@
 ### バックエンド (`backend`)
 - Express + TypeScript
 - 役割は主に:
-  - legacy assignments API
-  - 画像アップロードAPI (`/api/upload`, `/api/notes/upload`, `/api/profiles/avatar/upload`)
+  - 画像アップロードAPI（現行: `/api/notes/upload`, `/api/profiles/avatar/upload`）
+  - legacy assignments API / 汎用 upload API は退避（デフォルト無効）
 - JWT検証は Supabase Auth
 - legacy互換の `users` テーブル参照は補助扱い（無くても認証継続）
 

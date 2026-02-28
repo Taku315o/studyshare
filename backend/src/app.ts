@@ -4,6 +4,7 @@ import assignmentRoutes from './routes/assignments';
 import uploadRoutes from './routes/uploads';
 
 const app = express();
+const enableLegacyAssignmentsApi = process.env.ENABLE_LEGACY_ASSIGNMENTS_API === 'true';
 
 app.use(cors());
 app.use(express.json());
@@ -13,6 +14,9 @@ app.get('/', (_req, res) => {
 });
 
 app.use('/api', uploadRoutes);
-app.use('/api', assignmentRoutes);
+
+if (enableLegacyAssignmentsApi) {
+  app.use('/api', assignmentRoutes);
+}
 
 export default app;

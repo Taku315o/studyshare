@@ -40,7 +40,8 @@ export const setAuthToken = (token: string | null) => {
 };
 
 /**
- * Uploads an image file to the backend and returns the resulting public URL.
+ * Legacy: Uploads an image file to the backend and returns the resulting public URL.
+ * This endpoint depends on backend `ENABLE_LEGACY_UPLOAD_API=true`.
  *
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
@@ -106,7 +107,8 @@ export const uploadAvatarImage = async (
 };
 
 /**
- * Sends a request to create a new assignment using the backend API.
+ * Legacy: Sends a request to create a new assignment using the backend API.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param data - Assignment payload including title, description, and an optional image URL.
  * @returns A promise resolving to the created assignment object.
@@ -130,7 +132,8 @@ export const createAssignment = async (data: {
 };
 
 /**
- * Searches assignments using the backend API's query endpoint.
+ * Legacy: Searches assignments using the backend API's query endpoint.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param query - Free-text query submitted by the user.
  * @returns A promise resolving to the array of assignments returned by the server.
@@ -141,7 +144,8 @@ export const searchAssignments = async (query: string) => {
 };
 
 /**
- * Deletes an assignment via the backend API. Requires administrator privileges.
+ * Legacy: Deletes an assignment via the backend API. Requires administrator privileges.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param id - Identifier of the assignment to remove.
  * @returns A promise resolving once the backend acknowledges the deletion.
