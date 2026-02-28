@@ -30,6 +30,7 @@
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
 - `profiles` の `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` を `upsert` で更新
 - アバター画像は backend `POST /api/profiles/avatar/upload` でアップロードしてから `avatar_url` に反映
+- アバター更新時は旧 `avatar_url` から同ユーザー配下の storage path を解決し、backend 側で旧オブジェクトを削除する
 - プロフィール更新入力は `frontend/src/lib/validation/profile.ts` の `zod` schemaで検証（学年 `1..6`）
 - `ProfileCard` モーダルは外クリックで閉じるが、保存中は閉じない
 - 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す

@@ -67,6 +67,7 @@
 - bucket 作成後に `image_url` 付きで `notes` insert が成功する
 - プロフィール画像アップロード
 - `/me` で学部とアバターを保存後、再読込しても表示が維持される
+- アバター更新後、旧 `avatars/{userId}/...` オブジェクトが残存しないこと
 - `avatars` bucket 未作成時に `/api/profiles/avatar/upload` が失敗し、原因切り分けできる
 
 **コマンド**

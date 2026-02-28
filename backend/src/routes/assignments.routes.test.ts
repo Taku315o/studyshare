@@ -517,6 +517,37 @@ describe('assignment routes', () => {
       expect(second.headers['idempotency-replayed']).toBe('true');
       expect(uploadMock).toHaveBeenCalledTimes(1);
     });
+
+    it('deletes previous avatar when previousUrl is provided', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'avatars/user-1/new-avatar.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/avatars/user-1/new-avatar.png' },
+      });
+      const removeMock = jest.fn().mockResolvedValue({ error: null });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+        remove: removeMock,
+      });
+
+      const response = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .field('previousUrl', 'https://example.com/storage/v1/object/public/avatars/avatars/user-1/old-avatar.png')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      expect(response.status).toBe(200);
+      expect(removeMock).toHaveBeenCalledWith(['avatars/user-1/old-avatar.png']);
+    });
   });
 
   describe('GET /api/assignments/search', () => {

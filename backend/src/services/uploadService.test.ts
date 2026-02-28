@@ -1,4 +1,5 @@
 import {
+  deleteFromStorageByPublicUrl,
   isValidFileSize,
   isValidImageType,
   uploadToStorage,
@@ -190,6 +191,41 @@ describe('uploadService', () => {
           upsert: false,
         })
       );
+    });
+
+    it('deletes previous avatar object by public URL', async () => {
+      const removeMock = jest.fn().mockResolvedValue({ error: null });
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: jest.fn(),
+        getPublicUrl: jest.fn(),
+        remove: removeMock,
+      });
+
+      await deleteFromStorageByPublicUrl(
+        'https://project-ref.supabase.co/storage/v1/object/public/avatars/avatars/user-1/old.png',
+        'user-1',
+        'avatars'
+      );
+
+      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('avatars');
+      expect(removeMock).toHaveBeenCalledWith(['avatars/user-1/old.png']);
+    });
+
+    it('skips deletion when URL path is not under same user prefix', async () => {
+      const removeMock = jest.fn().mockResolvedValue({ error: null });
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: jest.fn(),
+        getPublicUrl: jest.fn(),
+        remove: removeMock,
+      });
+
+      await deleteFromStorageByPublicUrl(
+        'https://project-ref.supabase.co/storage/v1/object/public/avatars/avatars/other-user/old.png',
+        'user-1',
+        'avatars'
+      );
+
+      expect(removeMock).not.toHaveBeenCalled();
     });
   });
 });

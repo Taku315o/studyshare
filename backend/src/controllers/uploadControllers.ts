@@ -2,7 +2,7 @@
 // This file handles the upload logic for images to Supabase Storage.
 //this file calls the uploadService to handle the actual upload process
 import { Request, Response } from 'express';
-import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
+import { deleteFromStorageByPublicUrl, uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
 
 const validateUploadRequest = (req: Request, res: Response) => {
   const file = req.file;
@@ -73,8 +73,12 @@ export const uploadAvatarImageController = async (req: Request, res: Response): 
     const validated = validateUploadRequest(req, res);
     if (!validated) return;
     const { file, user } = validated;
+    const previousUrl = typeof req.body?.previousUrl === 'string' ? req.body.previousUrl.trim() : '';
 
     const imageUrl = await uploadToStorage(file, user.id, 'avatars');
+    if (previousUrl) {
+      await deleteFromStorageByPublicUrl(previousUrl, user.id, 'avatars');
+    }
 
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {

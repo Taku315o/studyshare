@@ -135,6 +135,7 @@ bucket未作成時:
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
 - 初回オンボーディング導入（大学/学年必須）
 - `/me` で `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` 編集
+- アバター更新時に旧画像（`avatars/{userId}/...`）をbackend側で削除
 - `/me` と `/onboarding` のプロフィール入力バリデーションを `zod` schemaへ統一
 - 学年入力ルールを `1..6` に統一（`ProfileCard` / `/me` / `/onboarding`）
 - `/onboarding` で `faculty`（任意）保存に対応

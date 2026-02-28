@@ -602,7 +602,9 @@ export default function MePage() {
         let uploadedAvatarUrl: string | null = null;
         if (avatarFile) {
           try {
-            const uploadResult = await uploadAvatarImage(avatarFile);
+            const uploadResult = await uploadAvatarImage(avatarFile, {
+              previousUrl: profile?.avatarUrl ?? null,
+            });
             uploadedAvatarUrl = uploadResult.url;
           } catch (uploadError) {
             console.error('アバター画像アップロードエラー:', uploadError);
@@ -649,7 +651,7 @@ export default function MePage() {
         setIsSavingProfile(false);
       }
     },
-    [currentUserId, typedSupabase, universities],
+    [currentUserId, profile?.avatarUrl, typedSupabase, universities],
   );
 
   return (

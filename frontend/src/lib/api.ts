@@ -23,6 +23,10 @@ type IdempotentRequestOptions = {
   idempotencyKey?: string;
 };
 
+type AvatarUploadOptions = IdempotentRequestOptions & {
+  previousUrl?: string | null;
+};
+
 const resolveIdempotencyKey = (idempotencyKey?: string): string =>
   idempotencyKey?.trim() || createIdempotencyKey();
 
@@ -92,10 +96,14 @@ export const uploadNoteImage = async (
  */
 export const uploadAvatarImage = async (
   file: File,
-  options?: IdempotentRequestOptions,
+  options?: AvatarUploadOptions,
 ): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
+  const previousUrl = options?.previousUrl?.trim();
+  if (previousUrl) {
+    formData.append('previousUrl', previousUrl);
+  }
 
   const response = await api.post<{ url: string }>('/profiles/avatar/upload', formData, {
     headers: {

@@ -117,6 +117,19 @@ describe('API Functions', () => {
 
       expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
     });
+
+    it('should include previousUrl when provided', async () => {
+      const mockFile = new File(['test'], 'avatar.png', { type: 'image/png' });
+      const mockResponse = { url: 'https://example.com/avatars/avatar-new.png' };
+      const previousUrl = 'https://example.com/storage/v1/object/public/avatars/avatars/user-1/avatar-old.png';
+
+      mock.onPost('/profiles/avatar/upload').reply(200, mockResponse);
+
+      await uploadAvatarImage(mockFile, { previousUrl });
+
+      const formData = mock.history.post[0].data as FormData;
+      expect(formData.get('previousUrl')).toBe(previousUrl);
+    });
   });
 
   describe('createAssignment', () => {

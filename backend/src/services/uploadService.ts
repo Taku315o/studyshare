@@ -34,6 +34,7 @@ const resolveBucketName = (target: UploadTarget): string => {
   );
 };
 
+// For better organization, we store files in subfolders based on the user ID and target type.
 const resolveObjectPath = (target: UploadTarget, userId: string, fileName: string): string => {
   if (target === 'notes') {
     return `notes/${userId}/${fileName}`;
@@ -44,6 +45,32 @@ const resolveObjectPath = (target: UploadTarget, userId: string, fileName: strin
   }
 
   return `${userId}/${fileName}`;
+};
+
+// When deleting by public URL, we want to ensure that only files within the expected user-specific path are deleted.
+const resolveExpectedPrefix = (target: UploadTarget, userId: string): string => {
+  if (target === 'notes') return `notes/${userId}/`;
+  if (target === 'avatars') return `avatars/${userId}/`;
+  return `${userId}/`;
+};
+
+// Given a public URL, extract the object path if it belongs to the specified bucket. This is necessary because Supabase's public URLs do not directly expose the object path.
+const resolveObjectPathFromPublicUrl = (publicUrl: string, bucketName: string): string | null => {
+  try {
+    const parsed = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${bucketName}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex < 0) {
+      return null;
+    }
+
+    const encodedPath = parsed.pathname.slice(markerIndex + marker.length);
+    if (!encodedPath) return null;
+
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -108,5 +135,42 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
   } catch (error) {
     console.error('ストレージエラー:', error);
     throw new Error('ファイルのアップロード処理に失敗しました');
+  }
+};
+
+/**
+ * Deletes an existing object referenced by a public URL in the target bucket.
+ *
+ * This is intended for replacing user-owned assets (e.g. avatar update) and
+ * will only delete objects that match the expected per-user path prefix.
+ * 公開URLからファイルパスを逆算して削除する。アバター更新の時、古いファイルを削除するようにしている。
+ * 他のユーザーのファイルを誤って削除しないように、ユーザープレフィックスと一致する場合にのみ削除する。
+ */
+export const deleteFromStorageByPublicUrl = async (
+  publicUrl: string,
+  userId: string,
+  target: UploadTarget = 'avatars',
+): Promise<void> => {
+  const bucketName = resolveBucketName(target);
+  const objectPath = resolveObjectPathFromPublicUrl(publicUrl, bucketName);
+  if (!objectPath) return;
+
+  const expectedPrefix = resolveExpectedPrefix(target, userId);
+  if (!objectPath.startsWith(expectedPrefix)) {
+    console.warn('削除対象のパスがユーザープレフィックスと一致しないためスキップします', {
+      bucketName,
+      objectPath,
+      expectedPrefix,
+    });
+    return;
+  }
+
+  const { error } = await supabase.storage.from(bucketName).remove([objectPath]);
+  if (error) {
+    console.warn('旧ファイルの削除に失敗しました', {
+      bucketName,
+      objectPath,
+      message: error.message,
+    });
   }
 };

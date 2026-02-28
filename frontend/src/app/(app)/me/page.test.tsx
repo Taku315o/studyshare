@@ -298,7 +298,9 @@ describe('MePage', () => {
     await user.click(screen.getByRole('button', { name: '保存' }));
 
     await waitFor(() => {
-      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile);
+      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile, {
+        previousUrl: null,
+      });
       expect(profilesUpsertMock).toHaveBeenCalledWith(
         {
           user_id: 'user-1',
@@ -329,7 +331,9 @@ describe('MePage', () => {
     await user.click(screen.getByRole('button', { name: '保存' }));
 
     await waitFor(() => {
-      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile);
+      expect(uploadAvatarImageMock).toHaveBeenCalledWith(avatarFile, {
+        previousUrl: null,
+      });
     });
     expect(profilesUpsertMock).not.toHaveBeenCalled();
   });
