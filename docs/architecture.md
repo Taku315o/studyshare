@@ -29,11 +29,14 @@
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
 - `profiles` の `display_name` / `university_id` / `grade_year` を `upsert` で更新
+- プロフィール更新入力は `frontend/src/lib/validation/profile.ts` の `zod` schemaで検証（学年 `1..6`）
+- `ProfileCard` モーダルは外クリックで閉じるが、保存中は閉じない
 - 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す
 
 - 初回オンボーディング（`/onboarding`）
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities`）
 - `profiles.university_id` / `grade_year` が未設定の認証済みユーザーに入力を要求し、保存後に元ページへ戻す
+- オンボーディングの大学/学年入力は `zod` schemaで検証し、学年は `1..6` で統一
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布

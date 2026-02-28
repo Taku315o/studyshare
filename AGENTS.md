@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-02-26
+最終更新: 2026-02-28
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -133,6 +133,9 @@ bucket未作成時:
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
 - 初回オンボーディング導入（大学/学年必須）
 - `/me` で `display_name` / `university_id` / `grade_year` 編集
+- `/me` と `/onboarding` のプロフィール入力バリデーションを `zod` schemaへ統一
+- 学年入力ルールを `1..6` に統一（`ProfileCard` / `/me` / `/onboarding`）
+- `ProfileCard` 編集モーダルで外クリック閉じる対応（保存中は閉じない）
 - 同大学スコープの説明表示（授業詳細UI）
 - マイページ設定の公開範囲保存（`update_visibility_settings` RPC 経由）
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
@@ -269,6 +272,11 @@ backend or SQL RPCに寄せるべきもの:
 - 権限判定が複雑
 - 監査/通報/レート制限を挟みたい
 
+### バリデーション方針（frontend/backend共通）
+- 新規の入力バリデーション実装は `zod` を標準とする
+- frontend のフォームバリデーションは `frontend/src/lib/validation/` 配下に schema を切り出して再利用する
+- 手書きの分岐バリデーション追加は原則避け、`safeParse` の結果でUIエラー表示を行う
+
 ### legacyと現行の混同を避ける
 - `assignments` を触る前に、それが現行導線か legacy互換か確認する
 - 現行本体機能の優先は `offerings` / `timetable` / `community` / `me`
@@ -339,6 +347,7 @@ backend or SQL RPCに寄せるべきもの:
 - `frontend/src/components/timetable/TimetableGrid.tsx`
 - `frontend/src/components/community/CommunityPane.tsx`
 - `frontend/src/app/(app)/home/page.tsx`
+- `frontend/src/lib/validation/profile.ts`
 - `backend/src/routes/uploads.ts`
 - `backend/src/middleware/auth.ts`
 - `supabase/migrations/20260216132701_init_full_schema.sql`
