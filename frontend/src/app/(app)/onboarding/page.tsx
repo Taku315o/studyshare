@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  GRADE_YEAR_OPTIONS,
+  getValidationErrorMessage,
+  profileSetupSchema,
+} from '@/lib/validation/profile';
 import { resolveSafeNextPath } from '@/lib/nextPath';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
@@ -105,15 +110,16 @@ export default function OnboardingPage() {
       toast.error('ログイン情報を取得できませんでした');
       return;
     }
-    if (!selectedUniversityId) {
-      toast.error('大学を選択してください');
+    const validation = profileSetupSchema.safeParse({
+      universityId: selectedUniversityId,
+      gradeYear,
+    });
+    if (!validation.success) {
+      toast.error(getValidationErrorMessage(validation.error));
       return;
     }
-    const parsedGradeYear = Number(gradeYear);
-    if (!Number.isInteger(parsedGradeYear) || parsedGradeYear < 1 || parsedGradeYear > 8) {
-      toast.error('学年を選択してください');
-      return;
-    }
+
+    const { universityId: normalizedUniversityId, gradeYear: parsedGradeYear } = validation.data;
 
     isSavingRef.current = true;
     setIsSaving(true);// 二重送信を防止するため、保存処理中はフォームを無効化する
@@ -124,7 +130,7 @@ export default function OnboardingPage() {
           {
             user_id: userId,
             display_name: displayName.trim() || 'ユーザー',
-            university_id: selectedUniversityId,
+            university_id: normalizedUniversityId,
             grade_year: parsedGradeYear,
           },
           { onConflict: 'user_id' },
@@ -206,7 +212,7 @@ export default function OnboardingPage() {
               required
             >
               <option value="">学年を選択してください</option>
-              {[1, 2, 3, 4, 5, 6].map((year) => (
+              {GRADE_YEAR_OPTIONS.map((year) => (
                 <option key={year} value={year}>
                   {year}年
                 </option>

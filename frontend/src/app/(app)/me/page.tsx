@@ -7,6 +7,7 @@ import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
+import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   MeNoteItemViewModel,
@@ -576,19 +577,21 @@ export default function MePage() {
         throw new Error('ログインユーザーを取得できませんでした');
       }
 
-      const trimmed = displayName.trim();
-      if (!trimmed) {
-        toast.error('表示名を入力してください');
-        throw new Error('display_name is empty');
+      const validation = profileEditSchema.safeParse({
+        displayName,
+        universityId,
+        gradeYear,
+      });
+      if (!validation.success) {
+        toast.error(getValidationErrorMessage(validation.error, 'プロフィールの入力内容を確認してください。'));
+        throw new Error('profile input is invalid');
       }
-      if (!universityId) {
-        toast.error('大学を選択してください');
-        throw new Error('university_id is empty');
-      }
-      if (!Number.isInteger(gradeYear) || gradeYear < 1 || gradeYear > 8) {
-        toast.error('学年を選択してください');
-        throw new Error('grade_year is invalid');
-      }
+
+      const {
+        displayName: normalizedDisplayName,
+        universityId: normalizedUniversityId,
+        gradeYear: normalizedGradeYear,
+      } = validation.data;
 
       setIsSavingProfile(true);
 
@@ -598,9 +601,9 @@ export default function MePage() {
           .upsert(
             {
               user_id: currentUserId,
-              display_name: trimmed,
-              university_id: universityId,
-              grade_year: gradeYear,
+              display_name: normalizedDisplayName,
+              university_id: normalizedUniversityId,
+              grade_year: normalizedGradeYear,
             },
             { onConflict: 'user_id' },
           )

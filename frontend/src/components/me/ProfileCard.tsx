@@ -1,7 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  GRADE_YEAR_OPTIONS,
+  getValidationErrorMessage,
+  profileEditSchema,
+} from '@/lib/validation/profile';
 import type { MeProfileViewModel, MeUniversityOption } from '@/types/me';
 
 type ProfileCardProps = {
@@ -24,7 +29,6 @@ export default function ProfileCard({
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYearInput, setGradeYearInput] = useState('');
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
-  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!isModalOpen) return;
@@ -45,38 +49,26 @@ export default function ProfileCard({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isSubmittingRef.current) {
+    if (isSaving || isLoading) {
       return;
     }
-    const nextName = displayNameInput.trim();
-    if (!nextName) {
-      setSubmitErrorMessage('表示名を入力してください。');
-      return;
-    }
-    if (!selectedUniversityId) {
-      setSubmitErrorMessage('所属大学を選択してください。');
-      return;
-    }
-    const parsedGradeYear = Number(gradeYearInput);
-    if (!Number.isInteger(parsedGradeYear) || parsedGradeYear < 1 || parsedGradeYear > 8) {
-      setSubmitErrorMessage('学年を選択してください。');
+    const validation = profileEditSchema.safeParse({
+      displayName: displayNameInput,
+      universityId: selectedUniversityId,
+      gradeYear: gradeYearInput,
+    });
+    if (!validation.success) {
+      setSubmitErrorMessage(getValidationErrorMessage(validation.error));
       return;
     }
 
     setSubmitErrorMessage(null);
-    isSubmittingRef.current = true;
 
     try {
-      await onSaveProfile({
-        displayName: nextName,
-        universityId: selectedUniversityId,
-        gradeYear: parsedGradeYear,
-      });
+      await onSaveProfile(validation.data);
       setIsModalOpen(false);
     } catch {
       setSubmitErrorMessage('プロフィール更新に失敗しました。');
-    } finally {
-      isSubmittingRef.current = false;
     }
   };
 
@@ -127,8 +119,22 @@ export default function ProfileCard({
 
       {isModalOpen && typeof document !== 'undefined'
         ? createPortal(
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4">
-              <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl">
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4"
+              data-testid="profile-edit-modal-overlay"
+              onClick={(event) => {
+                if (event.target !== event.currentTarget || isSaving) {
+                  return;
+                }
+                setIsModalOpen(false);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
                 <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年を更新できます。</p>
 
@@ -172,7 +178,7 @@ export default function ProfileCard({
                       disabled={isSaving || isLoading}
                     >
                       <option value="">学年を選択してください</option>
-                      {[1, 2, 3, 4, 5, 6].map((year) => (
+                      {GRADE_YEAR_OPTIONS.map((year) => (
                         <option key={year} value={year}>
                           {year}年
                         </option>
@@ -186,7 +192,8 @@ export default function ProfileCard({
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      disabled={isSaving}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       キャンセル
                     </button>
