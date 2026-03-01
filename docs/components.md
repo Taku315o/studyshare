@@ -13,6 +13,7 @@
 - Supabase直接参照は読み取りに限定（例外: `src/app/profile/page.tsx` の本人投稿削除。RLS前提）
 - 認証状態は `AuthContext` 経由で参照
 - 入力バリデーションは `zod` を標準とし、schema は `src/lib/validation/` に集約して再利用する
+- 非同期submitは `isSaving` state だけに依存せず、`isSubmittingRef` などの同期ガードを併用して二重送信を防止する
 
 **命名・配置**
 - 機能単位の命名を優先（例: `AssignmentList`, `AssignmentForm`, `SearchForm`, `Header`）
@@ -79,6 +80,7 @@
 - `ProfileCard` / `/me` 保存処理 / `/onboarding` は同一の `zod` schema群を使って整合性を保つ
 - 学年入力のドメインは `1..6` を正とする（select/validation とも一致させる）
 - `保存` タブは `note_reactions(kind in ['like','bookmark'])` を `note_id` 単位で統合し、重複表示しない
+- `ProfileCard` と `SettingsPanel` の保存処理はローカル同期ガード（`useRef`）を併用し、短時間連打による重複リクエストを抑止する
 
 **オンボーディング（追加）**
 - `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年必須、学部任意）ページ

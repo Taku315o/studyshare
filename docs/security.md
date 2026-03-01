@@ -31,3 +31,4 @@
 - backend の `/api/notes/upload` は Storage bucket が未作成だと `Bucket not found` で失敗するため、bucket 作成 migration の適用を前提とする
 - backend の `/api/profiles/avatar/upload` も同様に bucket 未作成時は失敗するため、`avatars` bucket migration の適用を前提とする
 - backend の legacy `/api/upload` は `ENABLE_LEGACY_UPLOAD_API=true` で有効化した場合のみ利用可能
+- upload系ルートは `multer` の route middleware で `fileSize=5MB` / `files=1` を先に適用し、メモリバッファ肥大化のリスクを抑制する

@@ -4,6 +4,7 @@
 - 旧 `assignments` ベースUIは現行本体フローから切り離し、frontend では `frontend/src/legacy/assignments/` に退避済み。
 - `/(app)` の投稿導線から legacy `assignments` ルートへは遷移しない。
 - `POST /api/notes/upload` は legacy `assignments` ルーター配下から分離し、upload 専用ルーターで提供する。
+- backend の route mount は `createApp` / `createUploadRoutes` ファクトリ経由で切替可能にし、legacy API有効化を環境変数だけに依存しない構成へ変更（テストで明示注入可能）。
 
 **構成**
 - frontend: Next.js(App Router)で画面と認証状態を管理
@@ -60,6 +61,7 @@
 - `GET /community` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `GET /me` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `assignments` 系APIは legacy 互換のため backend に残存しているが、現行本体機能（授業詳細のノート/口コミ/質問）とは責務を分離して扱う
+- legacy `/api/upload` / `/api/assignments*` はデフォルト無効だが、`createApp` オプション（または対応する環境変数）で有効化できる
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`

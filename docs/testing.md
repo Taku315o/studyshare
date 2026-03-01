@@ -39,6 +39,8 @@
 - `POST /api/notes/upload` 画像バリデーション/認証（現行ノート画像添付）
 - `POST /api/notes/upload` で legacy `users` テーブル不在でも認証継続できること
 - `POST /api/profiles/avatar/upload` 画像バリデーション/認証/idempotency
+- upload系APIで 5MB 超過ファイルが multer の route middleware 段階で 400 になること（DoS軽減）
+- `assignments.routes.test.ts` では `createApp({ enableLegacyAssignmentsApi: true, enableLegacyUploadApi: true })` を使い、env依存なしで legacy route を明示有効化する
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -60,6 +62,8 @@
 - 大学未設定ユーザー: `/onboarding` に誘導される
 - `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
 - `/me` と `/onboarding` の学年入力で `7` 以上が保存できないこと（UI選択肢/バリデーション一致）
+- `/me` のプロフィール編集モーダルで保存ボタン連打・オーバーレイ連打をしても重複送信/保存中クローズが起きない
+- 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード
