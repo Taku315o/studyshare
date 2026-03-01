@@ -7,7 +7,7 @@ import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
-import { uploadAvatarImage } from '@/lib/api';
+import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -400,6 +400,22 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
   };
 }
 
+function resolveAvatarUploadErrorMessage(error: unknown): string | null {
+  if (!isUploadApiError(error)) {
+    return null;
+  }
+
+  if (error.kind === 'FILE_TOO_LARGE') {
+    return 'アバター画像のサイズが大きすぎます（5MBまで）';
+  }
+
+  if (error.kind === 'STORAGE_ERROR') {
+    return 'アバター画像の保存先ストレージで障害が発生しています。時間をおいて再度お試しください。';
+  }
+
+  return 'アバター画像のアップロードに失敗しました';
+}
+
 export default function MePage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const typedSupabase = supabase as unknown as SupabaseClient<Database>;
@@ -601,16 +617,10 @@ export default function MePage() {
       try {
         let uploadedAvatarUrl: string | null = null;
         if (avatarFile) {
-          try {
-            const uploadResult = await uploadAvatarImage(avatarFile, {
-              previousUrl: profile?.avatarUrl ?? null,
-            });
-            uploadedAvatarUrl = uploadResult.url;
-          } catch (uploadError) {
-            console.error('アバター画像アップロードエラー:', uploadError);
-            toast.error('アバター画像のアップロードに失敗しました');
-            throw uploadError;
-          }
+          const uploadResult = await uploadAvatarImage(avatarFile, {
+            previousUrl: profile?.avatarUrl ?? null,
+          });
+          uploadedAvatarUrl = uploadResult.url;
         }
 
         const { data, error } = await typedSupabase
@@ -645,7 +655,12 @@ export default function MePage() {
         toast.success('プロフィールを更新しました');
       } catch (error) {
         console.error('プロフィール更新エラー:', error);
-        toast.error('プロフィールの更新に失敗しました');
+        const avatarUploadErrorMessage = resolveAvatarUploadErrorMessage(error);
+        if (avatarUploadErrorMessage) {
+          toast.error(avatarUploadErrorMessage);
+        } else {
+          toast.error('プロフィールの更新に失敗しました');
+        }
         throw error;
       } finally {
         setIsSavingProfile(false);

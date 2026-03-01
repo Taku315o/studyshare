@@ -10,6 +10,7 @@ jest.mock('@/lib/supabase/client', () => ({
 
 jest.mock('@/lib/api', () => ({
   uploadAvatarImage: jest.fn(),
+  isUploadApiError: jest.fn((error: unknown) => Boolean(error && typeof error === 'object' && 'kind' in error)),
 }));
 
 jest.mock('@/context/AuthContext', () => ({

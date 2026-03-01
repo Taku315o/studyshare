@@ -116,7 +116,7 @@ describe('uploadService', () => {
           },
           'user-1'
         )
-      ).rejects.toThrow('ファイルのアップロード処理に失敗しました');
+      ).rejects.toThrow('ストレージへのアップロードに失敗しました');
     });
 
     it('stores note images under notes prefix', async () => {

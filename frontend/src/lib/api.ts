@@ -30,6 +30,94 @@ type AvatarUploadOptions = IdempotentRequestOptions & {
 const resolveIdempotencyKey = (idempotencyKey?: string): string =>
   idempotencyKey?.trim() || createIdempotencyKey();
 
+type UploadErrorResponse = {
+  error?: string;
+  code?: string;
+};
+
+export type UploadErrorKind = 'FILE_TOO_LARGE' | 'STORAGE_ERROR' | 'UNKNOWN';
+
+const FILE_TOO_LARGE_ERROR_CODE = 'FILE_TOO_LARGE';
+const STORAGE_UPLOAD_ERROR_CODE = 'STORAGE_UPLOAD_FAILED';
+
+export class UploadApiError extends Error {
+  readonly kind: UploadErrorKind;
+  readonly status: number | null;
+  readonly code: string | null;
+
+  constructor(params: { message: string; kind: UploadErrorKind; status?: number; code?: string }) {
+    super(params.message);
+    this.name = 'UploadApiError';
+    this.kind = params.kind;
+    this.status = params.status ?? null;
+    this.code = params.code ?? null;
+  }
+}
+
+export const isUploadApiError = (error: unknown): error is UploadApiError => {
+  return error instanceof UploadApiError;
+};
+
+const toUploadApiError = (error: unknown): UploadApiError => {
+  if (error instanceof UploadApiError) {
+    return error;
+  }
+
+  if (!axios.isAxiosError(error)) {
+    return new UploadApiError({
+      kind: 'UNKNOWN',
+      message: '画像アップロードに失敗しました',
+    });
+  }
+
+  const responseData = (error.response?.data ?? null) as UploadErrorResponse | null;
+  const code = responseData?.code?.trim() || null;
+  const status = typeof error.response?.status === 'number' ? error.response.status : undefined;
+
+  if (code === FILE_TOO_LARGE_ERROR_CODE || status === 413) {
+    return new UploadApiError({
+      kind: 'FILE_TOO_LARGE',
+      message: responseData?.error || 'ファイルサイズが大きすぎます（5MBまで）',
+      status,
+      code: code ?? FILE_TOO_LARGE_ERROR_CODE,
+    });
+  }
+
+  if (code === STORAGE_UPLOAD_ERROR_CODE || status === 503) {
+    return new UploadApiError({
+      kind: 'STORAGE_ERROR',
+      message: responseData?.error || 'ストレージへのアップロードに失敗しました。時間をおいて再度お試しください。',
+      status,
+      code: code ?? STORAGE_UPLOAD_ERROR_CODE,
+    });
+  }
+
+  return new UploadApiError({
+    kind: 'UNKNOWN',
+    message: responseData?.error || error.message || '画像アップロードに失敗しました',
+    status,
+    code: code ?? undefined,
+  });
+};
+
+const postUploadImage = async (
+  path: string,
+  formData: FormData,
+  idempotencyKey?: string,
+): Promise<{ url: string }> => {
+  try {
+    const response = await api.post<{ url: string }>(path, formData, {
+      headers: {
+        'Idempotency-Key': resolveIdempotencyKey(idempotencyKey),
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    throw toUploadApiError(error);
+  }
+};
+
 /**
  * Applies or removes the Authorization header used for authenticated API requests.
  *
@@ -56,14 +144,8 @@ export const uploadImage = async (
 ): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
-  
-  const response = await api.post<{ url: string }>('/upload', formData, {
-    headers: {
-      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
-    },
-  });
-  
-  return response.data;
+
+  return postUploadImage('/upload', formData, options?.idempotencyKey);
 };
 
 /**
@@ -79,13 +161,7 @@ export const uploadNoteImage = async (
   const formData = new FormData();
   formData.append('image', file);
 
-  const response = await api.post<{ url: string }>('/notes/upload', formData, {
-    headers: {
-      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
-    },
-  });
-
-  return response.data;
+  return postUploadImage('/notes/upload', formData, options?.idempotencyKey);
 };
 
 /**
@@ -105,13 +181,7 @@ export const uploadAvatarImage = async (
     formData.append('previousUrl', previousUrl);
   }
 
-  const response = await api.post<{ url: string }>('/profiles/avatar/upload', formData, {
-    headers: {
-      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
-    },
-  });
-
-  return response.data;
+  return postUploadImage('/profiles/avatar/upload', formData, options?.idempotencyKey);
 };
 
 /**

@@ -28,6 +28,7 @@ jest.mock('@/lib/api', () => ({
   uploadImage: jest.fn(),
   createAssignment: jest.fn(),
   setAuthToken: jest.fn(),
+  isUploadApiError: jest.fn((error: unknown) => Boolean(error && typeof error === 'object' && 'kind' in error)),
 }));
 
 jest.mock('next/image', () => {

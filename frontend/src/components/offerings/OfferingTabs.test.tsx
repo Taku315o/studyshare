@@ -24,6 +24,7 @@ jest.mock('react-hot-toast', () => ({
 
 jest.mock('@/lib/api', () => ({
   uploadNoteImage: jest.fn(),
+  isUploadApiError: jest.fn((error: unknown) => Boolean(error && typeof error === 'object' && 'kind' in error)),
 }));
 
 jest.mock('@/lib/supabase', () => ({

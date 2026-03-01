@@ -2,7 +2,7 @@
 // コントラスト問題 + ラベル問題だけ修正（レイアウト/構造/挙動は一切変更なし）
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { uploadImage, createAssignment, setAuthToken } from '@/lib/api';
+import { isUploadApiError, uploadImage, createAssignment, setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,19 @@ export default function AssignmentForm() {
   const [uploading, setUploading] = useState(false);
   const { getAccessToken } = useAuth();
   const router = useRouter();
+
+  const resolveAssignmentImageUploadErrorMessage = (error: unknown): string => {
+    if (isUploadApiError(error)) {
+      if (error.kind === 'FILE_TOO_LARGE') {
+        return '画像サイズが大きすぎます（5MBまで）';
+      }
+      if (error.kind === 'STORAGE_ERROR') {
+        return '画像の保存先ストレージで障害が発生しています。時間をおいて再度お試しください。';
+      }
+    }
+
+    return '画像アップロードに失敗しました';
+  };
 
   // ====== UI: contrast + label only ======
   const labelClass =
@@ -112,9 +125,15 @@ export default function AssignmentForm() {
       // 画像アップロード
       if (image) {
         console.log('[AssignmentForm] 画像アップロード開始');
-        const uploadResult = await uploadImage(image);
-        imageUrl = uploadResult.url;
-        console.log('[AssignmentForm] 画像アップロード完了:', imageUrl);
+        try {
+          const uploadResult = await uploadImage(image);
+          imageUrl = uploadResult.url;
+          console.log('[AssignmentForm] 画像アップロード完了:', imageUrl);
+        } catch (uploadError) {
+          console.error('画像アップロードエラー:', uploadError);
+          toast.error(resolveAssignmentImageUploadErrorMessage(uploadError));
+          return;
+        }
       }
 
       const university = data.university.trim();

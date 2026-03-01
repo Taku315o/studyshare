@@ -8,7 +8,7 @@ import Link from 'next/link';
 import NoteCard from '@/components/notes/NoteCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
 import supabase from '@/lib/supabase';
-import { uploadNoteImage } from '@/lib/api';
+import { isUploadApiError, uploadNoteImage } from '@/lib/api';
 
 type OfferingTabsProps = {
   offeringId: string;
@@ -38,6 +38,19 @@ type OfferingWriteClient = {
   from: (table: 'notes' | 'reviews' | 'questions') => {
     insert: (payload: Record<string, unknown>) => Promise<{ error: { message?: string } | null }>;
   };
+};
+
+const resolveNoteImageUploadErrorMessage = (error: unknown): string => {
+  if (isUploadApiError(error)) {
+    if (error.kind === 'FILE_TOO_LARGE') {
+      return 'ノート画像のサイズが大きすぎます（5MBまで）';
+    }
+    if (error.kind === 'STORAGE_ERROR') {
+      return 'ノート画像の保存先ストレージで障害が発生しています。時間をおいて再度お試しください。';
+    }
+  }
+
+  return 'ノート画像のアップロードに失敗しました';
 };
 
 function ModalShell({
@@ -216,8 +229,8 @@ export default function OfferingTabs({
         try {
           const uploadResult = await uploadNoteImage(image);
           uploadedImageUrl = uploadResult.url;
-        } catch {
-          toast.error('ノート画像のアップロードに失敗しました');
+        } catch (error) {
+          toast.error(resolveNoteImageUploadErrorMessage(error));
           return;
         }
       }

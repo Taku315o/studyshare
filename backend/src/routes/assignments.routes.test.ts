@@ -227,7 +227,7 @@ describe('assignment routes', () => {
       expect(response.body).toEqual({ error: '無効なファイル形式です（png/jpg/webpのみ）' });
     });
 
-    it('returns 400 when file size exceeds limit', async () => {
+    it('returns 413 when file size exceeds limit', async () => {
       mockAuthenticatedUser('student');
 
       const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1, 'a');
@@ -239,8 +239,11 @@ describe('assignment routes', () => {
           contentType: 'image/png',
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      expect(response.status).toBe(413);
+      expect(response.body).toEqual({
+        code: 'FILE_TOO_LARGE',
+        error: 'ファイルサイズが大きすぎます（5MBまで）',
+      });
     });
 
     it('returns 200 with url when upload succeeds', async () => {
@@ -371,6 +374,35 @@ describe('assignment routes', () => {
       expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
     });
 
+    it('returns 503 with storage error code when storage upload fails', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Bucket not found' },
+      });
+      const getPublicUrlMock = jest.fn();
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const response = await request(app)
+        .post('/api/notes/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'image.webp',
+          contentType: 'image/webp',
+        });
+
+      expect(response.status).toBe(503);
+      expect(response.body).toEqual({
+        code: 'STORAGE_UPLOAD_FAILED',
+        error: 'ストレージへのアップロードに失敗しました。時間をおいて再度お試しください。',
+      });
+    });
+
     it('replays cached response when same Idempotency-Key is retried', async () => {
       mockAuthenticatedUser('student');
 
@@ -437,7 +469,7 @@ describe('assignment routes', () => {
       expect(response.body).toEqual({ error: '無効なファイル形式です（png/jpg/webpのみ）' });
     });
 
-    it('returns 400 when file size exceeds limit', async () => {
+    it('returns 413 when file size exceeds limit', async () => {
       mockAuthenticatedUser('student');
 
       const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1, 'a');
@@ -449,8 +481,11 @@ describe('assignment routes', () => {
           contentType: 'image/png',
         });
 
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      expect(response.status).toBe(413);
+      expect(response.body).toEqual({
+        code: 'FILE_TOO_LARGE',
+        error: 'ファイルサイズが大きすぎます（5MBまで）',
+      });
     });
 
     it('returns 200 with url when upload succeeds', async () => {

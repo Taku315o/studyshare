@@ -1,5 +1,6 @@
 import MockAdapter from 'axios-mock-adapter';
 import {
+  isUploadApiError,
   uploadImage,
   uploadNoteImage,
   uploadAvatarImage,
@@ -89,6 +90,38 @@ describe('API Functions', () => {
       mock.onPost('/notes/upload').reply(500, { error: 'Upload failed' });
 
       await expect(uploadNoteImage(mockFile)).rejects.toThrow();
+    });
+
+    it('should classify file-too-large upload errors', async () => {
+      const mockFile = new File(['test'], 'note.png', { type: 'image/png' });
+      mock.onPost('/notes/upload').reply(413, {
+        code: 'FILE_TOO_LARGE',
+        error: 'ファイルサイズが大きすぎます（5MBまで）',
+      });
+
+      expect.assertions(2);
+      try {
+        await uploadNoteImage(mockFile);
+      } catch (error) {
+        expect(isUploadApiError(error)).toBe(true);
+        expect(isUploadApiError(error) && error.kind).toBe('FILE_TOO_LARGE');
+      }
+    });
+
+    it('should classify storage upload errors', async () => {
+      const mockFile = new File(['test'], 'note.png', { type: 'image/png' });
+      mock.onPost('/notes/upload').reply(503, {
+        code: 'STORAGE_UPLOAD_FAILED',
+        error: 'ストレージへのアップロードに失敗しました。時間をおいて再度お試しください。',
+      });
+
+      expect.assertions(2);
+      try {
+        await uploadNoteImage(mockFile);
+      } catch (error) {
+        expect(isUploadApiError(error)).toBe(true);
+        expect(isUploadApiError(error) && error.kind).toBe('STORAGE_ERROR');
+      }
     });
   });
 
