@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   GRADE_YEAR_OPTIONS,
@@ -38,9 +38,13 @@ export default function ProfileCard({
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarInputKey, setAvatarInputKey] = useState(0);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!isModalOpen) return;
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
     setDisplayNameInput(profile?.displayName ?? '');
     setSelectedUniversityId(profile?.universityId ?? '');
     setGradeYearInput(profile?.gradeYear ? String(profile.gradeYear) : '');
@@ -49,6 +53,8 @@ export default function ProfileCard({
     setAvatarInputKey((prev) => prev + 1);
     setSubmitErrorMessage(null);
   }, [isModalOpen, profile?.displayName, profile?.faculty, profile?.gradeYear, profile?.universityId]);
+
+  const isSubmitLocked = isSaving || isLoading || isSubmitting;
 
   useEffect(() => {
     if (!isModalOpen || typeof document === 'undefined') return;
@@ -61,9 +67,12 @@ export default function ProfileCard({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isSaving || isLoading) {
+    if (isSaving || isLoading || isSubmittingRef.current) {
       return;
     }
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
     const validation = profileEditSchema.safeParse({
       displayName: displayNameInput,
       universityId: selectedUniversityId,
@@ -72,6 +81,8 @@ export default function ProfileCard({
     });
     if (!validation.success) {
       setSubmitErrorMessage(getValidationErrorMessage(validation.error));
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
@@ -85,6 +96,9 @@ export default function ProfileCard({
       setIsModalOpen(false);
     } catch {
       setSubmitErrorMessage('プロフィール更新に失敗しました。');
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -139,7 +153,7 @@ export default function ProfileCard({
               className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4"
               data-testid="profile-edit-modal-overlay"
               onClick={(event) => {
-                if (event.target !== event.currentTarget || isSaving) {
+                if (event.target !== event.currentTarget || isSubmitLocked) {
                   return;
                 }
                 setIsModalOpen(false);
@@ -163,6 +177,7 @@ export default function ProfileCard({
                       value={displayNameInput}
                       onChange={(event) => setDisplayNameInput(event.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
                     />
                   </label>
 
@@ -173,7 +188,7 @@ export default function ProfileCard({
                       value={selectedUniversityId}
                       onChange={(event) => setSelectedUniversityId(event.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                      disabled={isSaving || isLoading}
+                      disabled={isSubmitLocked}
                     >
                       <option value="">大学を選択してください</option>
                       {universities.map((university) => (
@@ -191,7 +206,7 @@ export default function ProfileCard({
                       value={gradeYearInput}
                       onChange={(event) => setGradeYearInput(event.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                      disabled={isSaving || isLoading}
+                      disabled={isSubmitLocked}
                     >
                       <option value="">学年を選択してください</option>
                       {GRADE_YEAR_OPTIONS.map((year) => (
@@ -210,7 +225,7 @@ export default function ProfileCard({
                       value={facultyInput}
                       onChange={(event) => setFacultyInput(event.target.value)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                      disabled={isSaving || isLoading}
+                      disabled={isSubmitLocked}
                       placeholder="例: 経済学部"
                     />
                   </label>
@@ -224,7 +239,7 @@ export default function ProfileCard({
                       accept="image/png,image/jpeg,image/webp"
                       onChange={(event) => setAvatarFile(event.currentTarget.files?.[0] ?? null)}
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                      disabled={isSaving || isLoading}
+                      disabled={isSubmitLocked}
                     />
                   </label>
 
@@ -234,17 +249,17 @@ export default function ProfileCard({
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      disabled={isSaving}
+                      disabled={isSubmitLocked}
                       className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       キャンセル
                     </button>
                     <button
                       type="submit"
-                      disabled={isSaving}
+                      disabled={isSubmitLocked}
                       className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                      {isSaving ? '保存中...' : '保存'}
+                      {isSubmitLocked ? '保存中...' : '保存'}
                     </button>
                   </div>
                 </form>
