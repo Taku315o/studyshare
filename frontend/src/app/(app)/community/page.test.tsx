@@ -58,6 +58,13 @@ describe('CommunityPage', () => {
         });
       }
 
+      if (name === 'can_send_message') {
+        return Promise.resolve({
+          data: false,
+          error: null,
+        });
+      }
+
       return Promise.resolve({ data: null, error: null });
     });
 
@@ -87,7 +94,7 @@ describe('CommunityPage', () => {
     jest.restoreAllMocks();
   });
 
-  it('falls back to local thread when direct conversation creation fails', async () => {
+  it('shows unlock notice and does not enter local conversation mode when sender is not unlocked', async () => {
     const user = userEvent.setup();
 
     render(<CommunityPage />);
@@ -96,7 +103,9 @@ describe('CommunityPage', () => {
     await user.click(cta);
 
     await waitFor(() => {
-      expect(screen.queryAllByText(/ローカル会話モード/).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(/2年生以上はノート\/口コミの投稿を2件以上するとDMを送信できます/).length).toBeGreaterThan(0);
     });
+
+    expect(screen.queryByText(/ローカル会話モード/)).not.toBeInTheDocument();
   });
 });

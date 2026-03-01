@@ -1,14 +1,6 @@
-
-//uploadController.ts
-// Supabase Storageへのファイルアップロードに関するロジックを実装している。
-// uuidv4でユニークなファイル名を生成し、ファイルをストレージにアップロード後、公開URLを返却する。
-
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin as supabase } from '../lib/supabase';
 
-// multerの型定義を修正
-// ファイル型の定義を変更
 interface File {
   originalname: string;
   mimetype: string;
@@ -16,9 +8,17 @@ interface File {
   size: number;
 }
 
-type UploadTarget = 'assignments' | 'notes';
+type UploadTarget = 'assignments' | 'notes' | 'avatars';
 
 const resolveBucketName = (target: UploadTarget): string => {
+  if (target === 'avatars') {
+    return (
+      process.env.SUPABASE_AVATARS_IMAGE_BUCKET ||
+      process.env.SUPABASE_STORAGE_BUCKET ||
+      'avatars'
+    );
+  }
+
   if (target === 'notes') {
     return (
       process.env.SUPABASE_NOTES_IMAGE_BUCKET ||
@@ -32,6 +32,45 @@ const resolveBucketName = (target: UploadTarget): string => {
     process.env.SUPABASE_STORAGE_BUCKET ||
     'assignments'
   );
+};
+
+// For better organization, we store files in subfolders based on the user ID and target type.
+const resolveObjectPath = (target: UploadTarget, userId: string, fileName: string): string => {
+  if (target === 'notes') {
+    return `notes/${userId}/${fileName}`;
+  }
+
+  if (target === 'avatars') {
+    return `avatars/${userId}/${fileName}`;
+  }
+
+  return `${userId}/${fileName}`;
+};
+
+// When deleting by public URL, we want to ensure that only files within the expected user-specific path are deleted.
+const resolveExpectedPrefix = (target: UploadTarget, userId: string): string => {
+  if (target === 'notes') return `notes/${userId}/`;
+  if (target === 'avatars') return `avatars/${userId}/`;
+  return `${userId}/`;
+};
+
+// Given a public URL, extract the object path if it belongs to the specified bucket. This is necessary because Supabase's public URLs do not directly expose the object path.
+const resolveObjectPathFromPublicUrl = (publicUrl: string, bucketName: string): string | null => {
+  try {
+    const parsed = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${bucketName}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex < 0) {
+      return null;
+    }
+
+    const encodedPath = parsed.pathname.slice(markerIndex + marker.length);
+    if (!encodedPath) return null;
+
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -56,31 +95,29 @@ export const isValidFileSize = (size: number): boolean => {
 };
 
 /**
- * Uploads an image to the specified Supabase Storage bucket 
- * ('assignments' or 'notes') and returns its public URL.
+ * Uploads an image to the specified Supabase Storage bucket
+ * ('assignments', 'notes', or 'avatars') and returns its public URL.
  *
  * @param file - Multer file object containing the binary data to store.
  * @param userId - Identifier of the user whose namespace the file should be stored under.
- * @param target - The target bucket: 'assignments' or 'notes'.
+ * @param target - The target bucket: 'assignments', 'notes', or 'avatars'.
  * @returns The publicly accessible URL pointing to the uploaded asset.
  * @throws When Supabase fails to upload the file or generate a public URL.
  */
 export const uploadToStorage = async (file: File, userId: string, target: UploadTarget = 'assignments'): Promise<string> => {
   try {
-    // ファイル名を固有のIDに変更
     const fileExtension = file.originalname.split('.').pop() ?? 'bin';
     const fileName = `${uuidv4()}.${fileExtension}`;
     const bucketName = resolveBucketName(target);
-    const objectPath = target === 'notes' ? `notes/${userId}/${fileName}` : `${userId}/${fileName}`;
-    
-    // Supabase Storageにアップロード
-    const { error: uploadError, data } = await supabase.storage
+    const objectPath = resolveObjectPath(target, userId, fileName);
+
+    const { error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(objectPath, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
       });
-    
+
     if (uploadError) {
       console.error('アップロードエラー:', {
         bucketName,
@@ -89,15 +126,51 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
       });
       throw new Error('ファイルのアップロードに失敗しました');
     }
-    
-    // 公開URLを生成
+
     const { data: publicURL } = supabase.storage
       .from(bucketName)
       .getPublicUrl(objectPath);
-    
+
     return publicURL.publicUrl;
   } catch (error) {
     console.error('ストレージエラー:', error);
     throw new Error('ファイルのアップロード処理に失敗しました');
+  }
+};
+
+/**
+ * Deletes an existing object referenced by a public URL in the target bucket.
+ *
+ * This is intended for replacing user-owned assets (e.g. avatar update) and
+ * will only delete objects that match the expected per-user path prefix.
+ * 公開URLからファイルパスを逆算して削除する。アバター更新の時、古いファイルを削除するようにしている。
+ * 他のユーザーのファイルを誤って削除しないように、ユーザープレフィックスと一致する場合にのみ削除する。
+ */
+export const deleteFromStorageByPublicUrl = async (
+  publicUrl: string,
+  userId: string,
+  target: UploadTarget = 'avatars',
+): Promise<void> => {
+  const bucketName = resolveBucketName(target);
+  const objectPath = resolveObjectPathFromPublicUrl(publicUrl, bucketName);
+  if (!objectPath) return;
+
+  const expectedPrefix = resolveExpectedPrefix(target, userId);
+  if (!objectPath.startsWith(expectedPrefix)) {
+    console.warn('削除対象のパスがユーザープレフィックスと一致しないためスキップします', {
+      bucketName,
+      objectPath,
+      expectedPrefix,
+    });
+    return;
+  }
+
+  const { error } = await supabase.storage.from(bucketName).remove([objectPath]);
+  if (error) {
+    console.warn('旧ファイルの削除に失敗しました', {
+      bucketName,
+      objectPath,
+      message: error.message,
+    });
   }
 };

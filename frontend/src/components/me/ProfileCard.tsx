@@ -1,6 +1,12 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  GRADE_YEAR_OPTIONS,
+  getValidationErrorMessage,
+  profileEditSchema,
+} from '@/lib/validation/profile';
 import type { MeProfileViewModel, MeUniversityOption } from '@/types/me';
 
 type ProfileCardProps = {
@@ -8,7 +14,13 @@ type ProfileCardProps = {
   universities: MeUniversityOption[];
   isLoading: boolean;
   isSaving: boolean;
-  onSaveProfile: (params: { displayName: string; universityId: string; gradeYear: number }) => Promise<void>;
+  onSaveProfile: (params: {
+    displayName: string;
+    universityId: string;
+    gradeYear: number;
+    faculty: string;
+    avatarFile: File | null;
+  }) => Promise<void>;
 };
 
 export default function ProfileCard({
@@ -22,51 +34,71 @@ export default function ProfileCard({
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYearInput, setGradeYearInput] = useState('');
+  const [facultyInput, setFacultyInput] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarInputKey, setAvatarInputKey] = useState(0);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!isModalOpen) return;
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
     setDisplayNameInput(profile?.displayName ?? '');
     setSelectedUniversityId(profile?.universityId ?? '');
     setGradeYearInput(profile?.gradeYear ? String(profile.gradeYear) : '');
+    setFacultyInput(profile?.faculty ?? '');
+    setAvatarFile(null);
+    setAvatarInputKey((prev) => prev + 1);
     setSubmitErrorMessage(null);
-  }, [isModalOpen, profile?.displayName, profile?.gradeYear, profile?.universityId]);
+  }, [isModalOpen, profile?.displayName, profile?.faculty, profile?.gradeYear, profile?.universityId]);
+
+  const isSubmitLocked = isSaving || isLoading || isSubmitting;
+
+  useEffect(() => {
+    if (!isModalOpen || typeof document === 'undefined') return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isModalOpen]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isSubmittingRef.current) {
+    if (isSaving || isLoading || isSubmittingRef.current) {
       return;
     }
-    const nextName = displayNameInput.trim();
-    if (!nextName) {
-      setSubmitErrorMessage('表示名を入力してください。');
-      return;
-    }
-    if (!selectedUniversityId) {
-      setSubmitErrorMessage('所属大学を選択してください。');
-      return;
-    }
-    const parsedGradeYear = Number(gradeYearInput);
-    if (!Number.isInteger(parsedGradeYear) || parsedGradeYear < 1 || parsedGradeYear > 8) {
-      setSubmitErrorMessage('学年を選択してください。');
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    const validation = profileEditSchema.safeParse({
+      displayName: displayNameInput,
+      universityId: selectedUniversityId,
+      gradeYear: gradeYearInput,
+      faculty: facultyInput,
+    });
+    if (!validation.success) {
+      setSubmitErrorMessage(getValidationErrorMessage(validation.error));
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
     setSubmitErrorMessage(null);
-    isSubmittingRef.current = true;
 
     try {
       await onSaveProfile({
-        displayName: nextName,
-        universityId: selectedUniversityId,
-        gradeYear: parsedGradeYear,
+        ...validation.data,
+        avatarFile,
       });
       setIsModalOpen(false);
     } catch {
       setSubmitErrorMessage('プロフィール更新に失敗しました。');
     } finally {
       isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -99,7 +131,7 @@ export default function ProfileCard({
                 <p className="text-sm text-slate-600">
                   {profile?.universityName ? `${profile.universityName}${profile.gradeYear ? ` / ${profile.gradeYear}年` : ''}` : '大学・学年が未設定です'}
                 </p>
-                <p className="text-sm text-slate-600">{profile?.affiliation || '所属情報が未設定です'}</p>
+                <p className="text-sm text-slate-600">{profile?.faculty || '学部未設定'}</p>
               </>
             )}
           </div>
@@ -115,82 +147,127 @@ export default function ProfileCard({
         </button>
       </div>
 
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
-            <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年を更新できます。</p>
+      {isModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4"
+              data-testid="profile-edit-modal-overlay"
+              onClick={(event) => {
+                if (event.target !== event.currentTarget || isSubmitLocked) {
+                  return;
+                }
+                setIsModalOpen(false);
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="w-full max-w-md rounded-2xl border border-white/60 bg-white p-6 shadow-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
+                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年・学部・アバター画像を更新できます。</p>
 
-            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">表示名</span>
-                <input
-                  name="displayName"
-                  type="text"
-                  value={displayNameInput}
-                  onChange={(event) => setDisplayNameInput(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                />
-              </label>
+                <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">表示名</span>
+                    <input
+                      name="displayName"
+                      type="text"
+                      value={displayNameInput}
+                      onChange={(event) => setDisplayNameInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                    />
+                  </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">所属大学</span>
-                <select
-                  name="universityId"
-                  value={selectedUniversityId}
-                  onChange={(event) => setSelectedUniversityId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                  disabled={isSaving || isLoading}
-                >
-                  <option value="">大学を選択してください</option>
-                  {universities.map((university) => (
-                    <option key={university.id} value={university.id}>
-                      {university.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">所属大学</span>
+                    <select
+                      name="universityId"
+                      value={selectedUniversityId}
+                      onChange={(event) => setSelectedUniversityId(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                    >
+                      <option value="">大学を選択してください</option>
+                      {universities.map((university) => (
+                        <option key={university.id} value={university.id}>
+                          {university.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-slate-700">学年</span>
-                <select
-                  name="gradeYear"
-                  value={gradeYearInput}
-                  onChange={(event) => setGradeYearInput(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
-                  disabled={isSaving || isLoading}
-                >
-                  <option value="">学年を選択してください</option>
-                  {[1, 2, 3, 4, 5, 6].map((year) => (
-                    <option key={year} value={year}>
-                      {year}年
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">学年</span>
+                    <select
+                      name="gradeYear"
+                      value={gradeYearInput}
+                      onChange={(event) => setGradeYearInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                    >
+                      <option value="">学年を選択してください</option>
+                      {GRADE_YEAR_OPTIONS.map((year) => (
+                        <option key={year} value={year}>
+                          {year}年
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              {submitErrorMessage ? <p className="text-sm text-red-600">{submitErrorMessage}</p> : null}
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">学部（任意）</span>
+                    <input
+                      name="faculty"
+                      type="text"
+                      value={facultyInput}
+                      onChange={(event) => setFacultyInput(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                      placeholder="例: 経済学部"
+                    />
+                  </label>
 
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {isSaving ? '保存中...' : '保存'}
-                </button>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">アバター画像（任意）</span>
+                    <input
+                      key={avatarInputKey}
+                      name="avatar"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => setAvatarFile(event.currentTarget.files?.[0] ?? null)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                    />
+                  </label>
+
+                  {submitErrorMessage ? <p className="text-sm text-red-600">{submitErrorMessage}</p> : null}
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      disabled={isSubmitLocked}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitLocked}
+                      className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {isSubmitLocked ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

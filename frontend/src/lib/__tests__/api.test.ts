@@ -1,5 +1,13 @@
 import MockAdapter from 'axios-mock-adapter';
-import { uploadImage, uploadNoteImage, createAssignment, searchAssignments, deleteAssignment, setAuthToken } from '../api';
+import {
+  uploadImage,
+  uploadNoteImage,
+  uploadAvatarImage,
+  createAssignment,
+  searchAssignments,
+  deleteAssignment,
+  setAuthToken,
+} from '../api';
 import api from '../api';
 
 // API用のモックを作成（デフォルトのaxiosインスタンスではなく、API用のインスタンスをモック）
@@ -47,6 +55,18 @@ describe('API Functions', () => {
       
       await expect(uploadImage(mockFile)).rejects.toThrow();
     });
+
+    it('should reuse provided idempotency key', async () => {
+      const mockFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const mockResponse = { url: 'https://example.com/image.jpg' };
+      const idempotencyKey = 'retry-key-1';
+
+      mock.onPost('/upload').reply(200, mockResponse);
+
+      await uploadImage(mockFile, { idempotencyKey });
+
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
+    });
   });
 
   describe('uploadNoteImage', () => {
@@ -69,6 +89,46 @@ describe('API Functions', () => {
       mock.onPost('/notes/upload').reply(500, { error: 'Upload failed' });
 
       await expect(uploadNoteImage(mockFile)).rejects.toThrow();
+    });
+  });
+
+  describe('uploadAvatarImage', () => {
+    it('should upload avatar image successfully', async () => {
+      const mockFile = new File(['test'], 'avatar.png', { type: 'image/png' });
+      const mockResponse = { url: 'https://example.com/avatars/avatar.png' };
+
+      mock.onPost('/profiles/avatar/upload').reply(200, mockResponse);
+
+      const result = await uploadAvatarImage(mockFile);
+
+      expect(result).toEqual(mockResponse);
+      expect(mock.history.post[0].url).toBe('/profiles/avatar/upload');
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBeTruthy();
+    });
+
+    it('should reuse provided idempotency key for avatar upload', async () => {
+      const mockFile = new File(['test'], 'avatar.png', { type: 'image/png' });
+      const idempotencyKey = 'avatar-retry-key';
+      const mockResponse = { url: 'https://example.com/avatars/avatar.png' };
+
+      mock.onPost('/profiles/avatar/upload').reply(200, mockResponse);
+
+      await uploadAvatarImage(mockFile, { idempotencyKey });
+
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
+    });
+
+    it('should include previousUrl when provided', async () => {
+      const mockFile = new File(['test'], 'avatar.png', { type: 'image/png' });
+      const mockResponse = { url: 'https://example.com/avatars/avatar-new.png' };
+      const previousUrl = 'https://example.com/storage/v1/object/public/avatars/avatars/user-1/avatar-old.png';
+
+      mock.onPost('/profiles/avatar/upload').reply(200, mockResponse);
+
+      await uploadAvatarImage(mockFile, { previousUrl });
+
+      const formData = mock.history.post[0].data as FormData;
+      expect(formData.get('previousUrl')).toBe(previousUrl);
     });
   });
 
@@ -113,6 +173,20 @@ describe('API Functions', () => {
       mock.onPost('/assignments').reply(400, { error: 'Bad request' });
       
       await expect(createAssignment(assignmentData)).rejects.toThrow();
+    });
+
+    it('should reuse provided idempotency key for create', async () => {
+      const assignmentData = {
+        title: 'Test Assignment',
+        description: 'Test Description',
+      };
+      const idempotencyKey = 'retry-key-create';
+
+      mock.onPost('/assignments').reply(200, { id: '1', ...assignmentData });
+
+      await createAssignment(assignmentData, { idempotencyKey });
+
+      expect(mock.history.post[0].headers?.['Idempotency-Key']).toBe(idempotencyKey);
     });
   });
 

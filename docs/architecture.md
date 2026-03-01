@@ -4,6 +4,7 @@
 - 旧 `assignments` ベースUIは現行本体フローから切り離し、frontend では `frontend/src/legacy/assignments/` に退避済み。
 - `/(app)` の投稿導線から legacy `assignments` ルートへは遷移しない。
 - `POST /api/notes/upload` は legacy `assignments` ルーター配下から分離し、upload 専用ルーターで提供する。
+- backend の route mount は `createApp` / `createUploadRoutes` ファクトリ経由で切替可能にし、legacy API有効化を環境変数だけに依存しない構成へ変更（テストで明示注入可能）。
 
 **構成**
 - frontend: Next.js(App Router)で画面と認証状態を管理
@@ -28,12 +29,18 @@
 - マイページ表示（`/me`）
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
-- `profiles` の `display_name` / `university_id` / `grade_year` を `upsert` で更新
+- `profiles` の `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` を `upsert` で更新
+- アバター画像は backend `POST /api/profiles/avatar/upload` でアップロードしてから `avatar_url` に反映
+- アバター更新時は旧 `avatar_url` から同ユーザー配下の storage path を解決し、backend 側で旧オブジェクトを削除する
+- プロフィール更新入力は `frontend/src/lib/validation/profile.ts` の `zod` schemaで検証（学年 `1..6`）
+- `ProfileCard` モーダルは外クリックで閉じるが、保存中は閉じない
 - 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す
 
 - 初回オンボーディング（`/onboarding`）
 - frontend(Client Component) → Supabase SELECT（`profiles` / `universities`）
 - `profiles.university_id` / `grade_year` が未設定の認証済みユーザーに入力を要求し、保存後に元ページへ戻す
+- オンボーディングの大学/学年入力は `zod` schemaで検証し、学年は `1..6` で統一
+- `faculty` は任意項目として同じ保存導線で更新可能
 
 **認証フロー**
 - OAuth → `auth/callback` でセッション確立 → `AuthContext` で状態配布
@@ -45,6 +52,7 @@
 **主要APIと責務境界**
 - `POST /api/upload` 画像アップロード（認証必須）
 - `POST /api/notes/upload` ノート画像アップロード（認証必須）
+- `POST /api/profiles/avatar/upload` プロフィールアバター画像アップロード（認証必須）
 - `POST /api/assignments` 課題投稿（認証必須 + バリデーション）
 - `GET /api/assignments/search` 検索
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
@@ -53,9 +61,11 @@
 - `GET /community` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `GET /me` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `assignments` 系APIは legacy 互換のため backend に残存しているが、現行本体機能（授業詳細のノート/口コミ/質問）とは責務を分離して扱う
+- legacy `/api/upload` / `/api/assignments*` はデフォルト無効だが、`createApp` オプション（または対応する環境変数）で有効化できる
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`
 - Supabase RPC: `find_match_candidates`, `create_direct_conversation`
 - Storage bucket: `notes`（現行ノート画像アップロード）
+- Storage bucket: `avatars`（プロフィールアバター画像アップロード）
 - Storage bucket: `assignments`（legacy 互換）

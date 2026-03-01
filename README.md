@@ -45,22 +45,30 @@ studyshare/
 
 ### フロントエンド (`frontend/.env.local`)
 
+`frontend/.env.example` をコピーして作成します。
+
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3001/api
 ```
 
-### バックエンド (`backend/.env`)
+### バックエンド (`backend/.env.development`)
+
+`backend/.env.development.example` をコピーして作成します。
 
 ```env
 PORT=3001
 SUPABASE_URL=your-supabase-url
 SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+ENABLE_LEGACY_ASSIGNMENTS_API=false
+ENABLE_LEGACY_UPLOAD_API=false
 ```
 
 > `SUPABASE_SERVICE_ROLE_KEY` は機密情報のため、クライアントからは絶対に参照しないでください。サーバーサイドのみで使用します。
+>
+> `ENABLE_LEGACY_ASSIGNMENTS_API` と `ENABLE_LEGACY_UPLOAD_API` は legacy 互換機能を使う場合のみ `true` にしてください（デフォルト `false` 推奨）。
 
 ---
 

@@ -12,6 +12,8 @@
 - API呼び出しは `src/lib/api.ts` に集約
 - Supabase直接参照は読み取りに限定（例外: `src/app/profile/page.tsx` の本人投稿削除。RLS前提）
 - 認証状態は `AuthContext` 経由で参照
+- 入力バリデーションは `zod` を標準とし、schema は `src/lib/validation/` に集約して再利用する
+- 非同期submitは `isSaving` state だけに依存せず、`isSubmittingRef` などの同期ガードを併用して二重送信を防止する
 
 **命名・配置**
 - 機能単位の命名を優先（例: `AssignmentList`, `AssignmentForm`, `SearchForm`, `Header`）
@@ -59,21 +61,27 @@
 - モバイルではメッセージペインをモーダル表示し、PCでは2ペイン表示を維持する
 
 **マイページ（/me）（追加）**
-- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`enrollments` を取得
-- `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・所属表示とプロフィール編集モーダル（表示名/大学/学年）
+- `src/app/(app)/me/page.tsx`: Client Componentで `auth.getUser()` を起点に `profiles`/`universities`/`notes`/`reviews`/`note_reactions`/`enrollments` を取得
+- `src/components/me/ProfileCard.tsx`: avatar・display_name・大学/学年・学部表示とプロフィール編集モーダル（表示名/大学/学年/学部/アバター画像、外クリック閉じる、保存中は閉じない）
 - `src/components/me/MyAssetsTabs.tsx`: 「ノート/口コミ/保存」タブ切り替えと資産表示
 - `src/components/me/MyNotesList.tsx`: 自分のノート一覧表示
 - `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
+- `src/components/me/MySavedNotesList.tsx`: いいね/ブックマークしたノートの統合一覧表示
 - `src/components/me/TimetableSummary.tsx`: 今学期履修数と今日の授業サマリ表示
 - `src/components/me/SettingsPanel.tsx`: ログアウトと公開範囲（UI先行）設定
+- `src/lib/validation/profile.ts`: プロフィール編集/初期設定の `zod` schema（学年 `1..6`）
 - `src/types/me.ts`: マイページのViewModel型定義
 
 **マイページ実装ルール**
 - `/me` は Supabase Browser Client + RLS で本人データのみ参照する
 - `profiles` の主キーは `user_id` として扱う
-- `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` も保存し、授業系投稿の同大学スコープと整合させる
-- `保存` タブと `公開範囲` 保存は Phase2 前提で、現段階はUIプレースホルダとする
+- `ProfileCard` の編集では `display_name` だけでなく `university_id` / `grade_year` / `faculty` / `avatar_url` を保存し、授業系投稿の同大学スコープと整合させる
+- アバター画像は frontend 直アップロードではなく backend `POST /api/profiles/avatar/upload` 経由で保存する
+- `ProfileCard` / `/me` 保存処理 / `/onboarding` は同一の `zod` schema群を使って整合性を保つ
+- 学年入力のドメインは `1..6` を正とする（select/validation とも一致させる）
+- `保存` タブは `note_reactions(kind in ['like','bookmark'])` を `note_id` 単位で統合し、重複表示しない
+- `ProfileCard` と `SettingsPanel` の保存処理はローカル同期ガード（`useRef`）を併用し、短時間連打による重複リクエストを抑止する
 
 **オンボーディング（追加）**
-- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年）ページ
+- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年必須、学部任意）ページ
 - `src/components/auth/AppRouteGuard.tsx`: 未ログイン判定に加えて `profiles.university_id` / `grade_year` の完了判定を行い、必要時に `/onboarding` へ遷移

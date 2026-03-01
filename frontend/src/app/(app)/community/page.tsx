@@ -27,14 +27,9 @@ type DmTargetProfileRow = Pick<
   'user_id' | 'display_name' | 'avatar_url' | 'faculty' | 'department' | 'allow_dm'
 >;
 
-type ParticipantSnapshot = {
-  userId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  affiliation: string;
-};
-
 const MATCH_LIMIT = 30;
+const DM_UNLOCK_NOTICE =
+  'DM送信条件を満たしていません。2年生以上はノート/口コミの投稿を2件以上するとDMを送信できます。';
 
 function buildAffiliation(faculty: string | null, department: string | null) {
   return [faculty, department].filter(Boolean).join(' / ') || '所属未設定';
@@ -118,6 +113,22 @@ export default function CommunityPage() {
     },
     [typedSupabase],
   );
+
+  const canCurrentUserStartDm = useCallback(async () => {
+    if (!currentUserId) {
+      return false;
+    }
+
+    const { data, error } = await typedSupabase.rpc('can_send_message', {
+      _uid: currentUserId,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return Boolean(data);
+  }, [currentUserId, typedSupabase]);
 
   const fetchMatchingCandidates = useCallback(async () => {
     setIsMatchingLoading(true);
@@ -255,7 +266,15 @@ export default function CommunityPage() {
           const localsOnly = prev.filter((thread) => thread.isLocal);
           const remoteParticipantIds = new Set(remoteThreads.map((thread) => thread.participantId));
           const merged = [...remoteThreads, ...localsOnly.filter((thread) => !remoteParticipantIds.has(thread.participantId))];
-          return sortThreads(merged);
+          const sorted = sortThreads(merged);
+          const seenParticipantIds = new Set<string>();
+          return sorted.filter((thread) => {
+            if (seenParticipantIds.has(thread.participantId)) {
+              return false;
+            }
+            seenParticipantIds.add(thread.participantId);
+            return true;
+          });
         });
       } catch (error) {
         console.error('スレッド取得エラー:', error);
@@ -400,51 +419,6 @@ export default function CommunityPage() {
     };
   }, [selectedThread, messagesByThreadId, supabase]);
 
-  const ensureLocalThread = useCallback(
-    (participant: ParticipantSnapshot, seedMessages: ChatMessageViewModel[] = []) => {
-      const localThreadId = `local:${participant.userId}`;
-
-      setThreads((prev) => {
-        const existing = prev.find((thread) => thread.threadId === localThreadId);
-        if (existing) {
-          return prev;
-        }
-
-        const nextThread: ThreadSummaryViewModel = {
-          threadId: localThreadId,
-          participantId: participant.userId,
-          participantName: participant.displayName,
-          participantAvatarUrl: participant.avatarUrl,
-          participantAffiliation: participant.affiliation,
-          lastMessagePreview: seedMessages[seedMessages.length - 1]?.body ?? '',
-          lastMessageAt: seedMessages[seedMessages.length - 1]?.createdAt ?? null,
-          unreadCount: 0,
-          isLocal: true,
-        };
-
-        const withoutLocalForParticipant = prev.filter(
-          (thread) => !(thread.isLocal && thread.participantId === participant.userId),
-        );
-
-        return sortThreads([nextThread, ...withoutLocalForParticipant]);
-      });
-
-      setMessagesByThreadId((prev) => {
-        if (prev[localThreadId]) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          [localThreadId]: seedMessages,
-        };
-      });
-
-      return localThreadId;
-    },
-    [],
-  );
-
   const updateThreadLastMessage = useCallback((threadId: string, body: string, createdAt: string) => {
     setThreads((prev) =>
       sortThreads(
@@ -472,6 +446,12 @@ export default function CommunityPage() {
         return;
       }
 
+      const canStartDm = await canCurrentUserStartDm();
+      if (!canStartDm) {
+        setFallbackNotice(DM_UNLOCK_NOTICE);
+        return;
+      }
+
       try {
         const { data, error } = await typedSupabase.rpc('create_direct_conversation', {
           _other_user_id: candidate.userId,
@@ -495,10 +475,8 @@ export default function CommunityPage() {
         };
 
         setThreads((prev) => {
-          const withoutParticipantLocal = prev.filter(
-            (thread) => !(thread.isLocal && thread.participantId === candidate.userId),
-          );
-          const withoutSameId = withoutParticipantLocal.filter((thread) => thread.threadId !== remoteThreadId);
+          const withoutSameParticipant = prev.filter((thread) => thread.participantId !== candidate.userId);
+          const withoutSameId = withoutSameParticipant.filter((thread) => thread.threadId !== remoteThreadId);
           return sortThreads([newThread, ...withoutSameId]);
         });
 
@@ -525,17 +503,15 @@ export default function CommunityPage() {
           console.error('DM相手プロフィール確認エラー:', profileError);
         }
 
-        const localThreadId = ensureLocalThread({
-          userId: candidate.userId,
-          displayName: candidate.displayName,
-          avatarUrl: candidate.avatarUrl,
-          affiliation: buildAffiliation(candidate.faculty, candidate.department),
-        });
-        setSelectedThreadId(localThreadId);
-        setFallbackNotice('DM制約のためローカル会話モードで表示しています（保存されません）。');
+        const errorMessage = getErrorMessage(error);
+        setFallbackNotice(
+          errorMessage?.toLowerCase().includes('row-level security')
+            ? DM_UNLOCK_NOTICE
+            : 'DMを開始できませんでした。時間をおいて再度お試しください。',
+        );
       }
     },
-    [currentUserId, ensureLocalThread, fetchDmTargetProfile, fetchThreads, threads, typedSupabase],
+    [canCurrentUserStartDm, currentUserId, fetchDmTargetProfile, fetchThreads, threads, typedSupabase],
   );
 
   useEffect(() => {
@@ -543,6 +519,10 @@ export default function CommunityPage() {
     const composeName = searchParams?.get('composeName');
 
     if (!composeTo || !currentUserId) {
+      return;
+    }
+
+    if (isThreadsLoading) {
       return;
     }
 
@@ -556,6 +536,16 @@ export default function CommunityPage() {
     }
 
     if (lastDeepLinkAttemptRef.current === composeTo) {
+      return;
+    }
+
+    const existing = threads.find((thread) => thread.participantId === composeTo);
+    if (existing) {
+      lastDeepLinkAttemptRef.current = composeTo;
+      setActiveTab('matching');
+      setSelectedThreadId(existing.threadId);
+      setIsMobileMessagesOpen(true);
+      setFallbackNotice(null);
       return;
     }
 
@@ -600,7 +590,7 @@ export default function CommunityPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentUserId, fetchDmTargetProfile, handleStartMessage, searchParams]);
+  }, [currentUserId, fetchDmTargetProfile, handleStartMessage, isThreadsLoading, searchParams, threads]);
 
   const handleSelectThread = useCallback((threadId: string) => {
     setSelectedThreadId(threadId);
@@ -611,8 +601,6 @@ export default function CommunityPage() {
   const handleSendMessage = useCallback(
     async (body: string) => {
       if (!selectedThread || !currentUserId) return;
-
-      const now = new Date().toISOString();
 
       const {
         data: { user: sessionUser },
@@ -646,25 +634,6 @@ export default function CommunityPage() {
         return;
       }
 
-      if (selectedThread.isLocal) {
-        const localMessage: ChatMessageViewModel = {
-          id: `local-message:${Date.now()}`,
-          threadId: selectedThread.threadId,
-          senderId: currentUserId,
-          body,
-          createdAt: now,
-          isLocal: true,
-        };
-
-        setMessagesByThreadId((prev) => ({
-          ...prev,
-          [selectedThread.threadId]: [...(prev[selectedThread.threadId] ?? []), localMessage],
-        }));
-
-        updateThreadLastMessage(selectedThread.threadId, body, now);
-        return;
-      }
-
       try {
         const { data, error } = await typedSupabase
           .from('messages')
@@ -692,43 +661,13 @@ export default function CommunityPage() {
       } catch (error) {
         console.error('メッセージ送信エラー:', error);
         const errorMessage = getErrorMessage(error);
-
-        const existingMessages = messagesByThreadId[selectedThread.threadId] ?? [];
-
-        const localThreadId = ensureLocalThread(
-          {
-            userId: selectedThread.participantId,
-            displayName: selectedThread.participantName,
-            avatarUrl: selectedThread.participantAvatarUrl,
-            affiliation: selectedThread.participantAffiliation,
-          },
-          existingMessages,
-        );
-
-        const fallbackMessage: ChatMessageViewModel = {
-          id: `local-message:${Date.now()}`,
-          threadId: localThreadId,
-          senderId: currentUserId,
-          body,
-          createdAt: now,
-          isLocal: true,
-        };
-
-        setMessagesByThreadId((prev) => ({
-          ...prev,
-          [localThreadId]: [...(prev[localThreadId] ?? []), fallbackMessage],
-        }));
-
-        updateThreadLastMessage(localThreadId, body, now);
-        setSelectedThreadId(localThreadId);
-        setFallbackNotice(
-          errorMessage?.toLowerCase().includes('row-level security')
-            ? 'メッセージ保存でRLSエラーが発生したため、ローカル会話モードに切り替えました（保存されません）。'
-            : 'メッセージ保存に失敗したため、ローカル会話モードに切り替えました（保存されません）。',
-        );
+        setMessagesErrorMessage('メッセージ送信に失敗しました。時間をおいて再度お試しください。');
+        if (errorMessage?.toLowerCase().includes('row-level security')) {
+          setFallbackNotice(DM_UNLOCK_NOTICE);
+        }
       }
     },
-    [currentUserId, ensureLocalThread, messagesByThreadId, selectedThread, supabase.auth, typedSupabase, updateThreadLastMessage],
+    [currentUserId, selectedThread, supabase.auth, typedSupabase, updateThreadLastMessage],
   );
 
   const filteredCandidates = useMemo(() => {

@@ -34,10 +34,11 @@ function useEnrollment(
   const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
   const enroll = useCallback(async () => {
     if (isSubmittingRef.current) {
     return { success: false, error: 'Already submitting' };
-  }
+    }
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
@@ -65,7 +66,7 @@ function useEnrollment(
       const enrollmentsTable = supabase.from('enrollments') as unknown as {
         insert: (values: EnrollmentInsert) => Promise<{ error: SupabaseError | null }>;
       };
-      
+
       const { error } = await enrollmentsTable.insert(enrollmentData);
 
       if (error) {
@@ -91,7 +92,7 @@ function useEnrollment(
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [offeringId, , onSuccess]);
+  }, [offeringId, onSuccess]);
 
   return { isEnrolled, isSubmitting, enroll, setIsEnrolled };
 }

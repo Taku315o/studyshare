@@ -1,8 +1,34 @@
 // File: studyshare/backend/src/controllers/uploadControllers.ts
 // This file handles the upload logic for images to Supabase Storage.
 //this file calls the uploadService to handle the actual upload process
-import { Request, Response } from 'express';
-import { uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
+import { Request, RequestHandler, Response } from 'express';
+import multer from 'multer';
+import { deleteFromStorageByPublicUrl, uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
+
+const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_IMAGE_FILE_SIZE,
+    files: 1,
+  },
+});
+
+export const uploadSingleImage: RequestHandler = (req, res, next) => {
+  upload.single('image')(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      return;
+    }
+
+    res.status(400).json({ error: 'ファイルアップロードに失敗しました' });
+  });
+};
 
 const validateUploadRequest = (req: Request, res: Response) => {
   const file = req.file;
@@ -64,6 +90,25 @@ export const uploadNoteImageController = async (req: Request, res: Response): Pr
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {
     console.error('ノート画像アップロードコントローラーエラー:', error);
+    res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
+  }
+};
+
+export const uploadAvatarImageController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validated = validateUploadRequest(req, res);
+    if (!validated) return;
+    const { file, user } = validated;
+    const previousUrl = typeof req.body?.previousUrl === 'string' ? req.body.previousUrl.trim() : '';
+
+    const imageUrl = await uploadToStorage(file, user.id, 'avatars');
+    if (previousUrl) {
+      await deleteFromStorageByPublicUrl(previousUrl, user.id, 'avatars');
+    }
+
+    res.status(200).json({ url: imageUrl });
+  } catch (error: any) {
+    console.error('アバター画像アップロードコントローラーエラー:', error);
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };

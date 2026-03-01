@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  GRADE_YEAR_OPTIONS,
+  getValidationErrorMessage,
+  profileSetupSchema,
+} from '@/lib/validation/profile';
 import { resolveSafeNextPath } from '@/lib/nextPath';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
@@ -15,7 +20,7 @@ type UniversityOption = {
 
 type ProfileSetupRow = Pick<
   Database['public']['Tables']['profiles']['Row'],
-  'display_name' | 'university_id' | 'grade_year'
+  'display_name' | 'university_id' | 'grade_year' | 'faculty'
 >;
 
 function buildFallbackDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> }) {
@@ -40,6 +45,7 @@ export default function OnboardingPage() {
   const [universities, setUniversities] = useState<UniversityOption[]>([]);
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYear, setGradeYear] = useState('');
+  const [faculty, setFaculty] = useState('');
 
   useEffect(() => {
     let isMounted = true;// コンポーネントがアンマウントされた後に状態更新しないようにするフラグ。メモリリークを防ぐ。
@@ -63,7 +69,7 @@ export default function OnboardingPage() {
         const [profileRes, universitiesRes] = await Promise.all([
           typedSupabase
             .from('profiles')
-            .select('display_name, university_id, grade_year')
+            .select('display_name, university_id, grade_year, faculty')
             .eq('user_id', user.id)
             .maybeSingle(),
           typedSupabase.from('universities').select('id, name').order('name'),
@@ -79,6 +85,7 @@ export default function OnboardingPage() {
         setDisplayName(profileRow?.display_name?.trim() || buildFallbackDisplayName(user));
         setSelectedUniversityId(profileRow?.university_id ?? '');
         setGradeYear(profileRow?.grade_year ? String(profileRow.grade_year) : '');
+        setFaculty(profileRow?.faculty ?? '');
         setUniversities((universitiesRes.data ?? []) as UniversityOption[]);
       } catch (error) {
         console.error('オンボーディング情報の取得に失敗しました:', error);
@@ -105,15 +112,17 @@ export default function OnboardingPage() {
       toast.error('ログイン情報を取得できませんでした');
       return;
     }
-    if (!selectedUniversityId) {
-      toast.error('大学を選択してください');
+    const validation = profileSetupSchema.safeParse({
+      universityId: selectedUniversityId,
+      gradeYear,
+      faculty,
+    });
+    if (!validation.success) {
+      toast.error(getValidationErrorMessage(validation.error));
       return;
     }
-    const parsedGradeYear = Number(gradeYear);
-    if (!Number.isInteger(parsedGradeYear) || parsedGradeYear < 1 || parsedGradeYear > 8) {
-      toast.error('学年を選択してください');
-      return;
-    }
+
+    const { universityId: normalizedUniversityId, gradeYear: parsedGradeYear, faculty: normalizedFaculty } = validation.data;
 
     isSavingRef.current = true;
     setIsSaving(true);// 二重送信を防止するため、保存処理中はフォームを無効化する
@@ -124,8 +133,9 @@ export default function OnboardingPage() {
           {
             user_id: userId,
             display_name: displayName.trim() || 'ユーザー',
-            university_id: selectedUniversityId,
+            university_id: normalizedUniversityId,
             grade_year: parsedGradeYear,
+            faculty: normalizedFaculty || null,
           },
           { onConflict: 'user_id' },
         );
@@ -206,12 +216,27 @@ export default function OnboardingPage() {
               required
             >
               <option value="">学年を選択してください</option>
-              {[1, 2, 3, 4, 5, 6].map((year) => (
+              {GRADE_YEAR_OPTIONS.map((year) => (
                 <option key={year} value={year}>
                   {year}年
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="onboarding-faculty" className="text-sm font-medium text-slate-700">
+              学部（任意）
+            </label>
+            <input
+              id="onboarding-faculty"
+              type="text"
+              value={faculty}
+              onChange={(event) => setFaculty(event.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800"
+              disabled={isSaving}
+              placeholder="例: 経済学部"
+            />
           </div>
 
           <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">

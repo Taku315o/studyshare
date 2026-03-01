@@ -7,11 +7,14 @@ import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
+import { uploadAvatarImage } from '@/lib/api';
+import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   MeNoteItemViewModel,
   MeProfileViewModel,
   MeReviewItemViewModel,
+  MeSavedNoteItemViewModel,
   MeTimetableSummaryViewModel,
   MeUniversityOption,
 } from '@/types/me';
@@ -62,6 +65,49 @@ type ReviewQueryRow = {
         id: string;
         instructor: string | null;
         courses: { name: string | null } | Array<{ name: string | null }> | null;
+      }>
+    | null;
+};
+
+type SavedReactionQueryRow = {
+  kind: string;
+  created_at: string;
+  note:
+    | {
+        id: string;
+        title: string;
+        body_md: string | null;
+        created_at: string;
+        offering:
+          | {
+              id: string;
+              instructor: string | null;
+              courses: { name: string | null } | Array<{ name: string | null }> | null;
+            }
+          | Array<{
+              id: string;
+              instructor: string | null;
+              courses: { name: string | null } | Array<{ name: string | null }> | null;
+            }>
+          | null;
+      }
+    | Array<{
+        id: string;
+        title: string;
+        body_md: string | null;
+        created_at: string;
+        offering:
+          | {
+              id: string;
+              instructor: string | null;
+              courses: { name: string | null } | Array<{ name: string | null }> | null;
+            }
+          | Array<{
+              id: string;
+              instructor: string | null;
+              courses: { name: string | null } | Array<{ name: string | null }> | null;
+            }>
+          | null;
       }>
     | null;
 };
@@ -133,22 +179,20 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function buildAffiliation(faculty: string | null | undefined, department: string | null | undefined) {
-  return [faculty, department].filter(Boolean).join(' / ') || '所属未設定';
-}
-
 function formatSeasonLabel(season: string) {
   if (season === 'first_half') return '前期';
   if (season === 'second_half') return '後期';
   return season;
 }
 
+// termのstart_dateとend_dateは日付のみで時間情報がないため、日付の開始時刻としてDateオブジェクトを生成する
 function parseDateAtStartOfDay(value: string | null) {
   if (!value) return null;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+// ユーザープロフィールの情報を表すViewModel
 function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MeProfileViewModel {
   const metadataName = typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null;
   const fallbackName = metadataName ?? user.email ?? 'ユーザー';
@@ -159,7 +203,7 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MePro
     userId: user.id,
     displayName,
     avatarUrl: profileRow?.avatar_url ?? null,
-    affiliation: buildAffiliation(profileRow?.faculty, profileRow?.department),
+    faculty: profileRow?.faculty ?? null,
     universityId: profileRow?.university_id ?? null,
     universityName: university?.name ?? null,
     gradeYear: profileRow?.grade_year ?? null,
@@ -194,6 +238,45 @@ function buildReviewItems(rows: ReviewQueryRow[]): MeReviewItemViewModel[] {
       instructorName: offering?.instructor ?? '教員未設定',
     };
   });
+}
+
+function buildSavedNoteItems(rows: SavedReactionQueryRow[]): MeSavedNoteItemViewModel[] {
+  const byNoteId = new Map<string, MeSavedNoteItemViewModel>();
+  //
+  rows.forEach((row) => {
+    if (row.kind !== 'like' && row.kind !== 'bookmark') return;
+
+    const note = normalizeOne(row.note);
+    if (!note) return;
+
+    const offering = normalizeOne(note.offering);
+    const course = normalizeOne(offering?.courses ?? null);
+    const existing = byNoteId.get(note.id);
+
+    if (!existing) {
+      byNoteId.set(note.id, {
+        id: note.id,
+        title: note.title,
+        body: note.body_md,
+        createdAt: note.created_at,
+        offeringTitle: course?.name ?? '不明な授業',
+        instructorName: offering?.instructor ?? '教員未設定',
+        savedAt: row.created_at,
+        savedByLike: row.kind === 'like',
+        savedByBookmark: row.kind === 'bookmark',
+      });
+      return;
+    }
+    //
+    byNoteId.set(note.id, {
+      ...existing,
+      savedAt: row.created_at > existing.savedAt ? row.created_at : existing.savedAt,
+      savedByLike: existing.savedByLike || row.kind === 'like',
+      savedByBookmark: existing.savedByBookmark || row.kind === 'bookmark',
+    });
+  });
+
+  return Array.from(byNoteId.values()).sort((left, right) => right.savedAt.localeCompare(left.savedAt));
 }
 
 function isEnrollmentStatus(value: string): value is (typeof ENROLLMENT_STATUSES)[number] {
@@ -328,6 +411,7 @@ export default function MePage() {
   const [universities, setUniversities] = useState<MeUniversityOption[]>([]);
   const [notes, setNotes] = useState<MeNoteItemViewModel[]>([]);
   const [reviews, setReviews] = useState<MeReviewItemViewModel[]>([]);
+  const [savedNotes, setSavedNotes] = useState<MeSavedNoteItemViewModel[]>([]);
   const [timetableSummary, setTimetableSummary] = useState<MeTimetableSummaryViewModel | null>(null);
 
   const fetchMeData = useCallback(async () => {
@@ -346,13 +430,14 @@ export default function MePage() {
         setProfile(null);
         setNotes([]);
         setReviews([]);
+        setSavedNotes([]);
         setTimetableSummary(null);
         return;
       }
 
       setCurrentUserId(user.id);
 
-      const [profileRes, universitiesRes, notesRes, reviewsRes, enrollmentsRes] = await Promise.all([
+      const [profileRes, universitiesRes, notesRes, reviewsRes, savedReactionsRes, enrollmentsRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
@@ -396,6 +481,28 @@ export default function MePage() {
           .is('deleted_at', null)
           .order('created_at', { ascending: false }),
         supabase
+          .from('note_reactions')
+          .select(
+            `
+            kind,
+            created_at,
+            note:notes!inner(
+              id,
+              title,
+              body_md,
+              created_at,
+              offering:course_offerings(
+                id,
+                instructor,
+                courses:course_id(name)
+              )
+            )
+          `,
+          )
+          .eq('user_id', user.id)
+          .in('kind', ['like', 'bookmark'])
+          .order('created_at', { ascending: false }),
+        supabase
           .from('enrollments')
           .select(
             `
@@ -418,18 +525,21 @@ export default function MePage() {
       if (universitiesRes.error) throw universitiesRes.error;
       if (notesRes.error) throw notesRes.error;
       if (reviewsRes.error) throw reviewsRes.error;
+      if (savedReactionsRes.error) throw savedReactionsRes.error;
       if (enrollmentsRes.error) throw enrollmentsRes.error;
 
       const profileRow = (profileRes.data ?? null) as ProfileRow | null;
       const universityRows = (universitiesRes.data ?? []) as MeUniversityOption[];
       const notesRows = (notesRes.data ?? []) as NoteQueryRow[];
       const reviewsRows = (reviewsRes.data ?? []) as ReviewQueryRow[];
+      const savedReactionRows = (savedReactionsRes.data ?? []) as SavedReactionQueryRow[];
       const enrollmentRows = (enrollmentsRes.data ?? []) as EnrollmentQueryRow[];
 
       setProfile(buildProfileViewModel(user, profileRow));
       setUniversities(universityRows);
       setNotes(buildNoteItems(notesRows));
       setReviews(buildReviewItems(reviewsRows));
+      setSavedNotes(buildSavedNoteItems(savedReactionRows));
       setTimetableSummary(buildTimetableSummary(enrollmentRows));
     } catch (error) {
       console.error('マイページ取得エラー:', error);
@@ -438,6 +548,7 @@ export default function MePage() {
       setUniversities([]);
       setNotes([]);
       setReviews([]);
+      setSavedNotes([]);
       setTimetableSummary(null);
       toast.error('マイページ情報の取得に失敗しました');
     } finally {
@@ -454,40 +565,64 @@ export default function MePage() {
       displayName,
       universityId,
       gradeYear,
+      faculty,
+      avatarFile,
     }: {
       displayName: string;
       universityId: string;
       gradeYear: number;
+      faculty: string;
+      avatarFile: File | null;
     }) => {
       if (!currentUserId) {
         throw new Error('ログインユーザーを取得できませんでした');
       }
 
-      const trimmed = displayName.trim();
-      if (!trimmed) {
-        toast.error('表示名を入力してください');
-        throw new Error('display_name is empty');
+      const validation = profileEditSchema.safeParse({
+        displayName,
+        universityId,
+        gradeYear,
+        faculty,
+      });
+      if (!validation.success) {
+        toast.error(getValidationErrorMessage(validation.error, 'プロフィールの入力内容を確認してください。'));
+        throw new Error('profile input is invalid');
       }
-      if (!universityId) {
-        toast.error('大学を選択してください');
-        throw new Error('university_id is empty');
-      }
-      if (!Number.isInteger(gradeYear) || gradeYear < 1 || gradeYear > 8) {
-        toast.error('学年を選択してください');
-        throw new Error('grade_year is invalid');
-      }
+
+      const {
+        displayName: normalizedDisplayName,
+        universityId: normalizedUniversityId,
+        gradeYear: normalizedGradeYear,
+        faculty: normalizedFaculty,
+      } = validation.data;
 
       setIsSavingProfile(true);
 
       try {
+        let uploadedAvatarUrl: string | null = null;
+        if (avatarFile) {
+          try {
+            const uploadResult = await uploadAvatarImage(avatarFile, {
+              previousUrl: profile?.avatarUrl ?? null,
+            });
+            uploadedAvatarUrl = uploadResult.url;
+          } catch (uploadError) {
+            console.error('アバター画像アップロードエラー:', uploadError);
+            toast.error('アバター画像のアップロードに失敗しました');
+            throw uploadError;
+          }
+        }
+
         const { data, error } = await typedSupabase
           .from('profiles')
           .upsert(
             {
               user_id: currentUserId,
-              display_name: trimmed,
-              university_id: universityId,
-              grade_year: gradeYear,
+              display_name: normalizedDisplayName,
+              university_id: normalizedUniversityId,
+              grade_year: normalizedGradeYear,
+              faculty: normalizedFaculty || null,
+              ...(uploadedAvatarUrl ? { avatar_url: uploadedAvatarUrl } : {}),
             },
             { onConflict: 'user_id' },
           )
@@ -502,7 +637,7 @@ export default function MePage() {
           userId: row.user_id,
           displayName: row.display_name,
           avatarUrl: row.avatar_url ?? null,
-          affiliation: buildAffiliation(row.faculty, row.department),
+          faculty: row.faculty ?? null,
           universityId: row.university_id ?? null,
           universityName: selectedUniversity?.name ?? null,
           gradeYear: row.grade_year ?? null,
@@ -516,7 +651,7 @@ export default function MePage() {
         setIsSavingProfile(false);
       }
     },
-    [currentUserId, typedSupabase, universities],
+    [currentUserId, profile?.avatarUrl, typedSupabase, universities],
   );
 
   return (
@@ -537,7 +672,7 @@ export default function MePage() {
         isSaving={isSavingProfile}
         onSaveProfile={handleSaveProfile}
       />
-      <MyAssetsTabs notes={notes} reviews={reviews} isLoading={isLoading} />
+      <MyAssetsTabs notes={notes} reviews={reviews} savedNotes={savedNotes} isLoading={isLoading} />
       <TimetableSummary summary={timetableSummary} isLoading={isLoading} />
       <SettingsPanel />
     </div>

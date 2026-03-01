@@ -11,13 +11,24 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001/api',
 });
 
-const buildIdempotencyKey = (): string => {
+export const createIdempotencyKey = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
+
+type IdempotentRequestOptions = {
+  idempotencyKey?: string;
+};
+
+type AvatarUploadOptions = IdempotentRequestOptions & {
+  previousUrl?: string | null;
+};
+
+const resolveIdempotencyKey = (idempotencyKey?: string): string =>
+  idempotencyKey?.trim() || createIdempotencyKey();
 
 /**
  * Applies or removes the Authorization header used for authenticated API requests.
@@ -33,18 +44,22 @@ export const setAuthToken = (token: string | null) => {
 };
 
 /**
- * Uploads an image file to the backend and returns the resulting public URL.
+ * Legacy: Uploads an image file to the backend and returns the resulting public URL.
+ * This endpoint depends on backend `ENABLE_LEGACY_UPLOAD_API=true`.
  *
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
  */
-export const uploadImage = async (file: File): Promise<{ url: string }> => {
+export const uploadImage = async (
+  file: File,
+  options?: IdempotentRequestOptions,
+): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
   
   const response = await api.post<{ url: string }>('/upload', formData, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
   
@@ -57,13 +72,16 @@ export const uploadImage = async (file: File): Promise<{ url: string }> => {
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
  */
-export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
+export const uploadNoteImage = async (
+  file: File,
+  options?: IdempotentRequestOptions,
+): Promise<{ url: string }> => {
   const formData = new FormData();
   formData.append('image', file);
 
   const response = await api.post<{ url: string }>('/notes/upload', formData, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
 
@@ -71,7 +89,34 @@ export const uploadNoteImage = async (file: File): Promise<{ url: string }> => {
 };
 
 /**
- * Sends a request to create a new assignment using the backend API.
+ * Uploads a profile avatar image file to the backend and returns its public URL.
+ *
+ * @param file - Browser File object selected by the user.
+ * @returns A promise resolving to an object containing the uploaded avatar URL.
+ */
+export const uploadAvatarImage = async (
+  file: File,
+  options?: AvatarUploadOptions,
+): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append('image', file);
+  const previousUrl = options?.previousUrl?.trim();
+  if (previousUrl) {
+    formData.append('previousUrl', previousUrl);
+  }
+
+  const response = await api.post<{ url: string }>('/profiles/avatar/upload', formData, {
+    headers: {
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
+    },
+  });
+
+  return response.data;
+};
+
+/**
+ * Legacy: Sends a request to create a new assignment using the backend API.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param data - Assignment payload including title, description, and an optional image URL.
  * @returns A promise resolving to the created assignment object.
@@ -85,17 +130,18 @@ export const createAssignment = async (data: {
   department?: string;
   course_name?: string;
   teacher_name?: string;
-}) => {
+}, options?: IdempotentRequestOptions) => {
   const response = await api.post('/assignments', data, {
     headers: {
-      'Idempotency-Key': buildIdempotencyKey(),
+      'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
   });
   return response.data;
 };
 
 /**
- * Searches assignments using the backend API's query endpoint.
+ * Legacy: Searches assignments using the backend API's query endpoint.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param query - Free-text query submitted by the user.
  * @returns A promise resolving to the array of assignments returned by the server.
@@ -106,7 +152,8 @@ export const searchAssignments = async (query: string) => {
 };
 
 /**
- * Deletes an assignment via the backend API. Requires administrator privileges.
+ * Legacy: Deletes an assignment via the backend API. Requires administrator privileges.
+ * This endpoint depends on backend `ENABLE_LEGACY_ASSIGNMENTS_API=true`.
  *
  * @param id - Identifier of the assignment to remove.
  * @returns A promise resolving once the backend acknowledges the deletion.

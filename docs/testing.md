@@ -21,12 +21,15 @@
 - `CommunityPane` の候補0件空状態
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
-- `community/page` の DM制約時ローカルフォールバック
+- `community/page` の DM送信条件未達時警告表示と送信抑止（ローカル会話に切り替えない）
 - `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
-- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年）
-- `onboarding/page` の大学・学年入力と保存導線
-- `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）
+- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
+- `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
+- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）と保存導線
+- `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`）
+- `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
+- `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
 - `TimetableSummary` の空状態/授業表示
 - `/profile` と `/mypage` の `/me` リダイレクト
 - API
@@ -35,6 +38,9 @@
 - `POST /api/upload` 画像バリデーション
 - `POST /api/notes/upload` 画像バリデーション/認証（現行ノート画像添付）
 - `POST /api/notes/upload` で legacy `users` テーブル不在でも認証継続できること
+- `POST /api/profiles/avatar/upload` 画像バリデーション/認証/idempotency
+- upload系APIで 5MB 超過ファイルが multer の route middleware 段階で 400 になること（DoS軽減）
+- `assignments.routes.test.ts` では `createApp({ enableLegacyAssignmentsApi: true, enableLegacyUploadApi: true })` を使い、env依存なしで legacy route を明示有効化する
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -55,11 +61,18 @@
 - 別大学ユーザー: 他人投稿が見えない（仕様どおり）
 - 大学未設定ユーザー: `/onboarding` に誘導される
 - `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
+- `/me` と `/onboarding` の学年入力で `7` 以上が保存できないこと（UI選択肢/バリデーション一致）
+- `/me` のプロフィール編集モーダルで保存ボタン連打・オーバーレイ連打をしても重複送信/保存中クローズが起きない
+- 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード
 - Storage bucket 未作成時に backend ログへ `Bucket not found` が出ることを確認できる（原因切り分け）
 - bucket 作成後に `image_url` 付きで `notes` insert が成功する
+- プロフィール画像アップロード
+- `/me` で学部とアバターを保存後、再読込しても表示が維持される
+- アバター更新後、旧 `avatars/{userId}/...` オブジェクトが残存しないこと
+- `avatars` bucket 未作成時に `/api/profiles/avatar/upload` が失敗し、原因切り分けできる
 
 **コマンド**
 - frontend: `pnpm --filter frontend test`

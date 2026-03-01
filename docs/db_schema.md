@@ -2,9 +2,11 @@
 
 ## 実装メモ（2026-02-25）
 - 現行のノート画像添付は frontend から backend `POST /api/notes/upload` を呼び出し、Supabase Storage に保存して公開URLを `notes.image_url` に保存する構成。
+- プロフィールのアバター画像は frontend から backend `POST /api/profiles/avatar/upload` を呼び出し、公開URLを `profiles.avatar_url` に保存する構成。
+- アバター画像更新時は、同ユーザー配下の旧オブジェクト（`avatars/{userId}/...`）を backend 側で削除する。
 - backend の upload エンドポイントは `assignments` ルーターから分離済み（`uploads` ルーター）。
 - 旧 `assignments` 機能は frontend 本体導線から切り離し済みだが、backend には legacy 互換として一部残存。
-- Storage bucket は少なくとも `notes`（現行）と `assignments`（legacy互換）を用意する前提。
+- Storage bucket は少なくとも `notes`（現行ノート画像）、`avatars`（プロフィール画像）、`assignments`（legacy互換）を用意する前提。
 - bucket 未作成時は backend ログに `Bucket not found` が出るため、Storage bucket 作成 migration の適用を確認すること。
 
 ## このDBが解いている問題（設計の核）
@@ -38,7 +40,7 @@
 
 ## ユーザー領域（プロフィール・統計）
 - `profiles`: `auth.users` と1:1の公開プロフィール
-	- `university_id`, `display_name`, `handle`, `dm_scope`, `allow_dm` など
+	- `university_id`, `display_name`, `faculty`, `avatar_url`, `handle`, `dm_scope`, `allow_dm` など
 	- `enrollment_visibility_default`: 履修登録時の初期公開範囲（`private` / `match_only` / `public`）
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）

@@ -1,7 +1,12 @@
 import request from 'supertest';
-import app from '../app';
+import { createApp } from '../app';
 import { supabaseAdmin, supabaseAuth, supabaseFromToken } from '../lib/supabase';
 import { resetIdempotencyStoreForTests } from '../middleware/idempotency';
+
+const app = createApp({
+  enableLegacyAssignmentsApi: true,
+  enableLegacyUploadApi: true,
+});
 
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'fixed-uuid'),
@@ -406,6 +411,147 @@ describe('assignment routes', () => {
       expect(second.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
       expect(second.headers['idempotency-replayed']).toBe('true');
       expect(uploadMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('POST /api/profiles/avatar/upload', () => {
+    it('returns 401 when request is unauthenticated', async () => {
+      const response = await request(app).post('/api/profiles/avatar/upload');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: '認証トークンが必要です' });
+    });
+
+    it('returns 400 when file type is invalid', async () => {
+      mockAuthenticatedUser('student');
+
+      const response = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', Buffer.from('plain text'), {
+          filename: 'avatar.txt',
+          contentType: 'text/plain',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: '無効なファイル形式です（png/jpg/webpのみ）' });
+    });
+
+    it('returns 400 when file size exceeds limit', async () => {
+      mockAuthenticatedUser('student');
+
+      const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1, 'a');
+      const response = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', oversizedBuffer, {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+    });
+
+    it('returns 200 with url when upload succeeds', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'avatars/user-1/avatar.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/avatars/user-1/avatar.png' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const response = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ url: 'https://example.com/avatars/user-1/avatar.png' });
+    });
+
+    it('replays cached response when same Idempotency-Key is retried', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'avatars/user-1/avatar.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/avatars/user-1/avatar.png' },
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      });
+
+      const first = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'avatar-upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      const second = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .set('Idempotency-Key', 'avatar-upload-same-key')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      expect(first.status).toBe(200);
+      expect(first.body).toEqual({ url: 'https://example.com/avatars/user-1/avatar.png' });
+      expect(second.status).toBe(200);
+      expect(second.body).toEqual({ url: 'https://example.com/avatars/user-1/avatar.png' });
+      expect(second.headers['idempotency-replayed']).toBe('true');
+      expect(uploadMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('deletes previous avatar when previousUrl is provided', async () => {
+      mockAuthenticatedUser('student');
+
+      const uploadMock = jest.fn().mockResolvedValue({
+        data: { path: 'avatars/user-1/new-avatar.png' },
+        error: null,
+      });
+      const getPublicUrlMock = jest.fn().mockReturnValue({
+        data: { publicUrl: 'https://example.com/avatars/user-1/new-avatar.png' },
+      });
+      const removeMock = jest.fn().mockResolvedValue({ error: null });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+        remove: removeMock,
+      });
+
+      const response = await request(app)
+        .post('/api/profiles/avatar/upload')
+        .set('Authorization', 'Bearer valid-token')
+        .field('previousUrl', 'https://example.com/storage/v1/object/public/avatars/avatars/user-1/old-avatar.png')
+        .attach('image', Buffer.from('image-bytes'), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        });
+
+      expect(response.status).toBe(200);
+      expect(removeMock).toHaveBeenCalledWith(['avatars/user-1/old-avatar.png']);
     });
   });
 
