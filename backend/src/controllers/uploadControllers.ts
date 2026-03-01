@@ -1,8 +1,34 @@
 // File: studyshare/backend/src/controllers/uploadControllers.ts
 // This file handles the upload logic for images to Supabase Storage.
 //this file calls the uploadService to handle the actual upload process
-import { Request, Response } from 'express';
+import { Request, RequestHandler, Response } from 'express';
+import multer from 'multer';
 import { deleteFromStorageByPublicUrl, uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
+
+const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_IMAGE_FILE_SIZE,
+    files: 1,
+  },
+});
+
+export const uploadSingleImage: RequestHandler = (req, res, next) => {
+  upload.single('image')(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      return;
+    }
+
+    res.status(400).json({ error: 'ファイルアップロードに失敗しました' });
+  });
+};
 
 const validateUploadRequest = (req: Request, res: Response) => {
   const file = req.file;

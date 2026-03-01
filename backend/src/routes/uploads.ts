@@ -1,35 +1,15 @@
-import { RequestHandler, Router } from 'express';
-import multer from 'multer';
+import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { idempotencyGuard } from '../middleware/idempotency';
-import { uploadAvatarImageController, uploadController, uploadNoteImageController } from '../controllers/uploadControllers';
+import {
+  uploadAvatarImageController,
+  uploadController,
+  uploadNoteImageController,
+  uploadSingleImage,
+} from '../controllers/uploadControllers';
 
 const router = Router();
-const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: MAX_IMAGE_FILE_SIZE,
-    files: 1,
-  },
-});
 const enableLegacyUploadApi = process.env.ENABLE_LEGACY_UPLOAD_API === 'true';
-
-const uploadSingleImage: RequestHandler = (req, res, next) => {
-  upload.single('image')(req, res, (error) => {
-    if (!error) {
-      next();
-      return;
-    }
-
-    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
-      return;
-    }
-
-    res.status(400).json({ error: 'ファイルアップロードに失敗しました' });
-  });
-};
 
 /**
  * 画像アップロード API
