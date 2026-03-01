@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import type { MeVisibilityUiState } from '@/types/me';
@@ -25,6 +25,7 @@ export default function SettingsPanel() {
   });
   const [isLoadingVisibility, setIsLoadingVisibility] = useState(true);
   const [isSavingVisibility, setIsSavingVisibility] = useState(false);
+  const isSavingVisibilityRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -91,11 +92,14 @@ export default function SettingsPanel() {
     });
   };
 
+  const isVisibilitySaveLocked = isLoadingVisibility || isSavingVisibility;
+
   const handleVisibilitySave = async () => {
-    if (isSavingVisibility || isLoadingVisibility) {
+    if (isLoadingVisibility || isSavingVisibilityRef.current) {
       return;
     }
 
+    isSavingVisibilityRef.current = true;
     setIsSavingVisibility(true);
     try {
       const rpcClient = supabaseClient as unknown as {
@@ -117,6 +121,7 @@ export default function SettingsPanel() {
       console.error('[SettingsPanel] 公開範囲保存エラー:', error);
       toast.error('公開範囲の保存に失敗しました');
     } finally {
+      isSavingVisibilityRef.current = false;
       setIsSavingVisibility(false);
     }
   };
@@ -131,7 +136,7 @@ export default function SettingsPanel() {
         <select
           value={visibilityState.selected}
           onChange={(event) => handleVisibilityChange(event.target.value as MeVisibilityUiState['selected'])}
-          disabled={isSavingVisibility || isLoadingVisibility}
+          disabled={isVisibilitySaveLocked}
           className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
         >
           <option value="private">private</option>
@@ -142,7 +147,7 @@ export default function SettingsPanel() {
         <button
           type="button"
           onClick={handleVisibilitySave}
-          disabled={isSavingVisibility || isLoadingVisibility}
+          disabled={isVisibilitySaveLocked}
           className="mt-3 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           {isSavingVisibility ? '保存中...' : '公開範囲を保存'}
