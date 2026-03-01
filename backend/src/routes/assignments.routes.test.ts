@@ -1,7 +1,9 @@
 import request from 'supertest';
-import app from '../app';
+import { createApp } from '../app';
 import { supabaseAdmin, supabaseAuth, supabaseFromToken } from '../lib/supabase';
 import { resetIdempotencyStoreForTests } from '../middleware/idempotency';
+
+const app = createApp({ enableLegacyAssignmentsApi: true });
 
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'fixed-uuid'),

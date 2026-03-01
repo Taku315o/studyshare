@@ -3,20 +3,33 @@ import express from 'express';
 import assignmentRoutes from './routes/assignments';
 import uploadRoutes from './routes/uploads';
 
-const app = express();
-const enableLegacyAssignmentsApi = process.env.ENABLE_LEGACY_ASSIGNMENTS_API === 'true';
+type CreateAppOptions = {
+  enableLegacyAssignmentsApi?: boolean;
+};
 
-app.use(cors());
-app.use(express.json());
+//ファクトリ関数を作成して、オプションを受け取れるようにする。これにより、テスト時にレガシーAPIを無効化できる。
+export const createApp = (options: CreateAppOptions = {}) => {
+  const app = express();
+  const enableLegacyAssignmentsApi =
+    options.enableLegacyAssignmentsApi ??
+    process.env.ENABLE_LEGACY_ASSIGNMENTS_API === 'true';
 
-app.get('/', (_req, res) => {
-  res.send('Hello from Express + TypeScript!');
-});
+  app.use(cors());
+  app.use(express.json());
 
-app.use('/api', uploadRoutes);
+  app.get('/', (_req, res) => {
+    res.send('Hello from Express + TypeScript!');
+  });
 
-if (enableLegacyAssignmentsApi) {
-  app.use('/api', assignmentRoutes);
-}
+  app.use('/api', uploadRoutes);
+
+  if (enableLegacyAssignmentsApi) {
+    app.use('/api', assignmentRoutes);
+  }
+
+  return app;
+};
+
+const app = createApp();
 
 export default app;
