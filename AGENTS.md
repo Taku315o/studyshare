@@ -5,25 +5,8 @@
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
 
-## 1. まず読むべきもの（優先順）
 
-1. `strategy.md`
-2. `strategy_final.md`（ユーザーの言う `strategy-final.md` に相当。実ファイル名は underscore）
-3. `memo.md`（解決済み/未解決が混在。必ず現コードと照合）
-4. `docs/architecture.md`
-5. `docs/db_schema.md`
-6. `docs/security.md`
-7. `docs/components.md`
-8. `docs/testing.md`
-9. `docs/data-model.md`（legacy情報が多いので `db_schema.md` を優先）
-10. `docs/worktree_rules.md`
-
-重要:
-- `memo.md` の「未実装」記述には、すでに実装済みのものが含まれる
-- 実装判断の最終基準は常に現コード（frontend/backend/supabase migrations）
-- DB/RLSを変更したら `docs/db_schema.md` と関連docsを更新する
-
-## 2. 現在のプロダクト状態（2026-02時点）
+## 現在のプロダクト状態（2026-02時点）
 
 ### 現行の主機能（本体導線）
 - ランディング + Googleログイン (`/`)
@@ -46,7 +29,7 @@
 - 認証: Supabase Auth
 - データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles`
 
-## 3. アーキテクチャ要約（実態ベース）
+##  アーキテクチャ要約（実態ベース）
 
 ### フロントエンド (`frontend`)
 - Next.js App Router (`next@15`)
@@ -80,7 +63,7 @@
 - スキーマの中核は `20260216132701_init_full_schema.sql`
 - 追加migrationで質問/集計、可視性RPC、DM制約緩和、ノート画像、Storage bucket等を拡張
 
-## 4. データモデルとRLSの前提（作業前に理解必須）
+## データモデルとRLSの前提（作業前に理解必須）
 
 詳細は `docs/db_schema.md` を優先参照。
 
@@ -129,7 +112,7 @@ bucket未作成時:
 - backend `/api/profiles/avatar/upload` でも同様に `Bucket not found` が出る
 - migration適用状況を確認すること
 
-## 5. 現在の実装状況（できること / 未完了）
+## 現在の実装状況（できること / 未完了）
 
 ### 実装済み・反映済み（memo上の「過去の未解決」含む）
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
@@ -159,7 +142,7 @@ bucket未作成時:
 - `/me`:
   - `保存` タブで「いいね/ブックマーク」したノートを統合表示（解除操作は未実装）
 
-## 6. ディレクトリ構造（現状）
+## ディレクトリ構造（現状）
 
 ```text
 studyshare/
@@ -201,7 +184,7 @@ studyshare/
     config.toml
 ```
 
-## 7. 開発コマンド（現状）
+## 開発コマンド（現状）
 
 ### ルート
 - `pnpm dev:frontend`
@@ -226,7 +209,7 @@ studyshare/
 - `pnpm --filter backend test:watch`
 - `pnpm --filter backend test:ci`
 
-## 8. 環境・実行時の注意
+## 環境・実行時の注意
 
 ### 認証/接続
 - frontend と backend はそれぞれ Supabase接続に必要な環境変数を使う
@@ -241,7 +224,7 @@ studyshare/
 - 読み取り系は frontend から直接読むケースが多い
 - 「他人データ」「安全性」「複雑な判定」が絡む場合は raw table SELECT を避け、RPCやbackendへ寄せる
 
-## 9. DB / Supabase 運用ルール（最重要）
+## DB / Supabase 運用ルール（最重要）
 
 ### 絶対ルール（worktree安全）
 - `main` / `dev` 以外の worktree で `supabase db reset` や `supabase migration up` を自動実行しない
@@ -261,7 +244,7 @@ studyshare/
   - `can_dm` / `allow_dm` / block関連判定
   - 足跡/解放条件（`can_view_footprints` など）
 
-## 10. 実装判断ルール（このプロジェクト向け）
+## 実装判断ルール（このプロジェクト向け）
 
 ### frontend直叩き vs backend経由（ハイブリッド継続）
 
@@ -294,7 +277,7 @@ backend or SQL RPCに寄せるべきもの:
 - ユーザー追加講義を安易に `course_offerings` 乱立で作らない
 - 「候補検索 -> 無ければ作成 -> 近似候補提示」の流れを前提に設計する
 
-## 11. テスト方針（実務向け要点）
+## テスト方針（実務向け要点）
 
 詳細: `docs/testing.md`
 
@@ -312,48 +295,19 @@ backend or SQL RPCに寄せるべきもの:
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
 - コミュニティでDM送信条件未達時に警告表示され、送信/スレッド作成されないか
 
-## 12. 直近の優先順位（strategy + memoを現状に合わせて要約）
 
-### P0（今の価値を壊さないために先）
-1. `/home` のモック脱却（実データ化）
-2. 時間割/コミュニティの主要プレースホルダ解消方針の確定
-3. コミュニティのスレッド一覧取得基盤（RPC/view）整備
 
-### P1（基盤強化）
-1. コミュニティDMのエラー分類整理（送信条件未達 / 相手のDM拒否 / 一時障害）
-2. チップフィルタを実データクエリに反映
-3. 重複講義追加フローの仕様化（検索優先・近似候補提示）
-4. shared offering preview系RPC（どの授業が被っているかの説明）
-
-### P2（価値拡張）
-1. 保存タブの解除操作（いいね/ブックマーク）導線
-2. コミュニティの `reviews` / `more` タブ
-3. 足跡機能（`profile_views` UI接続）
-4. 人気授業ランキング
-
-### P3（後段）
-1. 教科書交換機能
-2. `entitlements` / `subscriptions` UI接続（収益化）
-3. リブランディング / LP導線
-
-## 13. 作業時の更新ルール（docs / tests）
+## 作業時の更新ルール（docs / tests）
 
 - 機能追加・仕様変更・RLS変更時は、必要に応じて docs を更新する
 - プレースホルダを実装したら、`AGENTS.md` と `docs/testing.md` の該当記述を更新する
 - `memo.md` の解決済み項目は残っていても、現コードに合わせて扱う（鵜呑みにしない）
 
-## 14. 参考ファイル（現状把握に有効）
+## 設計方針(現状)
+- アーキテクチャ: @docs/architecture.md
+- コンポーネント規約: @docs/components.md
+- テスト戦略: @docs/testing.md
+- データモデル: @docs/data-model.md
+- セキュリティ: @docs/security.md 
+- db schema: @docs/db_schema.md
 
-- `frontend/src/app/(app)/community/page.tsx`
-- `frontend/src/app/(app)/timetable/page.tsx`
-- `frontend/src/app/(app)/offerings/[offeringId]/page.tsx`
-- `frontend/src/components/me/SettingsPanel.tsx`
-- `frontend/src/components/timetable/TimetableGrid.tsx`
-- `frontend/src/components/community/CommunityPane.tsx`
-- `frontend/src/app/(app)/home/page.tsx`
-- `frontend/src/lib/validation/profile.ts`
-- `backend/src/routes/uploads.ts`
-- `backend/src/middleware/auth.ts`
-- `supabase/migrations/20260216132701_init_full_schema.sql`
-- `supabase/migrations/20260220120000_add_enrollment_visibility_default_and_visibility_rpc.sql`
-- `supabase/migrations/20260224130000_fix_conversation_members_policy_recursion.sql`
