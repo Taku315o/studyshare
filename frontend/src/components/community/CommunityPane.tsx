@@ -1,4 +1,5 @@
 'use client';
+//左のコミュニティタブのコンポーネントです。タブ切り替え、検索、フィルタリング、マッチング候補の表示などを担当。
 
 import { Search } from 'lucide-react';
 import MatchCard from '@/components/community/MatchCard';
@@ -129,6 +130,7 @@ export default function CommunityPane({
               </p>
             ) : (
               candidates.map((candidate) => (
+                //onSendMessage を MatchCard に渡す。これにより、ユーザーが「メッセージを送る」ボタンをクリックしたときに、CommunityPane の onSendMessage 関数が呼び出され、選択された候補の情報が引数として渡される。
                 <MatchCard key={candidate.userId} candidate={candidate} onSendMessage={onSendMessage} />
               ))
             )}

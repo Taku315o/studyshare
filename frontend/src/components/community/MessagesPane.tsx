@@ -1,5 +1,6 @@
 'use client';
-
+//右ペインのメッセージ表示コンポーネント。スレッドのリスト、選択されたスレッドのメッセージ、メッセージ送信フォームなどを含む。
+import Link from 'next/link';
 import { MoreHorizontal, X } from 'lucide-react';
 import ChatView from '@/components/community/ChatView';
 import MessageComposer from '@/components/community/MessageComposer';
@@ -27,6 +28,10 @@ function initials(name: string) {
   if (parts.length === 0) return 'U';
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function canLinkToProfile(userId: string) {
+  return Boolean(userId) && userId !== 'unknown';
 }
 
 export default function MessagesPane({
@@ -83,21 +88,47 @@ export default function MessagesPane({
           {selectedThread ? (
             <>
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                {selectedThread.participantAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selectedThread.participantAvatarUrl}
-                    alt={selectedThread.participantName}
-                    className="h-10 w-10 rounded-full border border-slate-200 object-cover"
-                  />
+                {canLinkToProfile(selectedThread.participantId) ? (
+                  <Link href={`/profile/${selectedThread.participantId}`} className="shrink-0">
+                    {selectedThread.participantAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedThread.participantAvatarUrl}
+                        alt={selectedThread.participantName}
+                        className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
+                        {initials(selectedThread.participantName)}
+                      </div>
+                    )}
+                  </Link>
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
-                    {initials(selectedThread.participantName)}
-                  </div>
+                  selectedThread.participantAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedThread.participantAvatarUrl}
+                      alt={selectedThread.participantName}
+                      className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
+                      {initials(selectedThread.participantName)}
+                    </div>
+                  )
                 )}
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">{selectedThread.participantName}</p>
+                  {canLinkToProfile(selectedThread.participantId) ? (
+                    <Link
+                      href={`/profile/${selectedThread.participantId}`}
+                      className="block truncate text-sm font-semibold text-slate-900 hover:underline"
+                    >
+                      {selectedThread.participantName}
+                    </Link>
+                  ) : (
+                    <p className="truncate text-sm font-semibold text-slate-900">{selectedThread.participantName}</p>
+                  )}
                   <p className="truncate text-xs text-slate-500">{selectedThread.participantAffiliation}</p>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 'use client';
-
+//チャットのメッセージ表示コンポーネント。会話の内容を表示し、ユーザーが送信したメッセージと相手からのメッセージを区別してスタイリングする。
 import type { ChatMessageViewModel } from '@/types/community';
 
 type ChatViewProps = {
@@ -18,6 +18,7 @@ function formatTime(value: string) {
   });
 }
 
+/**currentUserId と senderId を比較して左右の吹き出しを切替、時刻を ja-JP 形式で表示。 */
 export default function ChatView({ messages, currentUserId, isLoading, participantName }: ChatViewProps) {
   if (isLoading) {
     return <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">会話を読み込み中...</div>;

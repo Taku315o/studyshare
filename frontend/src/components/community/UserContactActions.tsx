@@ -1,5 +1,5 @@
 'use client';
-
+//ユーザーの連絡先アクションを表示するコンポーネント。プロフィールへのリンクやDM送信ボタンなど、ユーザーと連絡を取るためのアクションを提供する。
 import Link from 'next/link';
 
 type UserContactActionsProps = {
@@ -25,6 +25,16 @@ function buildCommunityDmHref(targetUserId: string, targetDisplayName: string, s
   return `/community?${params.toString()}`;
 }
 
+/** 
+ * targetUserId: 連絡先のユーザーID。DM送信やプロフィールリンクの生成に使用される。
+ * targetDisplayName: 連絡先の表示名。DM送信の際に使用される。
+ * currentUserId: 現在のユーザーID。これと targetUserId を比較して、DM送信の可否を判断する。
+ * allowDm: 連絡先がDM受信を許可しているかどうか。false の場合、DM送信ボタンは無効化される。
+ * showProfileLink: プロフィールへのリンクを表示するかどうか。デフォルトは true。
+ * compact: コンパクトなスタイルを使用するかどうか。デフォルトは false。
+ * source: DM送信の際に、どの画面から送信されたかを示す文字列。例: 'profile', 'review', 'question', 'assignment' など。
+ *自分宛・allowDm=false を無効化し、DM は /community?composeTo=... ディープリンクを生成
+*/
 export default function UserContactActions({
   targetUserId,
   targetDisplayName,

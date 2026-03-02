@@ -1,5 +1,5 @@
 'use client';
-
+//メッセージ送信フォームのコンポーネント。ユーザーがメッセージを入力し、送信ボタンをクリックしてメッセージを送ることができる。
 import { FormEvent, KeyboardEvent, useRef, useState } from 'react';
 
 type MessageComposerProps = {

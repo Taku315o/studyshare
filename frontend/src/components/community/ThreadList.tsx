@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { ThreadSummaryViewModel } from '@/types/community';
 
 type ThreadListProps = {
@@ -28,6 +29,10 @@ function initials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+function canLinkToProfile(userId: string) {
+  return Boolean(userId) && userId !== 'unknown';
+}
+
 export default function ThreadList({ threads, selectedThreadId, onSelectThread, isLoading }: ThreadListProps) {
   if (isLoading) {
     return (
@@ -47,12 +52,21 @@ export default function ThreadList({ threads, selectedThreadId, onSelectThread, 
     <ul className="space-y-2">
       {threads.map((thread) => {
         const isActive = thread.threadId === selectedThreadId;
+        const profileLinkable = canLinkToProfile(thread.participantId);
+        const profileHref = `/profile/${thread.participantId}`;
 
         return (
           <li key={thread.threadId}>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
+              aria-pressed={isActive}
               onClick={() => onSelectThread(thread.threadId)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                onSelectThread(thread.threadId);
+              }}
               className={[
                 'w-full rounded-2xl border px-3 py-2 text-left transition-colors',
                 isActive
@@ -61,29 +75,56 @@ export default function ThreadList({ threads, selectedThreadId, onSelectThread, 
               ].join(' ')}
             >
               <div className="flex items-start gap-2">
-                {thread.participantAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thread.participantAvatarUrl}
-                    alt={thread.participantName}
-                    className="h-9 w-9 rounded-full border border-slate-200 object-cover"
-                  />
+                {profileLinkable ? (
+                  <Link href={profileHref} className="shrink-0" onClick={(event) => event.stopPropagation()}>
+                    {thread.participantAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={thread.participantAvatarUrl}
+                        alt={thread.participantName}
+                        className="h-9 w-9 rounded-full border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
+                        {initials(thread.participantName)}
+                      </div>
+                    )}
+                  </Link>
                 ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
-                    {initials(thread.participantName)}
-                  </div>
+                  thread.participantAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thread.participantAvatarUrl}
+                      alt={thread.participantName}
+                      className="h-9 w-9 rounded-full border border-slate-200 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700">
+                      {initials(thread.participantName)}
+                    </div>
+                  )
                 )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-800">{thread.participantName}</p>
+                    {profileLinkable ? (
+                      <Link
+                        href={profileHref}
+                        className="truncate text-sm font-semibold text-slate-800 hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {thread.participantName}
+                      </Link>
+                    ) : (
+                      <p className="truncate text-sm font-semibold text-slate-800">{thread.participantName}</p>
+                    )}
                     <span className="shrink-0 text-[11px] text-slate-500">{formatDate(thread.lastMessageAt)}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-slate-500">{thread.participantAffiliation}</p>
                   <p className="mt-1 truncate text-xs text-slate-600">{thread.lastMessagePreview || 'まだメッセージはありません'}</p>
                 </div>
               </div>
-            </button>
+            </div>
           </li>
         );
       })}

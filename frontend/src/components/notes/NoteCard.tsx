@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Heart, MessageCircle, Bookmark } from 'lucide-react';
 import type { NoteListItem } from '@/types/offering';
 
@@ -22,11 +23,24 @@ export default function NoteCard({ note, onToggleLike, onToggleBookmark }: NoteC
   return (
     <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
-          {note.authorName.slice(0, 1)}
-        </div>
+        <Link href={`/profile/${note.authorId}`} className="shrink-0">
+          {note.authorAvatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={note.authorAvatarUrl}
+              alt={`${note.authorName}のアイコン`}
+              className="h-9 w-9 rounded-full border border-slate-200 object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+              {note.authorName.slice(0, 1)}
+            </div>
+          )}
+        </Link>
         <div>
-          <p className="text-sm font-semibold text-slate-800">{note.authorName}</p>
+          <Link href={`/profile/${note.authorId}`} className="text-sm font-semibold text-slate-800 hover:underline">
+            {note.authorName}
+          </Link>
           <p className="text-xs text-slate-500">{formatDate(note.createdAt)}</p>
         </div>
       </div>
