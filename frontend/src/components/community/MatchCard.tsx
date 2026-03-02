@@ -60,7 +60,7 @@ export default function MatchCard({ candidate, onSendMessage }: MatchCardProps) 
           className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-400"
         >
           <MessageCircle className="h-3.5 w-3.5" />
-          メッセージを送る
+          {candidate.hasExistingThread ? 'メッセージを開く' : 'メッセージを送る'}
         </button>
       </div>
     </article>

@@ -151,7 +151,7 @@ export default function CommunityPage() {
         faculty: row.faculty ?? null,
         department: row.department ?? null,
         sharedOfferingCount: row.shared_offering_count,
-        summaryLabel: `共有Offering ${row.shared_offering_count}件`,
+        summaryLabel: `同じ授業 ${row.shared_offering_count}件`,
       }));
 
       setCandidates(mapped);
@@ -682,6 +682,15 @@ export default function CommunityPage() {
     });
   }, [candidates, searchKeyword]);
 
+  const enrichedCandidates = useMemo(
+    () =>
+      filteredCandidates.map((candidate) => ({
+        ...candidate,
+        hasExistingThread: threads.some((thread) => thread.participantId === candidate.userId),
+      })),
+    [filteredCandidates, threads],
+  );
+
   const selectedMessages = selectedThreadId ? messagesByThreadId[selectedThreadId] ?? [] : [];
 
   const unreadCount = useMemo(
@@ -699,7 +708,7 @@ export default function CommunityPage() {
           onSearchKeywordChange={setSearchKeyword}
           activeChip={activeChip}
           onChipChange={setActiveChip}
-          candidates={activeTab === 'matching' ? filteredCandidates : []}
+          candidates={activeTab === 'matching' ? enrichedCandidates : []}
           isLoading={isMatchingLoading}
           errorMessage={matchingErrorMessage}
           onSendMessage={handleStartMessage}
