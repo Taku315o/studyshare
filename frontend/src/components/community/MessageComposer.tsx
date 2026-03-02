@@ -33,7 +33,7 @@ export default function MessageComposer({ onSend, disabled = false }: MessageCom
   };
 
   const handleKeyDown = async (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== 'Enter' || event.shiftKey) return;
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.nativeEvent.isComposing) return;
     event.preventDefault();
     await submit();
   };
