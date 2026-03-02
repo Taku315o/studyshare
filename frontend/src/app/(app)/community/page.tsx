@@ -151,7 +151,7 @@ export default function CommunityPage() {
         faculty: row.faculty ?? null,
         department: row.department ?? null,
         sharedOfferingCount: row.shared_offering_count,
-        summaryLabel: `共有Offering ${row.shared_offering_count}件`,
+        summaryLabel: `共通の授業 ${row.shared_offering_count}件`,
       }));
 
       setCandidates(mapped);
@@ -575,7 +575,7 @@ export default function CommunityPage() {
           faculty: profile?.faculty ?? null,
           department: profile?.department ?? null,
           sharedOfferingCount: 0,
-          summaryLabel: 'プロフィールからのDM',
+          summaryLabel: 'プロフィール経由',
         });
       } catch (error) {
         console.error('プロフィール経由DM開始エラー:', error);
@@ -672,15 +672,22 @@ export default function CommunityPage() {
 
   const filteredCandidates = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) return candidates;
-    return candidates.filter((candidate) => {
-      return (
-        candidate.displayName.toLowerCase().includes(keyword) ||
-        (candidate.faculty ?? '').toLowerCase().includes(keyword) ||
-        (candidate.department ?? '').toLowerCase().includes(keyword)
-      );
-    });
-  }, [candidates, searchKeyword]);
+    const candidatesToFilter = keyword
+      ? candidates.filter((candidate) => {
+          return (
+            candidate.displayName.toLowerCase().includes(keyword) ||
+            (candidate.faculty ?? '').toLowerCase().includes(keyword) ||
+            (candidate.department ?? '').toLowerCase().includes(keyword)
+          );
+        })
+      : candidates;
+
+    // Add hasExistingConversation flag based on threads
+    return candidatesToFilter.map((candidate) => ({
+      ...candidate,
+      hasExistingConversation: threads.some((thread) => thread.participantId === candidate.userId),
+    }));
+  }, [candidates, searchKeyword, threads]);
 
   const selectedMessages = selectedThreadId ? messagesByThreadId[selectedThreadId] ?? [] : [];
 

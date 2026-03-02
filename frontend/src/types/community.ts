@@ -10,6 +10,7 @@ export type MatchCandidateViewModel = {
   department: string | null;
   sharedOfferingCount: number;
   summaryLabel: string;
+  hasExistingConversation?: boolean;
 };
 
 export type ThreadSummaryViewModel = {
