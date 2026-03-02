@@ -26,4 +26,23 @@ describe('MessageComposer', () => {
 
     expect(onSend).toHaveBeenCalledTimes(2);
   });
+
+  it('does not send when pressing Enter during composition', async () => {
+    const onSend = jest.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(<MessageComposer onSend={onSend} />);
+
+    const textarea = screen.getByPlaceholderText('メッセージを入力...');
+    await user.type(textarea, 'compose');
+
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', isComposing: true });
+    expect(onSend).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(onSend).toHaveBeenCalledWith('compose');
+    });
+  });
 });
