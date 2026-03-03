@@ -57,7 +57,7 @@
 - 関連テーブル
 	- `note_assets`: 添付（`storage_path`）
 	- `note_reactions`: リアクション（PK: `note_id, user_id, kind`）
-	- `note_comments`: コメント（`deleted_at` あり）
+	- `note_comments`: コメント（`deleted_at` あり、`parent_comment_id` で無制限ツリー）
 
 ### B. Reviews（ラク単想定）
 - `reviews`: `offering_id` に紐づく（授業実体単位）
@@ -68,10 +68,15 @@
 ### C. Questions
 - `questions`: `offering_id` に紐づく質問
 - カラム: `title`, `body`, `author_id`, `created_at`, `updated_at`, `deleted_at`
+- `question_answers`: 質問への回答（`parent_answer_id` で無制限ツリー、`deleted_at` あり）
 - RLS:
 	- `select`: `can_view_question()`（同大学 or author）
 	- `insert`: `author_id = auth.uid()` かつ `is_enrolled(auth.uid(), offering_id)`
 	- `update/delete`: author のみ
+	- `question_answers`:
+		- `select`: 回答先の `questions` が `can_view_question()` を満たす場合のみ
+		- `insert`: `author_id = auth.uid()` かつ回答先質問を閲覧可能な場合
+		- `update`: author のみ（soft-delete含む）
 
 ## 安全機能（ブロック・通報・足跡）
 - `blocks`: 相互遮断判定 `is_blocked(a, b)` を提供
@@ -156,14 +161,23 @@
 - `user_stats`: authユーザーは閲覧可（UI用）
 - `enrollments`: 本人のみ閲覧/更新（プライバシー要件の中核）
 
-### コンテンツ系（notes / reviews）
+### コンテンツ系（notes / reviews / questions）
 - `notes`
 	- `select`: `can_view_note()` で可視性制御（`public` / `author` / `same-university`）
 	- `insert`: author本人かつ `offering` を `enrolled/planned`
 	- `update/delete`: authorのみ
+	- `note_comments.insert`: `author_id = auth.uid()` かつ対象ノートを `can_view_note()` できる場合のみ
 - `reviews`
 	- `select`: 同大学またはauthor
 	- `insert`: `enrolled/planned`
+	- `update`: authorのみ
+- `questions`
+	- `select`: `can_view_question()`（同大学 or author）
+	- `insert`: `is_enrolled(auth.uid(), offering_id)`
+	- `update/delete`: authorのみ
+- `question_answers`
+	- `select`: 回答先質問が `can_view_question()` を満たす場合のみ
+	- `insert`: 回答先質問を閲覧可能な認証ユーザー
 	- `update`: authorのみ
 
 ### 安全/管理系

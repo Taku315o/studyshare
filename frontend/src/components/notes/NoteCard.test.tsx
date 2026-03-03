@@ -22,6 +22,7 @@ describe('NoteCard', () => {
   it('links author avatar and name to profile page', () => {
     render(
       <NoteCard
+        offeringId="offering-1"
         note={baseNote}
         onToggleLike={jest.fn().mockResolvedValue(undefined)}
         onToggleBookmark={jest.fn().mockResolvedValue(undefined)}
@@ -29,8 +30,10 @@ describe('NoteCard', () => {
     );
 
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(4);
     expect(links[0]).toHaveAttribute('href', '/profile/author-1');
     expect(links[1]).toHaveAttribute('href', '/profile/author-1');
+    expect(links[2]).toHaveAttribute('href', '/offerings/offering-1/notes/note-1');
+    expect(links[3]).toHaveAttribute('href', '/offerings/offering-1/notes/note-1');
   });
 });

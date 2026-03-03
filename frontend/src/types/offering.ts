@@ -52,6 +52,30 @@ export type QuestionListItem = {
   authorName: string;
   authorAvatarUrl: string | null;
   authorAllowDm: boolean | null;
+  answersCount: number;
+};
+
+export type ThreadAuthor = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+};
+
+export type ThreadNodeBase = {
+  id: string;
+  parentId: string | null;
+  body: string;
+  createdAt: string;
+  deletedAt: string | null;
+  author: ThreadAuthor;
+};
+
+export type NoteCommentNode = ThreadNodeBase & {
+  noteId: string;
+};
+
+export type QuestionAnswerNode = ThreadNodeBase & {
+  questionId: string;
 };
 
 export type ReviewStats = {

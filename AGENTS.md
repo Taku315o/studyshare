@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-02-28
+最終更新: 2026-03-02
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -13,6 +13,8 @@
 - ホーム (`/home`) ※現在は `homeMockData` ベース
 - 授業・口コミ一覧 (`/offerings`)
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
+- ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
+- 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
 - 時間割 (`/timetable`) ※表示は実データ、検索/追加の一部はプレースホルダ
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定
@@ -76,8 +78,10 @@
 - `profiles`
 - `enrollments`
 - `notes`
+- `note_comments`
 - `reviews`
 - `questions`
+- `question_answers`
 - `conversations`
 - `conversation_members`
 - `messages`
@@ -127,6 +131,8 @@ bucket未作成時:
 - マイページ設定の公開範囲保存（`update_visibility_settings` RPC 経由）
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
+- ノート詳細ページでコメント/返信投稿（`note_comments.parent_comment_id`）
+- 質問詳細ページで回答/返信投稿（`question_answers.parent_answer_id`）
 
 ### 現在のプレースホルダ / 暫定仕様（作業時に誤解しやすい）
 - `/home` は `homeMockData` 使用（実データ化未完）
@@ -310,4 +316,3 @@ backend or SQL RPCに寄せるべきもの:
 - データモデル: @docs/data-model.md
 - セキュリティ: @docs/security.md 
 - db schema: @docs/db_schema.md
-

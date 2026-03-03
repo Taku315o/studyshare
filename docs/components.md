@@ -29,10 +29,14 @@
 **Offering詳細ページ（追加）**
 - `src/app/(app)/offerings/[offeringId]/page.tsx`: Server Componentで offering 基本情報/件数/一覧初期データを取得
 - `src/app/(app)/offerings/[offeringId]/page.tsx`: ノート/口コミ/質問の同大学スコープ表示に関する説明バナーを表示
+- `src/app/(app)/offerings/[offeringId]/notes/[noteId]/page.tsx`: ノート詳細 + コメントスレッド（無制限ツリー）表示・投稿
+- `src/app/(app)/offerings/[offeringId]/questions/[questionId]/page.tsx`: 質問詳細 + 回答スレッド（無制限ツリー）表示・投稿
 - `src/components/offerings/OfferingHeader.tsx`: タイトル表示と「時間割に追加」CTA
-- `src/components/offerings/OfferingTabs.tsx`: タブ切替・投稿モーダル・ページング・リアクショントグル・投稿直前の認証再確認
-- `src/components/notes/NoteCard.tsx`: ノートカード（like/bookmark/comment件数）
+- `src/components/offerings/OfferingTabs.tsx`: タブ切替・投稿モーダル・ページング・リアクショントグル・投稿直前の認証再確認・詳細ページ遷移
+- `src/components/notes/NoteCard.tsx`: ノートカード（like/bookmark/comment件数、詳細ページ導線）
+- `src/components/questions/QuestionCard.tsx`: 質問カード（回答件数、詳細ページ導線）
 - `src/components/reviews/ReviewCard.tsx`: 口コミカード（評価・本文・投稿者）
+- `src/components/thread/ThreadPanel.tsx`: コメント/回答のツリー表示と返信投稿UI（共通）
 
 **時間割ページ（追加）**
 - `src/app/(app)/timetable/page.tsx`: Server Componentでページ骨組みを提供
