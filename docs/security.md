@@ -21,6 +21,8 @@
 - `notes` / `reviews` / `questions` は「本人 or 同大学（`profiles.university_id` ベース）」の可視性制御を採用
 - `note_comments` の投稿は `author_id = auth.uid()` に加えて、対象ノートを `can_view_note()` で閲覧可能な場合に限定
 - `question_answers` は対象質問を `can_view_question()` で閲覧可能な認証ユーザーのみ `select/insert` を許可
+- `timetable_presets` は `select` のみ認証ユーザーに開放し、`insert/update/delete` は `is_admin(auth.uid())` に限定
+- `profile_timetable_settings` は `auth.uid() = user_id` のみ `select/insert/update/delete` を許可
 - `profiles.university_id` 未設定ユーザーは、他ユーザーの授業系投稿（ノート/口コミ/質問）を閲覧できないため、UIで初期設定を必須化して整合を取る
 
 **ストレージ**

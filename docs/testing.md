@@ -14,7 +14,7 @@
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
 - `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
-- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）
+- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告
 - `TimetableCell` セル表示（授業カード/空セル）と遷移動作
 - `Sidebar` の `/timetable` 導線有効化
 - `Sidebar` の `/community` 導線有効化
@@ -30,7 +30,8 @@
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
 - `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
 - `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
-- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）と保存導線
+- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
+- `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
 - `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
 - `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
@@ -71,6 +72,9 @@
 - `/me` と `/onboarding` の学年入力で `7` 以上が保存できないこと（UI選択肢/バリデーション一致）
 - `/me` のプロフィール編集モーダルで保存ボタン連打・オーバーレイ連打をしても重複送信/保存中クローズが起きない
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
+- `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
+- 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- 設定外スロットの授業がある場合に警告表示される
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード

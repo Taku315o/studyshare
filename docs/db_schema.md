@@ -45,6 +45,15 @@
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）
 	- ノート/レビューの INSERT・soft-delete をトリガーに更新
+- `timetable_presets`: 大学ごとの標準時間割テンプレート
+	- `university_id`（`null` はグローバルデフォルト）
+	- `name`（現行は `default`）
+	- `weekdays`（`smallint[]`, 1..7）
+	- `periods`（`jsonb`。`period/label/start_time/end_time` を保持）
+- `profile_timetable_settings`: ユーザー個別の時間割設定
+	- `user_id` 主キー
+	- `preset_id`（参照元プリセット。任意）
+	- `weekdays` / `periods` は最終描画設定を保持
 
 ## コンテンツ（ノート・レビュー）
 
@@ -151,15 +160,17 @@
 
 ## RLS設計（ざっくり）
 
-### マスタ系（universities / terms / courses / offerings / slots）
+### マスタ系（universities / terms / courses / offerings / slots / timetable_presets）
 - `SELECT`: 全員可
 - `INSERT`: `authenticated` が投稿（`created_by = auth.uid` など）
 - `UPDATE / DELETE`: adminのみ（`is_admin`）
+- `timetable_presets` は `insert/update/delete` も admin のみ
 
-### 個人データ系（profiles / user_stats / enrollments）
+### 個人データ系（profiles / user_stats / enrollments / profile_timetable_settings）
 - `profiles`: authユーザーのみ閲覧、本人のみ更新
 - `user_stats`: authユーザーは閲覧可（UI用）
 - `enrollments`: 本人のみ閲覧/更新（プライバシー要件の中核）
+- `profile_timetable_settings`: 本人のみ閲覧/更新
 
 ### コンテンツ系（notes / reviews / questions）
 - `notes`

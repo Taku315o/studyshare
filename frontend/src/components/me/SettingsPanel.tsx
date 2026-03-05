@@ -2,9 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
+import TimetableConfigPreview from '@/components/timetable/TimetableConfigPreview';
+import TimetableSettingsModal from '@/components/timetable/TimetableSettingsModal';
 import { useAuth } from '@/context/AuthContext';
+import {
+  DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+  loadEffectiveTimetableConfig,
+  upsertUserTimetableSettings,
+} from '@/lib/timetable/config';
+import type { TimetableConfig } from '@/types/timetable';
 import type { MeVisibilityUiState } from '@/types/me';
+import type { Database } from '@/types/supabase';
 import supabase from '@/lib/supabase';
 
 const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
@@ -19,13 +30,19 @@ const VISIBILITY_LABEL_TEXT: Record<MeVisibilityUiState['selected'], string> = {
   public: '全体公開',
 };
 
-type VisibilityProfileRow = {
+type ProfileSettingsRow = {
   enrollment_visibility_default: MeVisibilityUiState['selected'] | null;
+  university_id: string | null;
 };
 
 export default function SettingsPanel() {
   const { signOut } = useAuth();
   const supabaseClient = supabase;
+  const typedSupabase = supabaseClient as unknown as SupabaseClient<Database>;
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [isVisibilityModalOpen, setIsVisibilityModalOpen] = useState(false);
   const [visibilityState, setVisibilityState] = useState<MeVisibilityUiState>({
     selected: 'match_only',
@@ -35,10 +52,18 @@ export default function SettingsPanel() {
   const [isSavingVisibility, setIsSavingVisibility] = useState(false);
   const isSavingVisibilityRef = useRef(false);
 
+  const [timetableConfig, setTimetableConfig] = useState<TimetableConfig>(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
+  const [timetablePresetId, setTimetablePresetId] = useState<string | null>(null);
+  const [isLoadingTimetable, setIsLoadingTimetable] = useState(true);
+  const [isSavingTimetable, setIsSavingTimetable] = useState(false);
+  const [isTimetableModalOpen, setIsTimetableModalOpen] = useState(false);
+  const isSavingTimetableRef = useRef(false);
+  const hasOpenedFromQueryRef = useRef(false);
+
   useEffect(() => {
     let active = true;
 
-    const loadVisibility = async () => {
+    const loadSettings = async () => {
       try {
         const {
           data: { user },
@@ -55,7 +80,7 @@ export default function SettingsPanel() {
 
         const { data, error } = await supabaseClient
           .from('profiles')
-          .select('enrollment_visibility_default')
+          .select('enrollment_visibility_default, university_id')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -63,35 +88,67 @@ export default function SettingsPanel() {
           throw error;
         }
 
-        const profile = data as VisibilityProfileRow | null;
-        const selected = profile?.enrollment_visibility_default ?? 'match_only';
-
         if (!active) {
           return;
         }
 
+        const profile = data as ProfileSettingsRow | null;
+        const selected = profile?.enrollment_visibility_default ?? 'match_only';
         setVisibilityState({
           selected,
           helpText: VISIBILITY_HELP_TEXT[selected],
         });
+
+        try {
+          const resolved = await loadEffectiveTimetableConfig(
+            typedSupabase,
+            user.id,
+            profile?.university_id ?? null,
+          );
+
+          if (!active) {
+            return;
+          }
+
+          setTimetableConfig(resolved.config);
+          setTimetablePresetId(resolved.presetId);
+        } catch (error) {
+          console.error('[SettingsPanel] 時間割設定の取得に失敗しました。デフォルトを適用します:', error);
+          if (active) {
+            setTimetableConfig(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
+            setTimetablePresetId(null);
+          }
+        }
       } catch (error) {
-        console.error('[SettingsPanel] 公開範囲取得エラー:', error);
+        console.error('[SettingsPanel] 設定取得エラー:', error);
         if (active) {
-          toast.error('公開範囲の取得に失敗しました');
+          toast.error('設定の取得に失敗しました');
         }
       } finally {
         if (active) {
           setIsLoadingVisibility(false);
+          setIsLoadingTimetable(false);
         }
       }
     };
 
-    loadVisibility();
+    void loadSettings();
 
     return () => {
       active = false;
     };
-  }, [supabaseClient]);
+  }, [supabaseClient, typedSupabase]);
+
+  useEffect(() => {
+    if (!searchParams || hasOpenedFromQueryRef.current) {
+      return;
+    }
+
+    if (searchParams.get('modal') === 'timetable-settings') {
+      setIsTimetableModalOpen(true);
+      hasOpenedFromQueryRef.current = true;
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isVisibilityModalOpen || typeof document === 'undefined') return;
@@ -101,6 +158,20 @@ export default function SettingsPanel() {
       document.body.style.overflow = originalOverflow;
     };
   }, [isVisibilityModalOpen]);
+
+  const closeTimetableModal = () => {
+    setIsTimetableModalOpen(false);
+
+    if (!searchParams || searchParams.get('modal') !== 'timetable-settings') {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete('modal');
+    nextParams.delete('from');
+    const query = nextParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  };
 
   const handleVisibilityChange = (nextValue: MeVisibilityUiState['selected']) => {
     setVisibilityState({
@@ -144,10 +215,71 @@ export default function SettingsPanel() {
     }
   };
 
+  const handleSaveTimetable = async (nextConfig: TimetableConfig) => {
+    if (isSavingTimetableRef.current || isLoadingTimetable) {
+      return;
+    }
+
+    isSavingTimetableRef.current = true;
+    setIsSavingTimetable(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        toast.error('ログイン情報を取得できませんでした');
+        return;
+      }
+
+      const savedConfig = await upsertUserTimetableSettings(
+        typedSupabase,
+        {
+          userId: user.id,
+          presetId: timetablePresetId,
+          config: nextConfig,
+        },
+      );
+
+      setTimetableConfig(savedConfig);
+      closeTimetableModal();
+      toast.success('時間割の時間・曜日を保存しました');
+    } catch (error) {
+      console.error('[SettingsPanel] 時間割設定保存エラー:', error);
+      toast.error('時間割設定の保存に失敗しました');
+    } finally {
+      isSavingTimetableRef.current = false;
+      setIsSavingTimetable(false);
+    }
+  };
+
   return (
     <section className="rounded-3xl border border-white/50 bg-white/75 p-6 shadow-sm backdrop-blur">
       <h2 className="text-xl font-bold text-slate-900">設定</h2>
       <p className="mt-1 text-sm text-slate-600">ログアウトや公開範囲の設定を行えます。</p>
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold text-slate-800">時間割の時間・曜日</p>
+        <p className="mt-2 text-xs text-slate-500">設定は時間割ページにも反映されます。</p>
+        {!isLoadingTimetable ? <TimetableConfigPreview config={timetableConfig} className="mt-3" /> : null}
+        {searchParams?.get('from') === 'timetable' ? (
+          <p className="mt-2 text-xs text-blue-700">時間割ページから遷移しました。ここで設定を編集できます。</p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setIsTimetableModalOpen(true)}
+          disabled={isLoadingTimetable || isSavingTimetable}
+          className="mt-3 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          時間・曜日を設定
+        </button>
+      </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-semibold text-slate-800">公開範囲（将来のマッチング用）</p>
@@ -163,9 +295,6 @@ export default function SettingsPanel() {
         </button>
       </div>
 
-      {/* NOTE: dm_scope はスキーマ上は保持しているが、MVP中はDM判定に未反映。
-          現在のDM開始可否は allow_dm と送信者側の解放条件で判定される。 */}
-
       <div className="mt-4">
         <button
           type="button"
@@ -175,6 +304,17 @@ export default function SettingsPanel() {
           ログアウト
         </button>
       </div>
+
+      <TimetableSettingsModal
+        isOpen={isTimetableModalOpen}
+        title="時間割の時間・曜日を編集"
+        description="ここで変更した内容は時間割ページの表示に反映されます。"
+        saveLabel="時間割設定を保存"
+        initialConfig={timetableConfig}
+        isSaving={isSavingTimetable}
+        onClose={closeTimetableModal}
+        onSave={handleSaveTimetable}
+      />
 
       {isVisibilityModalOpen && typeof document !== 'undefined'
         ? createPortal(

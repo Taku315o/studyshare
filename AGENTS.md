@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-02
+最終更新: 2026-03-04
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -15,10 +15,10 @@
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
 - 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
-- 時間割 (`/timetable`) ※表示は実データ、検索/追加の一部はプレースホルダ
+- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定
-- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意
+- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意。大学標準時間割の自動適用/プレビュー/編集モーダル対応
 
 ### 互換/移行中の機能（legacy）
 - 旧 `assignments` UI は `frontend/src/legacy/assignments/` に退避済み
@@ -82,6 +82,8 @@
 - `reviews`
 - `questions`
 - `question_answers`
+- `timetable_presets`
+- `profile_timetable_settings`
 - `conversations`
 - `conversation_members`
 - `messages`
@@ -129,6 +131,10 @@ bucket未作成時:
 - `ProfileCard` 編集モーダルで外クリック閉じる対応（保存中は閉じない）
 - 同大学スコープの説明表示（授業詳細UI）
 - マイページ設定の公開範囲保存（`update_visibility_settings` RPC 経由）
+- `timetable_presets` / `profile_timetable_settings` による大学標準時間割 + 個別設定保存
+- `/me` の `SettingsPanel` に「時間割の時間・曜日」モーダルを実装（`modal=timetable-settings` クエリで初期表示対応）
+- `/timetable` に「時間・曜日を変更」導線を追加（`/me?modal=timetable-settings&from=timetable`）
+- `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
 - ノート詳細ページでコメント/返信投稿（`note_comments.parent_comment_id`）
@@ -142,7 +148,7 @@ bucket未作成時:
   - DM作成/送信失敗時に `local:*` スレッドへフォールバック（非永続）
   - `list_threads` 相当の専用RPC/viewは未整備（フロントで複数クエリ合成）
 - `timetable`:
-  - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`)
+  - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`) + `profile_timetable_settings` / `timetable_presets`
   - 検索/追加モーダル/受講者探索CTAは準備中
   - セルのお気に入りはUIプレースホルダ
 - `/me`:

@@ -19,6 +19,12 @@ jest.mock('@/context/AuthContext', () => ({
   }),
 }));
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+  usePathname: () => '/me',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 const uploadAvatarImageMock = uploadAvatarImage as jest.Mock;
 
 describe('MePage', () => {

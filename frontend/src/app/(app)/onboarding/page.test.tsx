@@ -2,11 +2,35 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OnboardingPage from './page';
 import { createSupabaseClient } from '@/lib/supabase/client';
+import {
+  DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+  loadEffectiveTimetableConfig,
+  loadUniversityDefaultPreset,
+  upsertUserTimetableSettings,
+} from '@/lib/timetable/config';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 jest.mock('@/lib/supabase/client', () => ({
   createSupabaseClient: jest.fn(),
+}));
+
+jest.mock('@/lib/timetable/config', () => ({
+  DEFAULT_GLOBAL_TIMETABLE_CONFIG: {
+    weekdays: [1, 2, 3, 4, 5],
+    periods: [
+      { period: 1, label: '1限', startTime: '09:00', endTime: '10:40' },
+      { period: 2, label: '2限', startTime: '10:45', endTime: '12:25' },
+    ],
+  },
+  timetableConfigSchema: {
+    safeParse: jest.fn((value: unknown) => ({ success: true, data: value })),
+  },
+  loadEffectiveTimetableConfig: jest.fn(),
+  loadUniversityDefaultPreset: jest.fn(),
+  upsertUserTimetableSettings: jest.fn(),
+  formatWeekdayLabel: jest.fn((day: number) => ['?', '月', '火', '水', '木', '金', '土', '日'][day] ?? '?'),
+  formatWeekdayList: jest.fn(() => '月・火・水・木・金'),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -22,6 +46,10 @@ jest.mock('react-hot-toast', () => ({
   },
 }));
 
+const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mock;
+const loadUniversityDefaultPresetMock = loadUniversityDefaultPreset as jest.Mock;
+const upsertUserTimetableSettingsMock = upsertUserTimetableSettings as jest.Mock;
+
 describe('OnboardingPage', () => {
   const mockReplace = jest.fn();
   const mockRefresh = jest.fn();
@@ -31,6 +59,18 @@ describe('OnboardingPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    loadEffectiveTimetableConfigMock.mockResolvedValue({
+      config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+      presetId: 'preset-global',
+      source: 'global',
+    });
+    loadUniversityDefaultPresetMock.mockResolvedValue({
+      config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+      presetId: 'preset-uni-1',
+      source: 'university',
+    });
+    upsertUserTimetableSettingsMock.mockResolvedValue(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
 
     (useRouter as jest.Mock).mockReturnValue({
       replace: mockReplace,
@@ -98,7 +138,7 @@ describe('OnboardingPage', () => {
     });
   });
 
-  it('saves university and grade year, then redirects to next path', async () => {
+  it('shows timetable preview, opens edit modal, and saves profile + timetable settings', async () => {
     const user = userEvent.setup();
 
     render(<OnboardingPage />);
@@ -107,10 +147,20 @@ describe('OnboardingPage', () => {
       expect(screen.getByRole('heading', { name: '初期設定' })).toBeInTheDocument();
     });
 
+    expect(screen.getByText('この大学の標準時間割を適用します')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '編集する' }));
+    expect(screen.getByRole('heading', { name: '時間割の時間・曜日を編集' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'キャンセル' }));
+
     await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-1');
+    await waitFor(() => {
+      expect(loadUniversityDefaultPresetMock).toHaveBeenCalled();
+    });
+
     await user.selectOptions(screen.getByLabelText('学年'), '2');
     await user.type(screen.getByLabelText('学部（任意）'), '経済学部');
-    await user.click(screen.getByRole('button', { name: '保存してはじめる' }));
+    await user.click(screen.getByRole('button', { name: 'このまま進む' }));
 
     await waitFor(() => {
       expect(upsertMock).toHaveBeenCalledWith(
@@ -125,6 +175,14 @@ describe('OnboardingPage', () => {
       );
     });
 
+    expect(upsertUserTimetableSettingsMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        userId: 'user-1',
+        presetId: 'preset-uni-1',
+        config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+      },
+    );
     expect(toast.success).toHaveBeenCalledWith('初期設定を保存しました');
     expect(mockReplace).toHaveBeenCalledWith('/offerings/offering-1?tab=notes');
     expect(mockRefresh).toHaveBeenCalled();
@@ -141,7 +199,7 @@ describe('OnboardingPage', () => {
 
     await user.selectOptions(screen.getByLabelText('所属大学'), 'uni-1');
     await user.selectOptions(screen.getByLabelText('学年'), '2');
-    await user.click(screen.getByRole('button', { name: '保存してはじめる' }));
+    await user.click(screen.getByRole('button', { name: 'このまま進む' }));
 
     await waitFor(() => {
       expect(upsertMock).toHaveBeenCalledWith(

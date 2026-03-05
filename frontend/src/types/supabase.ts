@@ -507,6 +507,38 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_timetable_settings: {
+        Row: {
+          periods: Json
+          preset_id: string | null
+          updated_at: string
+          user_id: string
+          weekdays: number[]
+        }
+        Insert: {
+          periods: Json
+          preset_id?: string | null
+          updated_at?: string
+          user_id: string
+          weekdays: number[]
+        }
+        Update: {
+          periods?: Json
+          preset_id?: string | null
+          updated_at?: string
+          user_id?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_timetable_settings_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "timetable_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           allow_dm: boolean
@@ -678,6 +710,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      timetable_presets: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          periods: Json
+          university_id: string | null
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          periods: Json
+          university_id?: string | null
+          updated_at?: string
+          weekdays: number[]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          periods?: Json
+          university_id?: string | null
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_presets_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       terms: {
         Row: {
@@ -1069,4 +1142,3 @@ export const Constants = {
     },
   },
 } as const
-

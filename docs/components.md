@@ -40,13 +40,16 @@
 
 **時間割ページ（追加）**
 - `src/app/(app)/timetable/page.tsx`: Server Componentでページ骨組みを提供
-- `src/components/timetable/TimetableGrid.tsx`: Client Componentで `enrollments` を起点に時間割を構築
+- `src/components/timetable/TimetableGrid.tsx`: Client Componentで `enrollments` と `profile_timetable_settings` をもとに動的時間割を構築
 - `src/components/timetable/TimetableCell.tsx`: セル単位の表示責務（授業カード/空セルUI）
+- `src/components/timetable/TimetableSettingsModal.tsx`: 時間・曜日設定を編集する共有モーダル
+- `src/components/timetable/TimetableConfigPreview.tsx`: 時間割設定のプレビュー表示
 - `src/types/timetable.ts`: 時間割用の型定義（曜日/時限/status/view model）
 
 **時間割コンポーネント実装ルール**
 - Offeringを主語に表示する（`course_offerings` をUI上「Offering」として扱う）
-- グリッドは固定枠（月-金、1-5限）を維持し、空セルにも追加導線を表示する
+- グリッドはユーザーの設定（`weekdays` / `periods`）をもとに動的生成する
+- 設定外スロットに授業が存在する場合は警告表示し、設定見直しを促す
 - 重複コマは「主表示1件 + `+N` バッジ」で表現し、詳細はモーダルで補完する
 
 **コミュニティページ（追加）**
@@ -72,8 +75,9 @@
 - `src/components/me/MyReviewsList.tsx`: 自分の口コミ一覧表示
 - `src/components/me/MySavedNotesList.tsx`: いいね/ブックマークしたノートの統合一覧表示
 - `src/components/me/TimetableSummary.tsx`: 今学期履修数と今日の授業サマリ表示
-- `src/components/me/SettingsPanel.tsx`: ログアウトと公開範囲（UI先行）設定
+- `src/components/me/SettingsPanel.tsx`: ログアウト・公開範囲設定・時間割時間/曜日設定
 - `src/lib/validation/profile.ts`: プロフィール編集/初期設定の `zod` schema（学年 `1..6`）
+- `src/lib/timetable/config.ts`: 時間割設定のschema/プリセット解決/ユーザー設定保存ロジック
 - `src/types/me.ts`: マイページのViewModel型定義
 
 **マイページ実装ルール**
@@ -87,5 +91,5 @@
 - `ProfileCard` と `SettingsPanel` の保存処理はローカル同期ガード（`useRef`）を併用し、短時間連打による重複リクエストを抑止する
 
 **オンボーディング（追加）**
-- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年必須、学部任意）ページ
+- `src/app/(app)/onboarding/page.tsx`: 認証済みユーザー向け初期設定（大学・学年必須、学部任意）+ 大学標準時間割の自動適用/プレビュー/編集モーダル
 - `src/components/auth/AppRouteGuard.tsx`: 未ログイン判定に加えて `profiles.university_id` / `grade_year` の完了判定を行い、必要時に `/onboarding` へ遷移
