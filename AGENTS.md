@@ -322,3 +322,4 @@ backend or SQL RPCに寄せるべきもの:
 - データモデル: @docs/data-model.md
 - セキュリティ: @docs/security.md 
 - db schema: @docs/db_schema.md
+- Supabase運用: @docs/supabase_operations.md
