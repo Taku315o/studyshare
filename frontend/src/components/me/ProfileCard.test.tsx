@@ -1,6 +1,11 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createSupabaseClient } from '@/lib/supabase/client';
 import ProfileCard from './ProfileCard';
+
+jest.mock('@/lib/supabase/client', () => ({
+  createSupabaseClient: jest.fn(),
+}));
 
 describe('ProfileCard', () => {
   const baseProfile = {
@@ -11,12 +16,21 @@ describe('ProfileCard', () => {
     universityId: 'uni-1',
     universityName: '専修大学',
     gradeYear: 2,
+    followersCount: 12,
+    followingCount: 7,
   };
 
   const universities = [
     { id: 'uni-1', name: '専修大学' },
     { id: 'uni-2', name: '明治大学' },
   ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createSupabaseClient as jest.Mock).mockReturnValue({
+      rpc: jest.fn(),
+    });
+  });
 
   it('opens edit modal and updates display name', async () => {
     const user = userEvent.setup();
@@ -150,5 +164,22 @@ describe('ProfileCard', () => {
     );
 
     expect(screen.getByText('学部未設定')).toBeInTheDocument();
+  });
+
+  it('shows follower and following counts', () => {
+    render(
+      <ProfileCard
+        profile={baseProfile}
+        universities={universities}
+        isLoading={false}
+        isSaving={false}
+        onSaveProfile={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText('フォロワー')).toBeInTheDocument();
+    expect(screen.getByText('フォロー中')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
   });
 });

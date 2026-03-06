@@ -255,6 +255,24 @@ export type Database = {
         }
         Relationships: []
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_user_id: string
+          following_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_user_id: string
+          following_user_id: string
+        }
+        Update: {
+          created_at?: string
+          follower_user_id?: string
+          following_user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           body: string
@@ -388,6 +406,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          actor_user_id: string
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          recipient_user_id: string
+          type: string
+        }
+        Insert: {
+          actor_user_id: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_user_id: string
+          type: string
+        }
+        Update: {
+          actor_user_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_user_id?: string
+          type?: string
+        }
+        Relationships: []
       }
       notes: {
         Row: {
@@ -867,6 +915,8 @@ export type Database = {
       user_stats: {
         Row: {
           contributions_count: number | null
+          followers_count: number
+          following_count: number
           last_contribution_at: string | null
           notes_count: number
           reviews_count: number
@@ -874,6 +924,8 @@ export type Database = {
         }
         Insert: {
           contributions_count?: number | null
+          followers_count?: number
+          following_count?: number
           last_contribution_at?: string | null
           notes_count?: number
           reviews_count?: number
@@ -881,6 +933,8 @@ export type Database = {
         }
         Update: {
           contributions_count?: number | null
+          followers_count?: number
+          following_count?: number
           last_contribution_at?: string | null
           notes_count?: number
           reviews_count?: number
@@ -921,6 +975,14 @@ export type Database = {
         Args: { _other_user_id: string }
         Returns: string
       }
+      follow_user: {
+        Args: { _following_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
+        }[]
+      }
       find_match_candidates: {
         Args: { _limit?: number; _min_shared?: number }
         Returns: {
@@ -930,6 +992,14 @@ export type Database = {
           faculty: string
           matched_user_id: string
           shared_offering_count: number
+        }[]
+      }
+      get_follow_summary: {
+        Args: { _target_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
         }[]
       }
       has_active_entitlement: {
@@ -942,6 +1012,24 @@ export type Database = {
         Args: { _offering_id: string; _uid: string }
         Returns: boolean
       }
+      list_follow_profiles: {
+        Args: {
+          _direction: string
+          _limit?: number
+          _offset?: number
+          _target_user_id: string
+        }
+        Returns: {
+          avatar_url: string | null
+          department: string | null
+          display_name: string
+          faculty: string | null
+          followed_at: string
+          grade_year: number | null
+          university_name: string | null
+          user_id: string
+        }[]
+      }
       shared_offering_count: {
         Args: { _a: string; _b: string }
         Returns: number
@@ -949,8 +1037,24 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unaccent: { Args: { "": string }; Returns: string }
+      unfollow_user: {
+        Args: { _following_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
+        }[]
+      }
       user_stats_apply_delta: {
         Args: { _notes_delta: number; _reviews_delta: number; _uid: string }
+        Returns: undefined
+      }
+      user_stats_apply_follow_delta: {
+        Args: {
+          _followers_delta: number
+          _following_delta: number
+          _uid: string
+        }
         Returns: undefined
       }
       user_university_id: { Args: { _uid: string }; Returns: string }

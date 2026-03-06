@@ -8,6 +8,8 @@ export type MeProfileViewModel = {
   universityId: string | null;
   universityName: string | null;
   gradeYear: number | null;
+  followersCount: number;
+  followingCount: number;
 };
 
 export type MeUniversityOption = {

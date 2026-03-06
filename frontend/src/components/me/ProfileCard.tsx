@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ProfileFollowPanel from '@/components/profile/ProfileFollowPanel';
 import {
   GRADE_YEAR_OPTIONS,
   getValidationErrorMessage,
@@ -146,6 +147,20 @@ export default function ProfileCard({
           プロフィール編集
         </button>
       </div>
+
+      {!isLoading && profile ? (
+        <div className="mt-5">
+          <ProfileFollowPanel
+            targetUserId={profile.userId}
+            currentUserId={profile.userId}
+            targetDisplayName={profile.displayName}
+            initialFollowersCount={profile.followersCount}
+            initialFollowingCount={profile.followingCount}
+            initialIsFollowing={false}
+            showFollowButton={false}
+          />
+        </div>
+      ) : null}
 
       {isModalOpen && typeof document !== 'undefined'
         ? createPortal(

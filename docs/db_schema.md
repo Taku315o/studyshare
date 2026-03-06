@@ -45,6 +45,14 @@
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）
 	- ノート/レビューの INSERT・soft-delete をトリガーに更新
+	- フォロー機能の集計値として `followers_count` / `following_count` も保持する
+- `follows`: 片方向フォロー（`follower_user_id -> following_user_id`）
+	- 複合PK: `(follower_user_id, following_user_id)`
+	- `follower_user_id <> following_user_id`
+	- ブロック関係では `follow_user()` RPC が作成を拒否する
+- `notifications`: 通知イベント
+	- 現行は `type='follow'` の永続化のみ実装
+	- 受信UI/既読UIは別フェーズ
 - `timetable_presets`: 大学ごとの標準時間割テンプレート
 	- `university_id`（`null` はグローバルデフォルト）
 	- `name`（現行は `default`）
@@ -91,6 +99,7 @@
 - `blocks`: 相互遮断判定 `is_blocked(a, b)` を提供
 - `reports`: `target_type(user/note/review/message)` + `target_id` + `reason`
 - `profile_views`: 足跡（`viewer_id -> viewed_id`）
+- `follows`: block insert 時に対象2ユーザー間の follow を両方向とも削除する
 
 ## マッチング（履修情報の漏洩を避ける）
 
@@ -108,6 +117,15 @@
 	- `enrollments` の `status='enrolled'` 件数のみ返す（受講者一覧は返さない）。
 - `offering_review_stats(offering_id)`
 	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
+- `follow_user(following_user_id)`
+	- `auth.uid()` からの片方向 follow を作成する
+	- 自己フォロー / block 関係 / 重複 follow をサーバ側で吸収する
+- `unfollow_user(following_user_id)`
+	- `auth.uid()` からの follow を解除する
+- `get_follow_summary(target_user_id)`
+	- `followers_count` / `following_count` / `is_following` を返す
+- `list_follow_profiles(target_user_id, direction, limit, offset)`
+	- follower/following 一覧を `profiles + universities` 付きで返す
 
 ### UI実装メモ（community）
 - `/community` は `find_match_candidates()` を利用して候補表示する（共有件数のみ）。
@@ -171,6 +189,8 @@
 - `user_stats`: authユーザーは閲覧可（UI用）
 - `enrollments`: 本人のみ閲覧/更新（プライバシー要件の中核）
 - `profile_timetable_settings`: 本人のみ閲覧/更新
+- `follows`: client direct操作の policy は持たず、RPC経由のみ
+- `notifications`: recipient本人のみ閲覧/更新
 
 ### コンテンツ系（notes / reviews / questions）
 - `notes`

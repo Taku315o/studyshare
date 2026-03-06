@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import UserContactActions from '@/components/community/UserContactActions';
+import ProfileFollowPanel from '@/components/profile/ProfileFollowPanel';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/supabase';
 
 type ProfilePageProps = {
   params: Promise<{ userId: string }>;
@@ -23,6 +25,8 @@ type ProfileRow = {
 type UniversityNameRow = {
   name: string;
 };
+
+type FollowSummaryRow = Database['public']['Functions']['get_follow_summary']['Returns'][number];
 
 export default async function UserProfilePage({ params }: ProfilePageProps) {
   const { userId } = await params;
@@ -55,18 +59,35 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
   }
 
   const profile = data as ProfileRow;
-  let universityName: string | null = null;
+  const followSummaryArgs = {
+    _target_user_id: profile.user_id,
+  } as Database['public']['Functions']['get_follow_summary']['Args'];
+  const [universityResult, followSummaryResult] = await Promise.all([
+    profile.university_id
+      ? supabase
+          .from('universities')
+          .select('name')
+          .eq('id', profile.university_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase.rpc('get_follow_summary', followSummaryArgs as never).single(),
+  ]);
 
-  if (profile.university_id) {
-    const universityResult = await supabase
-      .from('universities')
-      .select('name')
-      .eq('id', profile.university_id)
-      .maybeSingle();
-
-    const university = universityResult.data as UniversityNameRow | null;
-    universityName = university?.name ?? null;
+  if (universityResult.error) {
+    throw universityResult.error;
   }
+
+  if (followSummaryResult.error) {
+    throw followSummaryResult.error;
+  }
+
+  const university = universityResult.data as UniversityNameRow | null;
+  const followSummary = (followSummaryResult.data ?? {
+    followers_count: 0,
+    following_count: 0,
+    is_following: false,
+  }) as FollowSummaryRow;
+  const universityName = university?.name ?? null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -105,15 +126,26 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
             </div>
           </div>
 
-          <div className="sm:max-w-xs">
-            <UserContactActions
-              targetUserId={profile.user_id}
-              targetDisplayName={profile.display_name}
-              currentUserId={user.id}
-              allowDm={profile.allow_dm}
-              showProfileLink={false}
-              source="profile"
-            />
+          <div className="w-full sm:max-w-xs">
+            <div className="space-y-3">
+              <UserContactActions
+                targetUserId={profile.user_id}
+                targetDisplayName={profile.display_name}
+                currentUserId={user.id}
+                allowDm={profile.allow_dm}
+                showProfileLink={false}
+                source="profile"
+              />
+              <ProfileFollowPanel
+                targetUserId={profile.user_id}
+                currentUserId={user.id}
+                targetDisplayName={profile.display_name}
+                initialFollowersCount={followSummary.followers_count}
+                initialFollowingCount={followSummary.following_count}
+                initialIsFollowing={followSummary.is_following}
+                showFollowButton
+              />
+            </div>
           </div>
         </div>
 

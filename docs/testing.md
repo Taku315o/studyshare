@@ -29,6 +29,8 @@
 - 授業詳細の質問一覧で回答件数表示と詳細遷移
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
 - `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
+- `ProfileFollowPanel` のフォロー作成/解除の optimistic update・二重送信防止・失敗時 rollback
+- `FollowListModal` の初回20件表示 / `もっと見る` によるページング
 - `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
 - `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
 - `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
@@ -46,6 +48,11 @@
 - `POST /api/profiles/avatar/upload` 画像バリデーション/認証/idempotency
 - upload系APIで 5MB 超過ファイルが multer の route middleware 段階で 400 になること（DoS軽減）
 - `assignments.routes.test.ts` では `createApp({ enableLegacyAssignmentsApi: true, enableLegacyUploadApi: true })` を使い、env依存なしで legacy route を明示有効化する
+- SQL / RLS
+- `follow_user` が自己 follow / block 関係を拒否し、重複 follow を1件に保つ
+- `unfollow_user` が作成者本人の edge のみ削除する
+- follow insert/delete と block insert 後に `user_stats.followers_count/following_count` が一致する
+- follow insert で `notifications(type='follow')` が1件だけ作成される
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -69,6 +76,9 @@
 - 質問カードから質問詳細へ遷移し、回答/返信が投稿できる
 - 削除済みコメント/回答が「削除された投稿です。」表示でツリー維持される
 - `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
+- `/profile/[userId]` のフォローボタン押下で即時に状態と件数が切り替わり、再読込後も維持される
+- block 済み相手では follow 操作が失敗し、レコードが作成されない
+- `/me` / `/profile/[userId]` のフォロワー一覧・フォロー中一覧モーダルでページ送りできる
 - `/me` と `/onboarding` の学年入力で `7` 以上が保存できないこと（UI選択肢/バリデーション一致）
 - `/me` のプロフィール編集モーダルで保存ボタン連打・オーバーレイ連打をしても重複送信/保存中クローズが起きない
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない

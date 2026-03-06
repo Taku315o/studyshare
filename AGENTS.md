@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-04
+最終更新: 2026-03-06
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -17,7 +17,8 @@
 - 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
 - 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
-- マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定
+- 他ユーザープロフィール (`/profile/[userId]`) ※DM + 片方向フォロー、フォロワー/フォロー中一覧モーダル
+- マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定・フォロー数表示
 - オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意。大学標準時間割の自動適用/プレビュー/編集モーダル対応
 
 ### 互換/移行中の機能（legacy）
@@ -29,7 +30,7 @@
 - 読み取りの多く: frontend -> Supabase 直接参照（RLS/RPC前提）
 - 副作用/画像アップロード: frontend -> backend (Express) -> Supabase
 - 認証: Supabase Auth
-- データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles`
+- データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles` / `follows`
 
 ##  アーキテクチャ要約（実態ベース）
 
@@ -82,6 +83,7 @@
 - `reviews`
 - `questions`
 - `question_answers`
+- `follows`
 - `timetable_presets`
 - `profile_timetable_settings`
 - `conversations`
@@ -105,6 +107,10 @@
 - `create_direct_conversation`
 - `offering_enrollment_count`
 - `offering_review_stats`
+- `follow_user`
+- `unfollow_user`
+- `get_follow_summary`
+- `list_follow_profiles`
 - `update_visibility_settings`（`SettingsPanel` から利用）
 - legacy: `search_assignments`, `search_assignments_filtered`
 
@@ -124,6 +130,9 @@ bucket未作成時:
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
 - 初回オンボーディング導入（大学/学年必須）
 - `/me` で `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` 編集
+- `/profile/[userId]` と `/me` でフォロワー数 / フォロー中数の表示と一覧モーダル
+- `/profile/[userId]` でフォロー / フォロー解除（block 関係では不可）
+- follow 作成時に `notifications` へ `type='follow'` を永続化
 - アバター更新時に旧画像（`avatars/{userId}/...`）をbackend側で削除
 - `/me` と `/onboarding` のプロフィール入力バリデーションを `zod` schemaへ統一
 - 学年入力ルールを `1..6` に統一（`ProfileCard` / `/me` / `/onboarding`）

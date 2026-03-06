@@ -26,14 +26,18 @@
 - DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
 - DM送信前に `auth.getUser()` で実セッションを再確認し、画面状態の `currentUserId` と不一致なら送信を中断して再ログイン/再読込を促す（同一ブラウザでのアカウント切替対策）
 - Messaging系RLSは `conversation_members` policyの自己参照で再帰エラーにならないよう、メンバー判定helper関数経由で実装する
+- プロフィール表示（`/profile/[userId]`）
+- frontend(Server Component) → Supabase SELECT/RPC（`profiles` / `universities` / `get_follow_summary`）
+- フォロー作成/解除は client component から `follow_user` / `unfollow_user` RPC を呼び、一覧は `list_follow_profiles` RPC で取得する
 - マイページ表示（`/me`）
-- frontend(Client Component) → Supabase SELECT（`profiles` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
+- frontend(Client Component) → Supabase SELECT（`profiles` / `user_stats` / `universities` / `notes` / `reviews` / `enrollments` + 関連 `course_offerings`/`courses`/`terms`/`offering_slots`）
 - 取得対象は `auth.getUser()` の `user.id` に限定し、RLSで本人データのみ参照
 - `profiles` の `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` を `upsert` で更新
 - アバター画像は backend `POST /api/profiles/avatar/upload` でアップロードしてから `avatar_url` に反映
 - アバター更新時は旧 `avatar_url` から同ユーザー配下の storage path を解決し、backend 側で旧オブジェクトを削除する
 - プロフィール更新入力は `frontend/src/lib/validation/profile.ts` の `zod` schemaで検証（学年 `1..6`）
 - `ProfileCard` モーダルは外クリックで閉じるが、保存中は閉じない
+- `/me` と `/profile/[userId]` のフォロー一覧は共通モーダルで表示し、client 側でページネーションする
 - 授業詳細（`/offerings/[offeringId]`）はUI上で「ノート/口コミ/質問は同大学スコープ表示」の説明を出す
 
 - 初回オンボーディング（`/onboarding`）
@@ -65,7 +69,7 @@
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`
-- Supabase RPC: `find_match_candidates`, `create_direct_conversation`
+- Supabase RPC: `find_match_candidates`, `create_direct_conversation`, `follow_user`, `unfollow_user`, `get_follow_summary`, `list_follow_profiles`
 - Storage bucket: `notes`（現行ノート画像アップロード）
 - Storage bucket: `avatars`（プロフィールアバター画像アップロード）
 - Storage bucket: `assignments`（legacy 互換）
