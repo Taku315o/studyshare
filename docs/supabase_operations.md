@@ -95,9 +95,15 @@
 supabase/seeds/
   00_universities.sql
   10_timetable_presets.sql
+  dev/
+    20_offering_sample.sql
   universities.csv
   timetable_presets_top_universities.csv
 ```
+
+実装済み:
+- `supabase/config.toml` は `00_universities.sql` -> `10_timetable_presets.sql` の順で seed を読む
+- `supabase/seeds/dev/20_offering_sample.sql` は default seed には含めない
 
 ### `supabase/snippets/`
 
@@ -127,6 +133,13 @@ supabase/seeds/
 - upsert ベース
 - remote 実行前提でログを残せる
 - `university name -> university_id` 解決失敗を検知できる
+
+実装済み:
+- `scripts/generate-universities-seed.sh`
+- `scripts/generate-timetable-preset-seed.sh`
+- `scripts/rebuild-supabase-seeds.sh`
+- `scripts/apply-supabase-master-data.sh`
+- `scripts/apply-supabase-dev-offering-sample.sh`
 
 ## 個別判断
 
@@ -225,7 +238,7 @@ supabase/seeds/
 
 注意:
 - 既存 migration は履歴なので、ファイル自体を削除して過去を壊さない
-- 代わりに「今後は新規 migration にデータ seed を入れない」ルールに切り替える
+- 既存ファイルは no-op にし、今後は新規 migration にデータ seed を入れない
 - remote 既存環境との差分は、別途管理ジョブで吸収する
 
 ### Phase 3: seed の正本を整理する
