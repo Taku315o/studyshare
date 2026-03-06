@@ -22,6 +22,9 @@
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
 - `community/page` の DM送信条件未達時警告表示と送信抑止（ローカル会話に切り替えない）
+- `community/page` の未読件数算出（`conversation_members.last_read_at` 基準）
+- `community/page` のスレッド選択時既読化（`conversation_members.last_read_at` update）
+- `community/page` の送信メッセージ既読表示（相手 `last_read_at` 追従）
 - `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
 - `buildThreadTree` の多段ツリー構築（親不在ノードfallback / created_at昇順）
 - ノート詳細（`/offerings/[offeringId]/notes/[noteId]`）のコメント投稿/返信投稿/削除済み表示
@@ -85,6 +88,8 @@
 - `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
 - 設定外スロットの授業がある場合に警告表示される
+- コミュニティで非選択スレッドへの新着受信時に一覧未読件数が増える
+- コミュニティで会話を開くとその時点までの受信メッセージが既読になり、送信側で最新メッセージが `未読 -> 既読` に変わる
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード

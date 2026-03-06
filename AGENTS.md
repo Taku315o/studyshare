@@ -146,6 +146,7 @@ bucket未作成時:
 - `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
+- DM既読機能あり（`conversation_members.last_read_at` ベース、`/community` で未読件数/既読表示/Realtime追従）
 - ノート詳細ページでコメント/返信投稿（`note_comments.parent_comment_id`）
 - 質問詳細ページで回答/返信投稿（`question_answers.parent_answer_id`）
 
@@ -154,7 +155,6 @@ bucket未作成時:
 - `community`:
   - `reviews` / `more` タブは準備中
   - チップフィルタUIはあるが、取得クエリ条件に未反映（`activeChip` stateのみ）
-  - DM作成/送信失敗時に `local:*` スレッドへフォールバック（非永続）
   - `list_threads` 相当の専用RPC/viewは未整備（フロントで複数クエリ合成）
 - `timetable`:
   - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`) + `profile_timetable_settings` / `timetable_presets`
@@ -307,6 +307,7 @@ backend or SQL RPCに寄せるべきもの:
 - `AppRouteGuard`（未ログイン / onboarding未完了）
 - `TimetableGrid`（表示/空状態/`dropped`切替）
 - `community/page` のDM送信条件未達時警告（2年生以上は投稿2件以上）と送信抑止
+- `community/page` の未読件数/既読更新/Realtime追従
 - `SettingsPanel` の公開範囲保存
 - backend `/api/notes/upload`（認証/バリデーション/Storage異常）
 
@@ -315,6 +316,8 @@ backend or SQL RPCに寄せるべきもの:
 - 大学未設定ユーザーが `/onboarding` に誘導されるか
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
 - コミュニティでDM送信条件未達時に警告表示され、送信/スレッド作成されないか
+- コミュニティで未読件数が増減し、会話を開くと既読化されるか
+- 2端末 or 2セッションで既読表示が `未読 -> 既読` に変わるか
 
 
 

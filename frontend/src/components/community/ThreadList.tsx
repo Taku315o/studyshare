@@ -107,21 +107,30 @@ export default function ThreadList({ threads, selectedThreadId, onSelectThread, 
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    {profileLinkable ? (
-                      <Link
-                        href={profileHref}
-                        className="truncate text-sm font-semibold text-slate-800 hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {thread.participantName}
-                      </Link>
-                    ) : (
-                      <p className="truncate text-sm font-semibold text-slate-800">{thread.participantName}</p>
-                    )}
+                    <div className="min-w-0 flex items-center gap-2">
+                      {profileLinkable ? (
+                        <Link
+                          href={profileHref}
+                          className="truncate text-sm font-semibold text-slate-800 hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {thread.participantName}
+                        </Link>
+                      ) : (
+                        <p className="truncate text-sm font-semibold text-slate-800">{thread.participantName}</p>
+                      )}
+                      {thread.unreadCount > 0 ? (
+                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          {thread.unreadCount}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="shrink-0 text-[11px] text-slate-500">{formatDate(thread.lastMessageAt)}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-slate-500">{thread.participantAffiliation}</p>
-                  <p className="mt-1 truncate text-xs text-slate-600">{thread.lastMessagePreview || 'まだメッセージはありません'}</p>
+                  <p className={['mt-1 truncate text-xs', thread.unreadCount > 0 ? 'font-semibold text-slate-800' : 'text-slate-600'].join(' ')}>
+                    {thread.lastMessagePreview || 'まだメッセージはありません'}
+                  </p>
                 </div>
               </div>
             </div>

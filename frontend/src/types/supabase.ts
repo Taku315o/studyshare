@@ -351,6 +351,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           note_id: string
+          parent_comment_id: string | null
         }
         Insert: {
           author_id: string
@@ -359,6 +360,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note_id: string
+          parent_comment_id?: string | null
         }
         Update: {
           author_id?: string
@@ -367,6 +369,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note_id?: string
+          parent_comment_id?: string | null
         }
         Relationships: [
           {
@@ -374,6 +377,13 @@ export type Database = {
             columns: ["note_id"]
             isOneToOne: false
             referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "note_comments"
             referencedColumns: ["id"]
           },
         ]
@@ -444,6 +454,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          image_url: string | null
           offering_id: string
           search_tsv: unknown
           tags: string[]
@@ -458,6 +469,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           offering_id: string
           search_tsv?: unknown
           tags?: string[]
@@ -472,6 +484,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           offering_id?: string
           search_tsv?: unknown
           tags?: string[]
@@ -534,27 +547,6 @@ export type Database = {
           },
         ]
       }
-      profile_views: {
-        Row: {
-          created_at: string
-          id: string
-          viewed_id: string
-          viewer_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          viewed_id: string
-          viewer_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          viewed_id?: string
-          viewer_id?: string
-        }
-        Relationships: []
-      }
       profile_timetable_settings: {
         Row: {
           periods: Json
@@ -586,6 +578,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profile_views: {
+        Row: {
+          created_at: string
+          id: string
+          viewed_id: string
+          viewer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          viewed_id: string
+          viewer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          viewed_id?: string
+          viewer_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -645,6 +658,92 @@ export type Database = {
             columns: ["university_id"]
             isOneToOne: false
             referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_answers: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          parent_answer_id: string | null
+          question_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          parent_answer_id?: string | null
+          question_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          parent_answer_id?: string | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_answers_parent_answer_id_fkey"
+            columns: ["parent_answer_id"]
+            isOneToOne: false
+            referencedRelation: "question_answers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          offering_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          offering_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          offering_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_offering_id_fkey"
+            columns: ["offering_id"]
+            isOneToOne: false
+            referencedRelation: "course_offerings"
             referencedColumns: ["id"]
           },
         ]
@@ -759,6 +858,44 @@ export type Database = {
         }
         Relationships: []
       }
+      terms: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          season: Database["public"]["Enums"]["term_season"]
+          start_date: string | null
+          university_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          season: Database["public"]["Enums"]["term_season"]
+          start_date?: string | null
+          university_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          season?: Database["public"]["Enums"]["term_season"]
+          start_date?: string | null
+          university_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terms_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timetable_presets: {
         Row: {
           created_at: string
@@ -793,44 +930,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "timetable_presets_university_id_fkey"
-            columns: ["university_id"]
-            isOneToOne: false
-            referencedRelation: "universities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      terms: {
-        Row: {
-          created_at: string
-          end_date: string | null
-          id: string
-          season: Database["public"]["Enums"]["term_season"]
-          start_date: string | null
-          university_id: string
-          year: number
-        }
-        Insert: {
-          created_at?: string
-          end_date?: string | null
-          id?: string
-          season: Database["public"]["Enums"]["term_season"]
-          start_date?: string | null
-          university_id: string
-          year: number
-        }
-        Update: {
-          created_at?: string
-          end_date?: string | null
-          id?: string
-          season?: Database["public"]["Enums"]["term_season"]
-          start_date?: string | null
-          university_id?: string
-          year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "terms_university_id_fkey"
             columns: ["university_id"]
             isOneToOne: false
             referencedRelation: "universities"
@@ -952,10 +1051,21 @@ export type Database = {
         Returns: boolean
       }
       can_send_message: { Args: { _uid: string }; Returns: boolean }
+      can_send_message_in_conversation: {
+        Args: { _conversation_id: string; _uid: string }
+        Returns: boolean
+      }
       can_view_footprints: { Args: { _uid: string }; Returns: boolean }
       can_view_note: {
         Args: {
           _note: Database["public"]["Tables"]["notes"]["Row"]
+          _uid: string
+        }
+        Returns: boolean
+      }
+      can_view_question: {
+        Args: {
+          _question: Database["public"]["Tables"]["questions"]["Row"]
           _uid: string
         }
         Returns: boolean
@@ -1008,6 +1118,14 @@ export type Database = {
       }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_conversation_member: {
+        Args: { _conversation_id: string; _uid: string }
+        Returns: boolean
+      }
+      is_current_conversation_member: {
+        Args: { _conversation_id: string }
+        Returns: boolean
+      }
       is_enrolled: {
         Args: { _offering_id: string; _uid: string }
         Returns: boolean
@@ -1028,6 +1146,35 @@ export type Database = {
           grade_year: number | null
           university_name: string | null
           user_id: string
+        }[]
+      }
+      is_valid_note_comment_parent: {
+        Args: { _note_id: string; _parent_comment_id: string }
+        Returns: boolean
+      }
+      is_valid_question_answer_parent: {
+        Args: { _parent_answer_id: string; _question_id: string }
+        Returns: boolean
+      }
+      is_valid_timetable_periods: { Args: { _periods: Json }; Returns: boolean }
+      is_valid_timetable_weekdays: {
+        Args: { _weekdays: number[] }
+        Returns: boolean
+      }
+      offering_enrollment_count: {
+        Args: { _offering_id: string }
+        Returns: number
+      }
+      offering_review_stats: {
+        Args: { _offering_id: string }
+        Returns: {
+          avg_rating: number
+          rating_1_count: number
+          rating_2_count: number
+          rating_3_count: number
+          rating_4_count: number
+          rating_5_count: number
+          review_count: number
         }[]
       }
       shared_offering_count: {
@@ -1064,6 +1211,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      user_stats_apply_delta: {
+        Args: { _notes_delta: number; _reviews_delta: number; _uid: string }
+        Returns: undefined
+      }
+      user_university_id: { Args: { _uid: string }; Returns: string }
     }
     Enums: {
       connection_status: "requested" | "accepted" | "rejected" | "blocked"
@@ -1246,3 +1398,4 @@ export const Constants = {
     },
   },
 } as const
+

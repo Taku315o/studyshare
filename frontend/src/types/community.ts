@@ -21,6 +21,9 @@ export type ThreadSummaryViewModel = {
   participantAffiliation: string;
   lastMessagePreview: string;
   lastMessageAt: string | null;
+  lastReadAt: string | null;
+  lastIncomingMessageAt: string | null;
+  participantLastReadAt: string | null;
   unreadCount: number;
   isLocal: boolean;
 };
@@ -31,5 +34,6 @@ export type ChatMessageViewModel = {
   senderId: string;
   body: string;
   createdAt: string;
+  readAt: string | null;
   isLocal: boolean;
 };

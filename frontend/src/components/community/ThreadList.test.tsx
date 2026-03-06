@@ -12,9 +12,20 @@ describe('ThreadList', () => {
     participantAffiliation: '理学部 / 数学科',
     lastMessagePreview: 'よろしくお願いします',
     lastMessageAt: '2026-02-10T10:00:00.000Z',
+    lastReadAt: null,
+    lastIncomingMessageAt: '2026-02-10T10:00:00.000Z',
+    participantLastReadAt: null,
     unreadCount: 0,
     isLocal: false,
   };
+
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('keeps thread selection behavior', async () => {
     const onSelectThread = jest.fn();
@@ -72,5 +83,24 @@ describe('ThreadList', () => {
     );
 
     expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('shows unread badge and emphasized preview when thread has unread messages', () => {
+    render(
+      <ThreadList
+        threads={[
+          {
+            ...baseThread,
+            unreadCount: 3,
+          },
+        ]}
+        selectedThreadId={null}
+        onSelectThread={jest.fn()}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('よろしくお願いします')).toHaveClass('font-semibold');
   });
 });

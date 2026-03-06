@@ -23,8 +23,10 @@
 - 表示対象は `status in ('enrolled','planned')` がデフォルト。`dropped` はUIトグルで表示
 - コミュニティ表示（`/community`）
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
-- DM開始は `create_direct_conversation` RPC を利用し、RLS/関数制約で失敗時はローカルstate会話へフォールバック（非永続）
+- DM開始は `create_direct_conversation` RPC を利用し、DM制約未達時は警告表示で送信を抑止する
 - DM送信前に `auth.getUser()` で実セッションを再確認し、画面状態の `currentUserId` と不一致なら送信を中断して再ログイン/再読込を促す（同一ブラウザでのアカウント切替対策）
+- DM既読は `conversation_members.last_read_at` を正とし、会話を開いてメッセージ取得完了時点でその時点までの受信メッセージを既読化する
+- `/community` は `messages` / `conversation_members` の Realtime を購読し、新着メッセージ・既読状態・未読件数を追従更新する
 - Messaging系RLSは `conversation_members` policyの自己参照で再帰エラーにならないよう、メンバー判定helper関数経由で実装する
 - プロフィール表示（`/profile/[userId]`）
 - frontend(Server Component) → Supabase SELECT/RPC（`profiles` / `universities` / `get_follow_summary`）

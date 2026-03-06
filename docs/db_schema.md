@@ -164,6 +164,9 @@
 - `conversations`: directのみ（`direct_key = small_uid:large_uid` で決定的）
 - `conversation_members`: 参加者（`last_read_at` あり）
 - `messages`: 本文（`deleted_at` あり）
+- `conversation_members.last_read_at` を既読状態の単一ソースとし、スレッドを開いてメッセージ取得完了時点で、自分行の `last_read_at` を最新受信メッセージ時刻へ更新する
+- 一覧の未読件数は `messages.created_at > conversation_members.last_read_at` の受信メッセージ件数で算出する
+- 送信メッセージの「既読」は、相手行の `last_read_at >= message.created_at` で判定する
 
 ### E. 会話作成はRPCのみ
 - `create_direct_conversation(other_user_id)`

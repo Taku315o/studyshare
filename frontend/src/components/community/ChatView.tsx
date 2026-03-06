@@ -32,10 +32,15 @@ export default function ChatView({ messages, currentUserId, isLoading, participa
     );
   }
 
+  const latestOwnMessageId = [...messages]
+    .reverse()
+    .find((message) => message.senderId === currentUserId)?.id;
+
   return (
     <div className="max-h-[32rem] space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3">
       {messages.map((message) => {
         const isMine = message.senderId === currentUserId;
+        const showReadReceipt = isMine && message.id === latestOwnMessageId;
         return (
           <div key={message.id} className={isMine ? 'flex justify-end' : 'flex justify-start'}>
             <div
@@ -45,7 +50,10 @@ export default function ChatView({ messages, currentUserId, isLoading, participa
               ].join(' ')}
             >
               <p className="whitespace-pre-wrap break-words">{message.body}</p>
-              <p className={['mt-1 text-[10px]', isMine ? 'text-blue-100' : 'text-slate-500'].join(' ')}>{formatTime(message.createdAt)}</p>
+              <div className={['mt-1 flex items-center gap-2 text-[10px]', isMine ? 'justify-end text-blue-100' : 'text-slate-500'].join(' ')}>
+                {showReadReceipt ? <span>{message.readAt ? '既読' : '未読'}</span> : null}
+                <span>{formatTime(message.createdAt)}</span>
+              </div>
             </div>
           </div>
         );
