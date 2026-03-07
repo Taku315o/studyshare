@@ -378,6 +378,7 @@ export default function OfferingTabs({
                   key={note.id}
                   offeringId={offeringId}
                   note={note}
+                  currentUserId={userId}
                   onToggleLike={(noteId, isLiked) => handleToggleReaction(noteId, 'like', isLiked)}
                   onToggleBookmark={(noteId, isBookmarked) =>
                     handleToggleReaction(noteId, 'bookmark', isBookmarked)
@@ -439,7 +440,7 @@ export default function OfferingTabs({
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {data.reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} currentUserId={userId} />
               ))}
             </div>
           )}
@@ -477,7 +478,7 @@ export default function OfferingTabs({
           ) : (
             <div className="space-y-3">
               {data.questions.map((question) => (
-                <QuestionCard key={question.id} offeringId={offeringId} question={question} />
+                <QuestionCard key={question.id} offeringId={offeringId} question={question} currentUserId={userId} />
               ))}
             </div>
           )}

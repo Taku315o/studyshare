@@ -3,11 +3,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, MessageCircle, Bookmark } from 'lucide-react';
+import { buildProfileHref } from '@/lib/profileHref';
 import type { NoteListItem } from '@/types/offering';
 
 type NoteCardProps = {
   offeringId: string;
   note: NoteListItem;
+  currentUserId?: string | null;
   onToggleLike: (noteId: string, isLiked: boolean) => Promise<void>;
   onToggleBookmark: (noteId: string, isBookmarked: boolean) => Promise<void>;
 };
@@ -21,13 +23,14 @@ function formatDate(date: string) {
   });
 }
 
-export default function NoteCard({ offeringId, note, onToggleLike, onToggleBookmark }: NoteCardProps) {
+export default function NoteCard({ offeringId, note, currentUserId = null, onToggleLike, onToggleBookmark }: NoteCardProps) {
   const noteDetailHref = `/offerings/${offeringId}/notes/${note.id}`;
+  const authorHref = buildProfileHref(note.authorId, currentUserId);
 
   return (
     <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-3">
-        <Link href={`/profile/${note.authorId}`} className="shrink-0">
+        <Link href={authorHref} className="shrink-0">
           {note.authorAvatarUrl ? (
             <Image
               src={note.authorAvatarUrl}
@@ -44,7 +47,7 @@ export default function NoteCard({ offeringId, note, onToggleLike, onToggleBookm
           )}
         </Link>
         <div>
-          <Link href={`/profile/${note.authorId}`} className="text-sm font-semibold text-slate-800 hover:underline">
+          <Link href={authorHref} className="text-sm font-semibold text-slate-800 hover:underline">
             {note.authorName}
           </Link>
           <p className="text-xs text-slate-500">{formatDate(note.createdAt)}</p>

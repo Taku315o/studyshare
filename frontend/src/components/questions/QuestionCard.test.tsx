@@ -24,4 +24,12 @@ describe('QuestionCard', () => {
     expect(detailLinks[1]).toHaveAttribute('href', '/offerings/offering-1/questions/question-1');
     expect(screen.getByText(/^3$/)).toBeInTheDocument();
   });
+
+  it('links self-authored questions to /me', () => {
+    render(<QuestionCard offeringId="offering-1" question={baseQuestion} currentUserId="author-1" />);
+
+    const links = screen.getAllByRole('link');
+    expect(links[1]).toHaveAttribute('href', '/me');
+    expect(links[2]).toHaveAttribute('href', '/me');
+  });
 });
