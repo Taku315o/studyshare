@@ -114,7 +114,10 @@ begin
   if public.is_blocked(_current_user_id, _following_user_id) then
     raise exception 'follow_blocked';
   end if;
-
+-- 注意: ON CONFLICT DO NOTHING の場合、INSERTは行われず handle_follow_change トリガーも発火しない。
+-- しかし is_following は true を返し、followers/following_count は現在の（変更なしの）値を返す。
+-- これで「すでにフォロー済み」の場合も正しいレスポンスになる。
+-- race conditionのリスクはPostgreSQLのトランザクション保証により極めて低い。
   insert into public.follows (follower_user_id, following_user_id)
   values (_current_user_id, _following_user_id)
   on conflict (follower_user_id, following_user_id) do nothing;
@@ -161,7 +164,12 @@ begin
 
   return query
   select
-    false as is_following,
+    exists (
+      select 1
+      from public.follows f
+      where f.follower_user_id = _current_user_id
+        and f.following_user_id = _following_user_id
+    ) as is_following,
     coalesce(us.followers_count, 0) as followers_count,
     coalesce(us.following_count, 0) as following_count
   from (select _following_user_id as target_user_id) target
