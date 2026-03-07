@@ -1,7 +1,7 @@
 //studyshare/frontend/src/lib/api.ts
 // This file contains the API client setup and various API functions for the StudyShare application.
 // It uses Axios for HTTP requests and includes functions for authentication, image upload, and assignment management
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 //バックエンドのExpressサーバーと通信するためのAPIクライアントです。
 // axiosライブラリを使い、画像アップロード、課題の投稿・検索・削除といった各APIリクエストを行う関数を定義しています。
 /**
@@ -58,12 +58,16 @@ export const isUploadApiError = (error: unknown): error is UploadApiError => {
   return error instanceof UploadApiError;
 };
 
+const isAxiosRequestError = (error: unknown): error is AxiosError<UploadErrorResponse> => {
+  return typeof error === 'object' && error !== null && 'isAxiosError' in error;
+};
+
 const toUploadApiError = (error: unknown): UploadApiError => {
   if (error instanceof UploadApiError) {
     return error;
   }
 
-  if (!axios.isAxiosError(error)) {
+  if (!isAxiosRequestError(error)) {
     return new UploadApiError({
       kind: 'UNKNOWN',
       message: '画像アップロードに失敗しました',
