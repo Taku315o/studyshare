@@ -5,7 +5,10 @@
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "build": "pnpm -r run build",
-    "test": "pnpm --filter frontend test"
+    "test": "pnpm --filter frontend test",
+    "supabase:seed:rebuild": "./scripts/rebuild-supabase-seeds.sh",
+    "supabase:seed:apply:master": "./scripts/apply-supabase-master-data.sh",
+    "supabase:seed:apply:dev-offering": "./scripts/apply-supabase-dev-offering-sample.sh"
   },
   "devDependencies": {
     "supabase": "^2.76.7"

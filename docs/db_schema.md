@@ -45,6 +45,23 @@
 - `user_stats`: 投稿数を保持（`notes_count` / `reviews_count`）
 	- `contributions_count` は generated（`notes + reviews`）
 	- ノート/レビューの INSERT・soft-delete をトリガーに更新
+	- フォロー機能の集計値として `followers_count` / `following_count` も保持する
+- `follows`: 片方向フォロー（`follower_user_id -> following_user_id`）
+	- 複合PK: `(follower_user_id, following_user_id)`
+	- `follower_user_id <> following_user_id`
+	- ブロック関係では `follow_user()` RPC が作成を拒否する
+- `notifications`: 通知イベント
+	- 現行は `type='follow'` の永続化のみ実装
+	- 受信UI/既読UIは別フェーズ
+- `timetable_presets`: 大学ごとの標準時間割テンプレート
+	- `university_id`（`null` はグローバルデフォルト）
+	- `name`（現行は `default`）
+	- `weekdays`（`smallint[]`, 1..7）
+	- `periods`（`jsonb`。`period/label/start_time/end_time` を保持）
+- `profile_timetable_settings`: ユーザー個別の時間割設定
+	- `user_id` 主キー
+	- `preset_id`（参照元プリセット。任意）
+	- `weekdays` / `periods` は最終描画設定を保持
 
 ## コンテンツ（ノート・レビュー）
 
@@ -57,7 +74,7 @@
 - 関連テーブル
 	- `note_assets`: 添付（`storage_path`）
 	- `note_reactions`: リアクション（PK: `note_id, user_id, kind`）
-	- `note_comments`: コメント（`deleted_at` あり）
+	- `note_comments`: コメント（`deleted_at` あり、`parent_comment_id` で無制限ツリー）
 
 ### B. Reviews（ラク単想定）
 - `reviews`: `offering_id` に紐づく（授業実体単位）
@@ -68,15 +85,21 @@
 ### C. Questions
 - `questions`: `offering_id` に紐づく質問
 - カラム: `title`, `body`, `author_id`, `created_at`, `updated_at`, `deleted_at`
+- `question_answers`: 質問への回答（`parent_answer_id` で無制限ツリー、`deleted_at` あり）
 - RLS:
 	- `select`: `can_view_question()`（同大学 or author）
 	- `insert`: `author_id = auth.uid()` かつ `is_enrolled(auth.uid(), offering_id)`
 	- `update/delete`: author のみ
+	- `question_answers`:
+		- `select`: 回答先の `questions` が `can_view_question()` を満たす場合のみ
+		- `insert`: `author_id = auth.uid()` かつ回答先質問を閲覧可能な場合
+		- `update`: author のみ（soft-delete含む）
 
 ## 安全機能（ブロック・通報・足跡）
 - `blocks`: 相互遮断判定 `is_blocked(a, b)` を提供
 - `reports`: `target_type(user/note/review/message)` + `target_id` + `reason`
 - `profile_views`: 足跡（`viewer_id -> viewed_id`）
+- `follows`: block insert 時に対象2ユーザー間の follow を両方向とも削除する
 
 ## マッチング（履修情報の漏洩を避ける）
 
@@ -94,6 +117,15 @@
 	- `enrollments` の `status='enrolled'` 件数のみ返す（受講者一覧は返さない）。
 - `offering_review_stats(offering_id)`
 	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
+- `follow_user(following_user_id)`
+	- `auth.uid()` からの片方向 follow を作成する
+	- 自己フォロー / block 関係 / 重複 follow をサーバ側で吸収する
+- `unfollow_user(following_user_id)`
+	- `auth.uid()` からの follow を解除する
+- `get_follow_summary(target_user_id)`
+	- `followers_count` / `following_count` / `is_following` を返す
+- `list_follow_profiles(target_user_id, direction, limit, offset)`
+	- follower/following 一覧を `profiles + universities` 付きで返す
 
 ### UI実装メモ（community）
 - `/community` は `find_match_candidates()` を利用して候補表示する（共有件数のみ）。
@@ -132,6 +164,9 @@
 - `conversations`: directのみ（`direct_key = small_uid:large_uid` で決定的）
 - `conversation_members`: 参加者（`last_read_at` あり）
 - `messages`: 本文（`deleted_at` あり）
+- `conversation_members.last_read_at` を既読状態の単一ソースとし、スレッドを開いてメッセージ取得完了時点で、自分行の `last_read_at` を最新受信メッセージ時刻へ更新する
+- 一覧の未読件数は `messages.created_at > conversation_members.last_read_at` の受信メッセージ件数で算出する
+- 送信メッセージの「既読」は、相手行の `last_read_at >= message.created_at` で判定する
 
 ### E. 会話作成はRPCのみ
 - `create_direct_conversation(other_user_id)`
@@ -146,24 +181,37 @@
 
 ## RLS設計（ざっくり）
 
-### マスタ系（universities / terms / courses / offerings / slots）
+### マスタ系（universities / terms / courses / offerings / slots / timetable_presets）
 - `SELECT`: 全員可
 - `INSERT`: `authenticated` が投稿（`created_by = auth.uid` など）
 - `UPDATE / DELETE`: adminのみ（`is_admin`）
+- `timetable_presets` は `insert/update/delete` も admin のみ
 
-### 個人データ系（profiles / user_stats / enrollments）
+### 個人データ系（profiles / user_stats / enrollments / profile_timetable_settings）
 - `profiles`: authユーザーのみ閲覧、本人のみ更新
 - `user_stats`: authユーザーは閲覧可（UI用）
 - `enrollments`: 本人のみ閲覧/更新（プライバシー要件の中核）
+- `profile_timetable_settings`: 本人のみ閲覧/更新
+- `follows`: client direct操作の policy は持たず、RPC経由のみ
+- `notifications`: recipient本人のみ閲覧/更新
 
-### コンテンツ系（notes / reviews）
+### コンテンツ系（notes / reviews / questions）
 - `notes`
 	- `select`: `can_view_note()` で可視性制御（`public` / `author` / `same-university`）
 	- `insert`: author本人かつ `offering` を `enrolled/planned`
 	- `update/delete`: authorのみ
+	- `note_comments.insert`: `author_id = auth.uid()` かつ対象ノートを `can_view_note()` できる場合のみ
 - `reviews`
 	- `select`: 同大学またはauthor
 	- `insert`: `enrolled/planned`
+	- `update`: authorのみ
+- `questions`
+	- `select`: `can_view_question()`（同大学 or author）
+	- `insert`: `is_enrolled(auth.uid(), offering_id)`
+	- `update/delete`: authorのみ
+- `question_answers`
+	- `select`: 回答先質問が `can_view_question()` を満たす場合のみ
+	- `insert`: 回答先質問を閲覧可能な認証ユーザー
 	- `update`: authorのみ
 
 ### 安全/管理系

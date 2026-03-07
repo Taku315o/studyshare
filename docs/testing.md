@@ -14,7 +14,7 @@
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
 - `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
-- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）
+- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告
 - `TimetableCell` セル表示（授業カード/空セル）と遷移動作
 - `Sidebar` の `/timetable` 導線有効化
 - `Sidebar` の `/community` 導線有効化
@@ -22,11 +22,21 @@
 - `MessagesPane` のスレッド0件空状態
 - `MessageComposer` の Enter送信と送信ボタン送信
 - `community/page` の DM送信条件未達時警告表示と送信抑止（ローカル会話に切り替えない）
+- `community/page` の未読件数算出（`conversation_members.last_read_at` 基準）
+- `community/page` のスレッド選択時既読化（`conversation_members.last_read_at` update）
+- `community/page` の送信メッセージ既読表示（相手 `last_read_at` 追従）
 - `OfferingTabs` の投稿/リアクション時認証判定（初回マウント時未復元でも投稿直前再確認で通る）
+- `buildThreadTree` の多段ツリー構築（親不在ノードfallback / created_at昇順）
+- ノート詳細（`/offerings/[offeringId]/notes/[noteId]`）のコメント投稿/返信投稿/削除済み表示
+- 質問詳細（`/offerings/[offeringId]/questions/[questionId]`）の回答投稿/返信投稿/削除済み表示
+- 授業詳細の質問一覧で回答件数表示と詳細遷移
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
 - `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
+- `ProfileFollowPanel` のフォロー作成/解除の optimistic update・二重送信防止・失敗時 rollback
+- `FollowListModal` の初回20件表示 / `もっと見る` によるページング
 - `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
-- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）と保存導線
+- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
+- `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
 - `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
 - `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
@@ -41,6 +51,11 @@
 - `POST /api/profiles/avatar/upload` 画像バリデーション/認証/idempotency
 - upload系APIで 5MB 超過ファイルが multer の route middleware 段階で 400 になること（DoS軽減）
 - `assignments.routes.test.ts` では `createApp({ enableLegacyAssignmentsApi: true, enableLegacyUploadApi: true })` を使い、env依存なしで legacy route を明示有効化する
+- SQL / RLS
+- `follow_user` が自己 follow / block 関係を拒否し、重複 follow を1件に保つ
+- `unfollow_user` が作成者本人の edge のみ削除する
+- follow insert/delete と block insert 後に `user_stats.followers_count/following_count` が一致する
+- follow insert で `notifications(type='follow')` が1件だけ作成される
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -60,10 +75,21 @@
 - 同大学ユーザー: ノート/口コミ/質問が見える
 - 別大学ユーザー: 他人投稿が見えない（仕様どおり）
 - 大学未設定ユーザー: `/onboarding` に誘導される
+- ノートカードからノート詳細へ遷移し、コメント/返信が投稿できる
+- 質問カードから質問詳細へ遷移し、回答/返信が投稿できる
+- 削除済みコメント/回答が「削除された投稿です。」表示でツリー維持される
 - `/me` のプロフィール編集で大学/学年を変更後、授業詳細の見え方が変わる
+- `/profile/[userId]` のフォローボタン押下で即時に状態と件数が切り替わり、再読込後も維持される
+- block 済み相手では follow 操作が失敗し、レコードが作成されない
+- `/me` / `/profile/[userId]` のフォロワー一覧・フォロー中一覧モーダルでページ送りできる
 - `/me` と `/onboarding` の学年入力で `7` 以上が保存できないこと（UI選択肢/バリデーション一致）
 - `/me` のプロフィール編集モーダルで保存ボタン連打・オーバーレイ連打をしても重複送信/保存中クローズが起きない
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
+- `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
+- 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- 設定外スロットの授業がある場合に警告表示される
+- コミュニティで非選択スレッドへの新着受信時に一覧未読件数が増える
+- コミュニティで会話を開くとその時点までの受信メッセージが既読になり、送信側で最新メッセージが `未読 -> 既読` に変わる
 - 投稿導線（ノート/口コミ/質問）
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード

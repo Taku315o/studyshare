@@ -1,6 +1,18 @@
-export type TimetableWeekday = 1 | 2 | 3 | 4 | 5;
+export type TimetableWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-export type TimetablePeriod = 1 | 2 | 3 | 4 | 5;
+export type TimetablePeriod = number;
+
+export type TimetablePeriodConfig = {
+  period: TimetablePeriod;
+  label: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type TimetableConfig = {
+  weekdays: TimetableWeekday[];
+  periods: TimetablePeriodConfig[];
+};
 
 export type TimetableStatus = 'enrolled' | 'planned' | 'dropped';
 

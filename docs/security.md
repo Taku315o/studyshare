@@ -19,7 +19,15 @@
 - role変更はトリガーで禁止（管理者のみ許可）
 - RLSで `users` / `assignments` の操作範囲を制限
 - `notes` / `reviews` / `questions` は「本人 or 同大学（`profiles.university_id` ベース）」の可視性制御を採用
+- `note_comments` の投稿は `author_id = auth.uid()` に加えて、対象ノートを `can_view_note()` で閲覧可能な場合に限定
+- `question_answers` は対象質問を `can_view_question()` で閲覧可能な認証ユーザーのみ `select/insert` を許可
+- `timetable_presets` は `select` のみ認証ユーザーに開放し、`insert/update/delete` は `is_admin(auth.uid())` に限定
+- `profile_timetable_settings` は `auth.uid() = user_id` のみ `select/insert/update/delete` を許可
 - `profiles.university_id` 未設定ユーザーは、他ユーザーの授業系投稿（ノート/口コミ/質問）を閲覧できないため、UIで初期設定を必須化して整合を取る
+- `follow_user` / `unfollow_user` は `security definer` RPC でのみ操作し、direct table mutate を許可しない
+- フォローは自己 follow 不可、block 関係では作成不可、block insert 時は既存 follow を双方向削除する
+- `notifications` は recipient 本人のみ `select/update` を許可し、client からの direct insert は持たない
+- フォロー一覧取得は `authenticated` のみ `list_follow_profiles` RPC を実行可能
 
 **ストレージ**
 - `notes` bucket（現行ノート画像添付）

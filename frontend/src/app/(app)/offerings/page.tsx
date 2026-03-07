@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-
+//course_offerings テーブルから授業のリストを取得し、各授業の情報を表示するページコンポーネント。授業名、教員名、開講タームなどをカード形式で表示し、各カードをクリックするとその授業の詳細ページに遷移する。
 type OfferingListRow = {
   id: string;
   instructor: string | null;

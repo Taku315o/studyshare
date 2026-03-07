@@ -19,7 +19,7 @@ export default function TimetableSummary({ summary, isLoading }: TimetableSummar
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900">時間割サマリ</h2>
-          <p className="mt-1 text-sm text-slate-600">履修状況と今日の授業を確認できます。</p>
+          <p className="mt-1 text-sm text-slate-600">履修状況と今日の授業を確認できます。時間設定はマイページ設定から変更可能です。</p>
         </div>
         <Link
           href="/timetable"

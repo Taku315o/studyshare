@@ -9,6 +9,16 @@ interface File {
 }
 
 type UploadTarget = 'assignments' | 'notes' | 'avatars';
+export const STORAGE_UPLOAD_ERROR_CODE = 'STORAGE_UPLOAD_FAILED' as const;
+
+export class StorageUploadError extends Error {
+  readonly code = STORAGE_UPLOAD_ERROR_CODE;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'StorageUploadError';
+  }
+}
 
 const resolveBucketName = (target: UploadTarget): string => {
   if (target === 'avatars') {
@@ -124,17 +134,24 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
         objectPath,
         message: uploadError.message,
       });
-      throw new Error('ファイルのアップロードに失敗しました');
+      throw new StorageUploadError('ストレージへのアップロードに失敗しました');
     }
 
     const { data: publicURL } = supabase.storage
       .from(bucketName)
       .getPublicUrl(objectPath);
 
+    if (!publicURL?.publicUrl) {
+      throw new StorageUploadError('アップロード後の公開URL取得に失敗しました');
+    }
+
     return publicURL.publicUrl;
   } catch (error) {
+    if (error instanceof StorageUploadError) {
+      throw error;
+    }
     console.error('ストレージエラー:', error);
-    throw new Error('ファイルのアップロード処理に失敗しました');
+    throw new StorageUploadError('ストレージへのアップロード処理に失敗しました');
   }
 };
 

@@ -1,39 +1,25 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-02-28
+最終更新: 2026-03-06
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
 
-## 1. まず読むべきもの（優先順）
 
-1. `strategy.md`
-2. `strategy_final.md`（ユーザーの言う `strategy-final.md` に相当。実ファイル名は underscore）
-3. `memo.md`（解決済み/未解決が混在。必ず現コードと照合）
-4. `docs/architecture.md`
-5. `docs/db_schema.md`
-6. `docs/security.md`
-7. `docs/components.md`
-8. `docs/testing.md`
-9. `docs/data-model.md`（legacy情報が多いので `db_schema.md` を優先）
-10. `docs/worktree_rules.md`
-
-重要:
-- `memo.md` の「未実装」記述には、すでに実装済みのものが含まれる
-- 実装判断の最終基準は常に現コード（frontend/backend/supabase migrations）
-- DB/RLSを変更したら `docs/db_schema.md` と関連docsを更新する
-
-## 2. 現在のプロダクト状態（2026-02時点）
+## 現在のプロダクト状態（2026-02時点）
 
 ### 現行の主機能（本体導線）
 - ランディング + Googleログイン (`/`)
 - ホーム (`/home`) ※現在は `homeMockData` ベース
 - 授業・口コミ一覧 (`/offerings`)
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
-- 時間割 (`/timetable`) ※表示は実データ、検索/追加の一部はプレースホルダ
+- ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
+- 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
+- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
-- マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定
-- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意
+- 他ユーザープロフィール (`/profile/[userId]`) ※DM + 片方向フォロー、フォロワー/フォロー中一覧モーダル
+- マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定・フォロー数表示
+- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意。大学標準時間割の自動適用/プレビュー/編集モーダル対応
 
 ### 互換/移行中の機能（legacy）
 - 旧 `assignments` UI は `frontend/src/legacy/assignments/` に退避済み
@@ -44,9 +30,9 @@
 - 読み取りの多く: frontend -> Supabase 直接参照（RLS/RPC前提）
 - 副作用/画像アップロード: frontend -> backend (Express) -> Supabase
 - 認証: Supabase Auth
-- データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles`
+- データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles` / `follows`
 
-## 3. アーキテクチャ要約（実態ベース）
+##  アーキテクチャ要約（実態ベース）
 
 ### フロントエンド (`frontend`)
 - Next.js App Router (`next@15`)
@@ -80,7 +66,7 @@
 - スキーマの中核は `20260216132701_init_full_schema.sql`
 - 追加migrationで質問/集計、可視性RPC、DM制約緩和、ノート画像、Storage bucket等を拡張
 
-## 4. データモデルとRLSの前提（作業前に理解必須）
+## データモデルとRLSの前提（作業前に理解必須）
 
 詳細は `docs/db_schema.md` を優先参照。
 
@@ -93,8 +79,13 @@
 - `profiles`
 - `enrollments`
 - `notes`
+- `note_comments`
 - `reviews`
 - `questions`
+- `question_answers`
+- `follows`
+- `timetable_presets`
+- `profile_timetable_settings`
 - `conversations`
 - `conversation_members`
 - `messages`
@@ -116,6 +107,10 @@
 - `create_direct_conversation`
 - `offering_enrollment_count`
 - `offering_review_stats`
+- `follow_user`
+- `unfollow_user`
+- `get_follow_summary`
+- `list_follow_profiles`
 - `update_visibility_settings`（`SettingsPanel` から利用）
 - legacy: `search_assignments`, `search_assignments_filtered`
 
@@ -129,12 +124,15 @@ bucket未作成時:
 - backend `/api/profiles/avatar/upload` でも同様に `Bucket not found` が出る
 - migration適用状況を確認すること
 
-## 5. 現在の実装状況（できること / 未完了）
+## 現在の実装状況（できること / 未完了）
 
 ### 実装済み・反映済み（memo上の「過去の未解決」含む）
 - ノート/口コミ/質問の「ログインが必要です」誤判定の修正（`OfferingTabs` 認証復元タイミング対応）
 - 初回オンボーディング導入（大学/学年必須）
 - `/me` で `display_name` / `university_id` / `grade_year` / `faculty` / `avatar_url` 編集
+- `/profile/[userId]` と `/me` でフォロワー数 / フォロー中数の表示と一覧モーダル
+- `/profile/[userId]` でフォロー / フォロー解除（block 関係では不可）
+- follow 作成時に `notifications` へ `type='follow'` を永続化
 - アバター更新時に旧画像（`avatars/{userId}/...`）をbackend側で削除
 - `/me` と `/onboarding` のプロフィール入力バリデーションを `zod` schemaへ統一
 - 学年入力ルールを `1..6` に統一（`ProfileCard` / `/me` / `/onboarding`）
@@ -142,24 +140,30 @@ bucket未作成時:
 - `ProfileCard` 編集モーダルで外クリック閉じる対応（保存中は閉じない）
 - 同大学スコープの説明表示（授業詳細UI）
 - マイページ設定の公開範囲保存（`update_visibility_settings` RPC 経由）
+- `timetable_presets` / `profile_timetable_settings` による大学標準時間割 + 個別設定保存
+- `/me` の `SettingsPanel` に「時間割の時間・曜日」モーダルを実装（`modal=timetable-settings` クエリで初期表示対応）
+- `/timetable` に「時間・曜日を変更」導線を追加（`/me?modal=timetable-settings&from=timetable`）
+- `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
+- DM既読機能あり（`conversation_members.last_read_at` ベース、`/community` で未読件数/既読表示/Realtime追従）
+- ノート詳細ページでコメント/返信投稿（`note_comments.parent_comment_id`）
+- 質問詳細ページで回答/返信投稿（`question_answers.parent_answer_id`）
 
 ### 現在のプレースホルダ / 暫定仕様（作業時に誤解しやすい）
 - `/home` は `homeMockData` 使用（実データ化未完）
 - `community`:
   - `reviews` / `more` タブは準備中
   - チップフィルタUIはあるが、取得クエリ条件に未反映（`activeChip` stateのみ）
-  - DM作成/送信失敗時に `local:*` スレッドへフォールバック（非永続）
   - `list_threads` 相当の専用RPC/viewは未整備（フロントで複数クエリ合成）
 - `timetable`:
-  - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`)
+  - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`) + `profile_timetable_settings` / `timetable_presets`
   - 検索/追加モーダル/受講者探索CTAは準備中
   - セルのお気に入りはUIプレースホルダ
 - `/me`:
   - `保存` タブで「いいね/ブックマーク」したノートを統合表示（解除操作は未実装）
 
-## 6. ディレクトリ構造（現状）
+## ディレクトリ構造（現状）
 
 ```text
 studyshare/
@@ -201,7 +205,7 @@ studyshare/
     config.toml
 ```
 
-## 7. 開発コマンド（現状）
+## 開発コマンド（現状）
 
 ### ルート
 - `pnpm dev:frontend`
@@ -226,7 +230,7 @@ studyshare/
 - `pnpm --filter backend test:watch`
 - `pnpm --filter backend test:ci`
 
-## 8. 環境・実行時の注意
+## 環境・実行時の注意
 
 ### 認証/接続
 - frontend と backend はそれぞれ Supabase接続に必要な環境変数を使う
@@ -241,7 +245,7 @@ studyshare/
 - 読み取り系は frontend から直接読むケースが多い
 - 「他人データ」「安全性」「複雑な判定」が絡む場合は raw table SELECT を避け、RPCやbackendへ寄せる
 
-## 9. DB / Supabase 運用ルール（最重要）
+## DB / Supabase 運用ルール（最重要）
 
 ### 絶対ルール（worktree安全）
 - `main` / `dev` 以外の worktree で `supabase db reset` や `supabase migration up` を自動実行しない
@@ -261,7 +265,7 @@ studyshare/
   - `can_dm` / `allow_dm` / block関連判定
   - 足跡/解放条件（`can_view_footprints` など）
 
-## 10. 実装判断ルール（このプロジェクト向け）
+## 実装判断ルール（このプロジェクト向け）
 
 ### frontend直叩き vs backend経由（ハイブリッド継続）
 
@@ -294,7 +298,7 @@ backend or SQL RPCに寄せるべきもの:
 - ユーザー追加講義を安易に `course_offerings` 乱立で作らない
 - 「候補検索 -> 無ければ作成 -> 近似候補提示」の流れを前提に設計する
 
-## 11. テスト方針（実務向け要点）
+## テスト方針（実務向け要点）
 
 詳細: `docs/testing.md`
 
@@ -303,6 +307,7 @@ backend or SQL RPCに寄せるべきもの:
 - `AppRouteGuard`（未ログイン / onboarding未完了）
 - `TimetableGrid`（表示/空状態/`dropped`切替）
 - `community/page` のDM送信条件未達時警告（2年生以上は投稿2件以上）と送信抑止
+- `community/page` の未読件数/既読更新/Realtime追従
 - `SettingsPanel` の公開範囲保存
 - backend `/api/notes/upload`（認証/バリデーション/Storage異常）
 
@@ -311,49 +316,22 @@ backend or SQL RPCに寄せるべきもの:
 - 大学未設定ユーザーが `/onboarding` に誘導されるか
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
 - コミュニティでDM送信条件未達時に警告表示され、送信/スレッド作成されないか
+- コミュニティで未読件数が増減し、会話を開くと既読化されるか
+- 2端末 or 2セッションで既読表示が `未読 -> 既読` に変わるか
 
-## 12. 直近の優先順位（strategy + memoを現状に合わせて要約）
 
-### P0（今の価値を壊さないために先）
-1. `/home` のモック脱却（実データ化）
-2. 時間割/コミュニティの主要プレースホルダ解消方針の確定
-3. コミュニティのスレッド一覧取得基盤（RPC/view）整備
 
-### P1（基盤強化）
-1. コミュニティDMのエラー分類整理（送信条件未達 / 相手のDM拒否 / 一時障害）
-2. チップフィルタを実データクエリに反映
-3. 重複講義追加フローの仕様化（検索優先・近似候補提示）
-4. shared offering preview系RPC（どの授業が被っているかの説明）
-
-### P2（価値拡張）
-1. 保存タブの解除操作（いいね/ブックマーク）導線
-2. コミュニティの `reviews` / `more` タブ
-3. 足跡機能（`profile_views` UI接続）
-4. 人気授業ランキング
-
-### P3（後段）
-1. 教科書交換機能
-2. `entitlements` / `subscriptions` UI接続（収益化）
-3. リブランディング / LP導線
-
-## 13. 作業時の更新ルール（docs / tests）
+## 作業時の更新ルール（docs / tests）
 
 - 機能追加・仕様変更・RLS変更時は、必要に応じて docs を更新する
 - プレースホルダを実装したら、`AGENTS.md` と `docs/testing.md` の該当記述を更新する
 - `memo.md` の解決済み項目は残っていても、現コードに合わせて扱う（鵜呑みにしない）
 
-## 14. 参考ファイル（現状把握に有効）
-
-- `frontend/src/app/(app)/community/page.tsx`
-- `frontend/src/app/(app)/timetable/page.tsx`
-- `frontend/src/app/(app)/offerings/[offeringId]/page.tsx`
-- `frontend/src/components/me/SettingsPanel.tsx`
-- `frontend/src/components/timetable/TimetableGrid.tsx`
-- `frontend/src/components/community/CommunityPane.tsx`
-- `frontend/src/app/(app)/home/page.tsx`
-- `frontend/src/lib/validation/profile.ts`
-- `backend/src/routes/uploads.ts`
-- `backend/src/middleware/auth.ts`
-- `supabase/migrations/20260216132701_init_full_schema.sql`
-- `supabase/migrations/20260220120000_add_enrollment_visibility_default_and_visibility_rpc.sql`
-- `supabase/migrations/20260224130000_fix_conversation_members_policy_recursion.sql`
+## 設計方針(現状)
+- アーキテクチャ: @docs/architecture.md
+- コンポーネント規約: @docs/components.md
+- テスト戦略: @docs/testing.md
+- データモデル: @docs/data-model.md
+- セキュリティ: @docs/security.md 
+- db schema: @docs/db_schema.md
+- Supabase運用: @docs/supabase_operations.md

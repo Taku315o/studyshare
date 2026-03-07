@@ -255,6 +255,24 @@ export type Database = {
         }
         Relationships: []
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_user_id: string
+          following_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_user_id: string
+          following_user_id: string
+        }
+        Update: {
+          created_at?: string
+          follower_user_id?: string
+          following_user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           body: string
@@ -333,6 +351,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           note_id: string
+          parent_comment_id: string | null
         }
         Insert: {
           author_id: string
@@ -341,6 +360,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note_id: string
+          parent_comment_id?: string | null
         }
         Update: {
           author_id?: string
@@ -349,6 +369,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           note_id?: string
+          parent_comment_id?: string | null
         }
         Relationships: [
           {
@@ -356,6 +377,13 @@ export type Database = {
             columns: ["note_id"]
             isOneToOne: false
             referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "note_comments"
             referencedColumns: ["id"]
           },
         ]
@@ -389,6 +417,36 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          actor_user_id: string
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          recipient_user_id: string
+          type: string
+        }
+        Insert: {
+          actor_user_id: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_user_id: string
+          type: string
+        }
+        Update: {
+          actor_user_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_user_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           author_id: string
@@ -396,6 +454,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          image_url: string | null
           offering_id: string
           search_tsv: unknown
           tags: string[]
@@ -410,6 +469,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           offering_id: string
           search_tsv?: unknown
           tags?: string[]
@@ -424,6 +484,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          image_url?: string | null
           offering_id?: string
           search_tsv?: unknown
           tags?: string[]
@@ -482,6 +543,38 @@ export type Database = {
             columns: ["offering_id"]
             isOneToOne: false
             referencedRelation: "course_offerings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_timetable_settings: {
+        Row: {
+          periods: Json
+          preset_id: string | null
+          updated_at: string
+          user_id: string
+          weekdays: number[]
+        }
+        Insert: {
+          periods: Json
+          preset_id?: string | null
+          updated_at?: string
+          user_id: string
+          weekdays: number[]
+        }
+        Update: {
+          periods?: Json
+          preset_id?: string | null
+          updated_at?: string
+          user_id?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_timetable_settings_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "timetable_presets"
             referencedColumns: ["id"]
           },
         ]
@@ -565,6 +658,92 @@ export type Database = {
             columns: ["university_id"]
             isOneToOne: false
             referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_answers: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          parent_answer_id: string | null
+          question_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          parent_answer_id?: string | null
+          question_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          parent_answer_id?: string | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_answers_parent_answer_id_fkey"
+            columns: ["parent_answer_id"]
+            isOneToOne: false
+            referencedRelation: "question_answers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          offering_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          offering_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          offering_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_offering_id_fkey"
+            columns: ["offering_id"]
+            isOneToOne: false
+            referencedRelation: "course_offerings"
             referencedColumns: ["id"]
           },
         ]
@@ -717,6 +896,47 @@ export type Database = {
           },
         ]
       }
+      timetable_presets: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          periods: Json
+          university_id: string | null
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          periods: Json
+          university_id?: string | null
+          updated_at?: string
+          weekdays: number[]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          periods?: Json
+          university_id?: string | null
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_presets_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       universities: {
         Row: {
           created_at: string
@@ -794,6 +1014,8 @@ export type Database = {
       user_stats: {
         Row: {
           contributions_count: number | null
+          followers_count: number
+          following_count: number
           last_contribution_at: string | null
           notes_count: number
           reviews_count: number
@@ -801,6 +1023,8 @@ export type Database = {
         }
         Insert: {
           contributions_count?: number | null
+          followers_count?: number
+          following_count?: number
           last_contribution_at?: string | null
           notes_count?: number
           reviews_count?: number
@@ -808,6 +1032,8 @@ export type Database = {
         }
         Update: {
           contributions_count?: number | null
+          followers_count?: number
+          following_count?: number
           last_contribution_at?: string | null
           notes_count?: number
           reviews_count?: number
@@ -825,10 +1051,21 @@ export type Database = {
         Returns: boolean
       }
       can_send_message: { Args: { _uid: string }; Returns: boolean }
+      can_send_message_in_conversation: {
+        Args: { _conversation_id: string; _uid: string }
+        Returns: boolean
+      }
       can_view_footprints: { Args: { _uid: string }; Returns: boolean }
       can_view_note: {
         Args: {
           _note: Database["public"]["Tables"]["notes"]["Row"]
+          _uid: string
+        }
+        Returns: boolean
+      }
+      can_view_question: {
+        Args: {
+          _question: Database["public"]["Tables"]["questions"]["Row"]
           _uid: string
         }
         Returns: boolean
@@ -848,6 +1085,14 @@ export type Database = {
         Args: { _other_user_id: string }
         Returns: string
       }
+      follow_user: {
+        Args: { _following_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
+        }[]
+      }
       find_match_candidates: {
         Args: { _limit?: number; _min_shared?: number }
         Returns: {
@@ -859,15 +1104,78 @@ export type Database = {
           shared_offering_count: number
         }[]
       }
+      get_follow_summary: {
+        Args: { _target_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
+        }[]
+      }
       has_active_entitlement: {
         Args: { _key: string; _uid: string }
         Returns: boolean
       }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_conversation_member: {
+        Args: { _conversation_id: string; _uid: string }
+        Returns: boolean
+      }
+      is_current_conversation_member: {
+        Args: { _conversation_id: string }
+        Returns: boolean
+      }
       is_enrolled: {
         Args: { _offering_id: string; _uid: string }
         Returns: boolean
+      }
+      list_follow_profiles: {
+        Args: {
+          _direction: string
+          _limit?: number
+          _offset?: number
+          _target_user_id: string
+        }
+        Returns: {
+          avatar_url: string | null
+          department: string | null
+          display_name: string
+          faculty: string | null
+          followed_at: string
+          grade_year: number | null
+          university_name: string | null
+          user_id: string
+        }[]
+      }
+      is_valid_note_comment_parent: {
+        Args: { _note_id: string; _parent_comment_id: string }
+        Returns: boolean
+      }
+      is_valid_question_answer_parent: {
+        Args: { _parent_answer_id: string; _question_id: string }
+        Returns: boolean
+      }
+      is_valid_timetable_periods: { Args: { _periods: Json }; Returns: boolean }
+      is_valid_timetable_weekdays: {
+        Args: { _weekdays: number[] }
+        Returns: boolean
+      }
+      offering_enrollment_count: {
+        Args: { _offering_id: string }
+        Returns: number
+      }
+      offering_review_stats: {
+        Args: { _offering_id: string }
+        Returns: {
+          avg_rating: number
+          rating_1_count: number
+          rating_2_count: number
+          rating_3_count: number
+          rating_4_count: number
+          rating_5_count: number
+          review_count: number
+        }[]
       }
       shared_offering_count: {
         Args: { _a: string; _b: string }
@@ -876,8 +1184,24 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unaccent: { Args: { "": string }; Returns: string }
+      unfollow_user: {
+        Args: { _following_user_id: string }
+        Returns: {
+          followers_count: number
+          following_count: number
+          is_following: boolean
+        }[]
+      }
       user_stats_apply_delta: {
         Args: { _notes_delta: number; _reviews_delta: number; _uid: string }
+        Returns: undefined
+      }
+      user_stats_apply_follow_delta: {
+        Args: {
+          _followers_delta: number
+          _following_delta: number
+          _uid: string
+        }
         Returns: undefined
       }
       user_university_id: { Args: { _uid: string }; Returns: string }
@@ -1069,4 +1393,3 @@ export const Constants = {
     },
   },
 } as const
-

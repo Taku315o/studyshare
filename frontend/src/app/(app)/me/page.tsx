@@ -7,7 +7,7 @@ import MyAssetsTabs from '@/components/me/MyAssetsTabs';
 import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
-import { uploadAvatarImage } from '@/lib/api';
+import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -29,6 +29,11 @@ type ProfileRow = {
   university_id: string | null;
   grade_year: number | null;
   university: { name: string | null } | Array<{ name: string | null }> | null;
+};
+
+type UserStatsRow = {
+  followers_count: number;
+  following_count: number;
 };
 
 type NoteQueryRow = {
@@ -193,7 +198,7 @@ function parseDateAtStartOfDay(value: string | null) {
 }
 
 // ユーザープロフィールの情報を表すViewModel
-function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MeProfileViewModel {
+function buildProfileViewModel(user: User, profileRow: ProfileRow | null, userStatsRow: UserStatsRow | null): MeProfileViewModel {
   const metadataName = typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null;
   const fallbackName = metadataName ?? user.email ?? 'ユーザー';
   const displayName = profileRow?.display_name?.trim() || fallbackName;
@@ -207,6 +212,8 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null): MePro
     universityId: profileRow?.university_id ?? null,
     universityName: university?.name ?? null,
     gradeYear: profileRow?.grade_year ?? null,
+    followersCount: userStatsRow?.followers_count ?? 0,
+    followingCount: userStatsRow?.following_count ?? 0,
   };
 }
 
@@ -400,6 +407,22 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
   };
 }
 
+function resolveAvatarUploadErrorMessage(error: unknown): string | null {
+  if (!isUploadApiError(error)) {
+    return null;
+  }
+
+  if (error.kind === 'FILE_TOO_LARGE') {
+    return 'アバター画像のサイズが大きすぎます（5MBまで）';
+  }
+
+  if (error.kind === 'STORAGE_ERROR') {
+    return 'アバター画像の保存先ストレージで障害が発生しています。時間をおいて再度お試しください。';
+  }
+
+  return 'アバター画像のアップロードに失敗しました';
+}
+
 export default function MePage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const typedSupabase = supabase as unknown as SupabaseClient<Database>;
@@ -437,10 +460,15 @@ export default function MePage() {
 
       setCurrentUserId(user.id);
 
-      const [profileRes, universitiesRes, notesRes, reviewsRes, savedReactionsRes, enrollmentsRes] = await Promise.all([
+      const [profileRes, userStatsRes, universitiesRes, notesRes, reviewsRes, savedReactionsRes, enrollmentsRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('user_stats')
+          .select('followers_count, following_count')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.from('universities').select('id, name').order('name'),
@@ -522,6 +550,7 @@ export default function MePage() {
       ]);
 
       if (profileRes.error) throw profileRes.error;
+      if (userStatsRes.error) throw userStatsRes.error;
       if (universitiesRes.error) throw universitiesRes.error;
       if (notesRes.error) throw notesRes.error;
       if (reviewsRes.error) throw reviewsRes.error;
@@ -529,13 +558,14 @@ export default function MePage() {
       if (enrollmentsRes.error) throw enrollmentsRes.error;
 
       const profileRow = (profileRes.data ?? null) as ProfileRow | null;
+      const userStatsRow = (userStatsRes.data ?? null) as UserStatsRow | null;
       const universityRows = (universitiesRes.data ?? []) as MeUniversityOption[];
       const notesRows = (notesRes.data ?? []) as NoteQueryRow[];
       const reviewsRows = (reviewsRes.data ?? []) as ReviewQueryRow[];
       const savedReactionRows = (savedReactionsRes.data ?? []) as SavedReactionQueryRow[];
       const enrollmentRows = (enrollmentsRes.data ?? []) as EnrollmentQueryRow[];
 
-      setProfile(buildProfileViewModel(user, profileRow));
+      setProfile(buildProfileViewModel(user, profileRow, userStatsRow));
       setUniversities(universityRows);
       setNotes(buildNoteItems(notesRows));
       setReviews(buildReviewItems(reviewsRows));
@@ -601,16 +631,10 @@ export default function MePage() {
       try {
         let uploadedAvatarUrl: string | null = null;
         if (avatarFile) {
-          try {
-            const uploadResult = await uploadAvatarImage(avatarFile, {
-              previousUrl: profile?.avatarUrl ?? null,
-            });
-            uploadedAvatarUrl = uploadResult.url;
-          } catch (uploadError) {
-            console.error('アバター画像アップロードエラー:', uploadError);
-            toast.error('アバター画像のアップロードに失敗しました');
-            throw uploadError;
-          }
+          const uploadResult = await uploadAvatarImage(avatarFile, {
+            previousUrl: profile?.avatarUrl ?? null,
+          });
+          uploadedAvatarUrl = uploadResult.url;
         }
 
         const { data, error } = await typedSupabase
@@ -641,17 +665,24 @@ export default function MePage() {
           universityId: row.university_id ?? null,
           universityName: selectedUniversity?.name ?? null,
           gradeYear: row.grade_year ?? null,
+          followersCount: profile?.followersCount ?? 0,
+          followingCount: profile?.followingCount ?? 0,
         });
         toast.success('プロフィールを更新しました');
       } catch (error) {
         console.error('プロフィール更新エラー:', error);
-        toast.error('プロフィールの更新に失敗しました');
+        const avatarUploadErrorMessage = resolveAvatarUploadErrorMessage(error);
+        if (avatarUploadErrorMessage) {
+          toast.error(avatarUploadErrorMessage);
+        } else {
+          toast.error('プロフィールの更新に失敗しました');
+        }
         throw error;
       } finally {
         setIsSavingProfile(false);
       }
     },
-    [currentUserId, profile?.avatarUrl, typedSupabase, universities],
+    [currentUserId, profile?.avatarUrl, profile?.followersCount, profile?.followingCount, typedSupabase, universities],
   );
 
   return (

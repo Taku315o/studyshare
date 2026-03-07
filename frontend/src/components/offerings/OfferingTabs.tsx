@@ -1,14 +1,14 @@
 'use client';
-
+//授業のタブコンポーネント。ノート、質問、口コミ、受講者の情報をタブ切り替えで表示する。
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import type { NoteListItem, OfferingCounts, OfferingTab, OfferingTabData } from '@/types/offering';
-import Link from 'next/link';
 import NoteCard from '@/components/notes/NoteCard';
+import QuestionCard from '@/components/questions/QuestionCard';
 import ReviewCard from '@/components/reviews/ReviewCard';
 import supabase from '@/lib/supabase';
-import { uploadNoteImage } from '@/lib/api';
+import { isUploadApiError, uploadNoteImage } from '@/lib/api';
 
 type OfferingTabsProps = {
   offeringId: string;
@@ -38,6 +38,19 @@ type OfferingWriteClient = {
   from: (table: 'notes' | 'reviews' | 'questions') => {
     insert: (payload: Record<string, unknown>) => Promise<{ error: { message?: string } | null }>;
   };
+};
+
+const resolveNoteImageUploadErrorMessage = (error: unknown): string => {
+  if (isUploadApiError(error)) {
+    if (error.kind === 'FILE_TOO_LARGE') {
+      return 'ノート画像のサイズが大きすぎます（5MBまで）';
+    }
+    if (error.kind === 'STORAGE_ERROR') {
+      return 'ノート画像の保存先ストレージで障害が発生しています。時間をおいて再度お試しください。';
+    }
+  }
+
+  return 'ノート画像のアップロードに失敗しました';
 };
 
 function ModalShell({
@@ -216,8 +229,8 @@ export default function OfferingTabs({
         try {
           const uploadResult = await uploadNoteImage(image);
           uploadedImageUrl = uploadResult.url;
-        } catch {
-          toast.error('ノート画像のアップロードに失敗しました');
+        } catch (error) {
+          toast.error(resolveNoteImageUploadErrorMessage(error));
           return;
         }
       }
@@ -363,6 +376,7 @@ export default function OfferingTabs({
               {notes.map((note) => (
                 <NoteCard
                   key={note.id}
+                  offeringId={offeringId}
                   note={note}
                   onToggleLike={(noteId, isLiked) => handleToggleReaction(noteId, 'like', isLiked)}
                   onToggleBookmark={(noteId, isBookmarked) =>
@@ -463,33 +477,7 @@ export default function OfferingTabs({
           ) : (
             <div className="space-y-3">
               {data.questions.map((question) => (
-                <article key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-base font-semibold text-slate-900">{question.title}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{question.body}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Link href={`/profile/${question.authorId}`} className="shrink-0">
-                      {question.authorAvatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={question.authorAvatarUrl}
-                          alt={`${question.authorName}のアイコン`}
-                          className="h-6 w-6 rounded-full border border-slate-200 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                          {question.authorName.slice(0, 1)}
-                        </div>
-                      )}
-                    </Link>
-                    <p className="text-xs text-slate-500">
-                      <Link href={`/profile/${question.authorId}`} className="hover:underline">
-                        {question.authorName}
-                      </Link>
-                      {' / '}
-                      {new Date(question.createdAt).toLocaleString('ja-JP')}
-                    </p>
-                  </div>
-                </article>
+                <QuestionCard key={question.id} offeringId={offeringId} question={question} />
               ))}
             </div>
           )}

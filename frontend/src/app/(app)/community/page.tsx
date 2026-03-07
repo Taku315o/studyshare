@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RealtimePostgresChangesPayload, SupabaseClient } from '@supabase/supabase-js';
 import { useSearchParams } from 'next/navigation';
 import CommunityPane from '@/components/community/CommunityPane';
 import MessagesPane from '@/components/community/MessagesPane';
@@ -26,6 +26,8 @@ type DmTargetProfileRow = Pick<
   Database['public']['Tables']['profiles']['Row'],
   'user_id' | 'display_name' | 'avatar_url' | 'faculty' | 'department' | 'allow_dm'
 >;
+type ConversationMemberSummary = Pick<ConversationMemberRow, 'conversation_id' | 'user_id' | 'last_read_at'>;
+type MessageSummary = Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>;
 
 const MATCH_LIMIT = 30;
 const DM_UNLOCK_NOTICE =
@@ -46,15 +48,38 @@ function sortThreads(threads: ThreadSummaryViewModel[]) {
   });
 }
 
-function mapMessageRow(row: Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>): ChatMessageViewModel {
+function isReadAtOrAfter(readAt: string | null, createdAt: string) {
+  if (!readAt) return false;
+  return readAt.localeCompare(createdAt) >= 0;
+}
+
+function mapMessageRow(row: MessageSummary, participantLastReadAt: string | null): ChatMessageViewModel {
   return {
     id: row.id,
     threadId: row.conversation_id,
     senderId: row.sender_id,
     body: row.body,
     createdAt: row.created_at,
+    readAt: isReadAtOrAfter(participantLastReadAt, row.created_at) ? participantLastReadAt : null,
     isLocal: false,
   };
+}
+
+function applyParticipantReadState(messages: ChatMessageViewModel[], participantLastReadAt: string | null) {
+  return messages.map((message) => ({
+    ...message,
+    readAt: isReadAtOrAfter(participantLastReadAt, message.createdAt) ? participantLastReadAt : null,
+  }));
+}
+
+function getLatestIncomingMessageAt(messages: ChatMessageViewModel[], currentUserId: string | null) {
+  if (!currentUserId) return null;
+
+  const latestIncoming = [...messages]
+    .reverse()
+    .find((message) => !message.isLocal && message.senderId !== currentUserId);
+
+  return latestIncoming?.createdAt ?? null;
 }
 
 function getErrorMessage(error: unknown) {
@@ -75,6 +100,7 @@ export default function CommunityPage() {
   const typedSupabase = supabase as unknown as SupabaseClient<Database>;
   const searchParams = useSearchParams();
   const lastDeepLinkAttemptRef = useRef<string | null>(null);
+  const markingThreadIdsRef = useRef<Set<string>>(new Set());
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -96,6 +122,65 @@ export default function CommunityPage() {
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
   const [isMobileMessagesOpen, setIsMobileMessagesOpen] = useState(false);
+
+  const isThreadPaneVisible = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    return window.innerWidth >= 1024 || isMobileMessagesOpen;
+  }, [isMobileMessagesOpen]);
+
+  const updateMessagesReadState = useCallback((threadId: string, participantLastReadAt: string | null) => {
+    setMessagesByThreadId((prev) => {
+      const threadMessages = prev[threadId];
+      if (!threadMessages) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [threadId]: applyParticipantReadState(threadMessages, participantLastReadAt),
+      };
+    });
+  }, []);
+
+  const syncOwnReadState = useCallback((threadId: string, lastReadAt: string) => {
+    setThreads((prev) =>
+      sortThreads(
+        prev.map((thread) => {
+          if (thread.threadId !== threadId) {
+            return thread;
+          }
+
+          return {
+            ...thread,
+            lastReadAt,
+            unreadCount: 0,
+          };
+        }),
+      ),
+    );
+  }, []);
+
+  const syncParticipantReadState = useCallback(
+    (threadId: string, participantLastReadAt: string | null) => {
+      setThreads((prev) =>
+        sortThreads(
+          prev.map((thread) =>
+            thread.threadId === threadId
+              ? {
+                  ...thread,
+                  participantLastReadAt,
+                }
+              : thread,
+          ),
+        ),
+      );
+      updateMessagesReadState(threadId, participantLastReadAt);
+    },
+    [updateMessagesReadState],
+  );
 
   const fetchDmTargetProfile = useCallback(
     async (userId: string) => {
@@ -171,14 +256,14 @@ export default function CommunityPage() {
       try {
         const { data: ownMembersRaw, error: ownMembersError } = await supabase
           .from('conversation_members')
-          .select('conversation_id, user_id')
+          .select('conversation_id, user_id, last_read_at')
           .eq('user_id', userId);
 
         if (ownMembersError) {
           throw ownMembersError;
         }
 
-        const ownMembers = (ownMembersRaw ?? []) as Pick<ConversationMemberRow, 'conversation_id' | 'user_id'>[];
+        const ownMembers = (ownMembersRaw ?? []) as ConversationMemberSummary[];
         const conversationIds = ownMembers.map((member) => member.conversation_id);
 
         if (conversationIds.length === 0) {
@@ -188,24 +273,31 @@ export default function CommunityPage() {
 
         const { data: allMembersRaw, error: allMembersError } = await supabase
           .from('conversation_members')
-          .select('conversation_id, user_id')
+          .select('conversation_id, user_id, last_read_at')
           .in('conversation_id', conversationIds);
 
         if (allMembersError) {
           throw allMembersError;
         }
 
-        const allMembers = (allMembersRaw ?? []) as Pick<ConversationMemberRow, 'conversation_id' | 'user_id'>[];
-        const partnerByConversationId = new Map<string, string>();
-
+        const allMembers = (allMembersRaw ?? []) as ConversationMemberSummary[];
+        const membersByConversationId = new Map<string, ConversationMemberSummary[]>();
         allMembers.forEach((member) => {
-          if (member.user_id === userId) return;
-          if (!partnerByConversationId.has(member.conversation_id)) {
-            partnerByConversationId.set(member.conversation_id, member.user_id);
+          const members = membersByConversationId.get(member.conversation_id) ?? [];
+          members.push(member);
+          membersByConversationId.set(member.conversation_id, members);
+        });
+
+        const partnerByConversationId = new Map<string, ConversationMemberSummary>();
+        ownMembers.forEach((ownMember) => {
+          const members = membersByConversationId.get(ownMember.conversation_id) ?? [];
+          const partner = members.find((member) => member.user_id !== userId) ?? null;
+          if (partner) {
+            partnerByConversationId.set(ownMember.conversation_id, partner);
           }
         });
 
-        const partnerIds = Array.from(new Set(Array.from(partnerByConversationId.values())));
+        const partnerIds = Array.from(new Set(Array.from(partnerByConversationId.values()).map((member) => member.user_id)));
 
         const { data: profilesRaw, error: profilesError } = partnerIds.length
           ? await supabase
@@ -218,9 +310,8 @@ export default function CommunityPage() {
           throw profilesError;
         }
 
-        const profiles = (profilesRaw ?? []) as ProfileRow[];
         const profileById = new Map<string, ProfileRow>();
-        profiles.forEach((profile) => {
+        ((profilesRaw ?? []) as ProfileRow[]).forEach((profile) => {
           profileById.set(profile.user_id, profile);
         });
 
@@ -235,19 +326,25 @@ export default function CommunityPage() {
           throw messagesError;
         }
 
-        const messages = (messagesRaw ?? []) as Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>[];
-        const latestMessageByConversation = new Map<string, Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>>();
-
+        const messages = (messagesRaw ?? []) as MessageSummary[];
+        const messagesByConversationId = new Map<string, MessageSummary[]>();
         messages.forEach((message) => {
-          if (!latestMessageByConversation.has(message.conversation_id)) {
-            latestMessageByConversation.set(message.conversation_id, message);
-          }
+          const threadMessages = messagesByConversationId.get(message.conversation_id) ?? [];
+          threadMessages.push(message);
+          messagesByConversationId.set(message.conversation_id, threadMessages);
         });
 
-        const remoteThreads: ThreadSummaryViewModel[] = conversationIds.map((conversationId) => {
-          const participantId = partnerByConversationId.get(conversationId) ?? 'unknown';
+        const remoteThreads: ThreadSummaryViewModel[] = ownMembers.map((ownMember) => {
+          const conversationId = ownMember.conversation_id;
+          const participant = partnerByConversationId.get(conversationId);
+          const participantId = participant?.user_id ?? 'unknown';
           const profile = profileById.get(participantId);
-          const latestMessage = latestMessageByConversation.get(conversationId);
+          const conversationMessages = messagesByConversationId.get(conversationId) ?? [];
+          const latestMessage = conversationMessages[0] ?? null;
+          const lastIncomingMessage = conversationMessages.find((message) => message.sender_id !== userId) ?? null;
+          const unreadCount = conversationMessages.filter(
+            (message) => message.sender_id !== userId && !isReadAtOrAfter(ownMember.last_read_at, message.created_at),
+          ).length;
 
           return {
             threadId: conversationId,
@@ -257,7 +354,10 @@ export default function CommunityPage() {
             participantAffiliation: buildAffiliation(profile?.faculty ?? null, profile?.department ?? null),
             lastMessagePreview: latestMessage?.body ?? '',
             lastMessageAt: latestMessage?.created_at ?? null,
-            unreadCount: 0,
+            lastReadAt: ownMember.last_read_at,
+            lastIncomingMessageAt: lastIncomingMessage?.created_at ?? null,
+            participantLastReadAt: participant?.last_read_at ?? null,
+            unreadCount,
             isLocal: false,
           };
         });
@@ -276,6 +376,16 @@ export default function CommunityPage() {
             return true;
           });
         });
+
+        setMessagesByThreadId((prev) => {
+          const next = { ...prev };
+          remoteThreads.forEach((thread) => {
+            if (next[thread.threadId]) {
+              next[thread.threadId] = applyParticipantReadState(next[thread.threadId], thread.participantLastReadAt);
+            }
+          });
+          return next;
+        });
       } catch (error) {
         console.error('スレッド取得エラー:', error);
       } finally {
@@ -283,6 +393,59 @@ export default function CommunityPage() {
       }
     },
     [supabase],
+  );
+
+  const markThreadAsRead = useCallback(
+    async (threadId: string, messages: ChatMessageViewModel[]) => {
+      if (!currentUserId) {
+        return;
+      }
+
+      if (!isThreadPaneVisible()) {
+        return;
+      }
+
+      const thread = threads.find((candidate) => candidate.threadId === threadId);
+      if (!thread || thread.isLocal) {
+        return;
+      }
+
+      const latestIncomingCreatedAt = getLatestIncomingMessageAt(messages, currentUserId);
+      if (!latestIncomingCreatedAt) {
+        return;
+      }
+
+      if (isReadAtOrAfter(thread.lastReadAt, latestIncomingCreatedAt)) {
+        return;
+      }
+
+      if (markingThreadIdsRef.current.has(threadId)) {
+        return;
+      }
+
+      markingThreadIdsRef.current.add(threadId);
+
+      try {
+        const { error } = await typedSupabase
+          .from('conversation_members')
+          .update({
+            last_read_at: latestIncomingCreatedAt,
+          })
+          .eq('conversation_id', threadId)
+          .eq('user_id', currentUserId);
+
+        if (error) {
+          throw error;
+        }
+
+        syncOwnReadState(threadId, latestIncomingCreatedAt);
+      } catch (error) {
+        console.error('既読更新エラー:', error);
+      } finally {
+        markingThreadIdsRef.current.delete(threadId);
+      }
+    },
+    [currentUserId, isThreadPaneVisible, syncOwnReadState, threads, typedSupabase],
   );
 
   useEffect(() => {
@@ -369,7 +532,9 @@ export default function CommunityPage() {
       return;
     }
 
-    if (messagesByThreadId[selectedThread.threadId]) {
+    const cachedMessages = messagesByThreadId[selectedThread.threadId];
+    if (cachedMessages) {
+      void markThreadAsRead(selectedThread.threadId, cachedMessages);
       return;
     }
 
@@ -392,14 +557,16 @@ export default function CommunityPage() {
 
         if (cancelled) return;
 
-        const mapped = ((data ?? []) as Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>[]).map(
-          mapMessageRow,
+        const mapped = ((data ?? []) as MessageSummary[]).map((row) =>
+          mapMessageRow(row, selectedThread.participantLastReadAt),
         );
 
         setMessagesByThreadId((prev) => ({
           ...prev,
           [selectedThread.threadId]: mapped,
         }));
+
+        await markThreadAsRead(selectedThread.threadId, mapped);
       } catch (error) {
         console.error('メッセージ取得エラー:', error);
         if (!cancelled) {
@@ -417,23 +584,138 @@ export default function CommunityPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedThread, messagesByThreadId, supabase]);
+  }, [markThreadAsRead, messagesByThreadId, selectedThread, supabase]);
 
-  const updateThreadLastMessage = useCallback((threadId: string, body: string, createdAt: string) => {
-    setThreads((prev) =>
-      sortThreads(
-        prev.map((thread) =>
-          thread.threadId === threadId
-            ? {
-                ...thread,
-                lastMessagePreview: body,
-                lastMessageAt: createdAt,
-              }
-            : thread,
+  useEffect(() => {
+    if (!currentUserId) {
+      return;
+    }
+
+    const handleMessageInsert = async (payload: RealtimePostgresChangesPayload<MessageRow>) => {
+      const message = payload.new as MessageRow | null;
+      if (!message || !message.conversation_id || !message.created_at) {
+        return;
+      }
+
+      let shouldFetchThreads = false;
+
+      setThreads((prev) => {
+        const existingThread = prev.find((thread) => thread.threadId === message.conversation_id);
+        if (!existingThread) {
+          shouldFetchThreads = true;
+          return prev;
+        }
+
+        const isIncoming = message.sender_id !== currentUserId;
+        const nextThread = {
+          ...existingThread,
+          lastMessagePreview: message.body,
+          lastMessageAt: message.created_at,
+          lastIncomingMessageAt: isIncoming ? message.created_at : existingThread.lastIncomingMessageAt,
+          unreadCount: isIncoming ? existingThread.unreadCount + 1 : existingThread.unreadCount,
+        };
+
+        return sortThreads(prev.map((thread) => (thread.threadId === message.conversation_id ? nextThread : thread)));
+      });
+
+      if (shouldFetchThreads) {
+        await fetchThreads(currentUserId);
+        return;
+      }
+
+      const participantLastReadAt =
+        threads.find((thread) => thread.threadId === message.conversation_id)?.participantLastReadAt ?? null;
+
+      setMessagesByThreadId((prev) => {
+        const existingMessages = prev[message.conversation_id];
+        if (!existingMessages) {
+          return prev;
+        }
+
+        if (existingMessages.some((entry) => entry.id === message.id)) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [message.conversation_id]: [...existingMessages, mapMessageRow(message, participantLastReadAt)],
+        };
+      });
+
+      if (message.sender_id !== currentUserId && selectedThreadId === message.conversation_id && isThreadPaneVisible()) {
+        const nextMessages = [
+          ...(messagesByThreadId[message.conversation_id] ?? []),
+          mapMessageRow(message, participantLastReadAt),
+        ];
+        await markThreadAsRead(message.conversation_id, nextMessages);
+      }
+    };
+
+    const handleConversationMemberUpdate = async (payload: RealtimePostgresChangesPayload<ConversationMemberRow>) => {
+      const member = payload.new as ConversationMemberRow | null;
+      if (!member || !member.conversation_id) {
+        return;
+      }
+
+      const existingThread = threads.find((thread) => thread.threadId === member.conversation_id);
+      if (!existingThread) {
+        return;
+      }
+
+      if (member.user_id === currentUserId) {
+        if (member.last_read_at) {
+          syncOwnReadState(member.conversation_id, member.last_read_at);
+        }
+        return;
+      }
+
+      syncParticipantReadState(member.conversation_id, member.last_read_at);
+    };
+
+    const channel = supabase
+      .channel(`community:${currentUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        void handleMessageInsert(payload as RealtimePostgresChangesPayload<MessageRow>);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, (payload) => {
+        void handleConversationMemberUpdate(payload as RealtimePostgresChangesPayload<ConversationMemberRow>);
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [
+    currentUserId,
+    fetchThreads,
+    isThreadPaneVisible,
+    markThreadAsRead,
+    messagesByThreadId,
+    selectedThreadId,
+    supabase,
+    syncOwnReadState,
+    syncParticipantReadState,
+    threads,
+  ]);
+
+  const updateThreadLastMessage = useCallback(
+    (threadId: string, body: string, createdAt: string) => {
+      setThreads((prev) =>
+        sortThreads(
+          prev.map((thread) =>
+            thread.threadId === threadId
+              ? {
+                  ...thread,
+                  lastMessagePreview: body,
+                  lastMessageAt: createdAt,
+                }
+              : thread,
+          ),
         ),
-      ),
-    );
-  }, []);
+      );
+    },
+    [],
+  );
 
   const handleStartMessage = useCallback(
     async (candidate: MatchCandidateViewModel) => {
@@ -470,6 +752,9 @@ export default function CommunityPage() {
           participantAffiliation: buildAffiliation(candidate.faculty, candidate.department),
           lastMessagePreview: '',
           lastMessageAt: null,
+          lastReadAt: null,
+          lastIncomingMessageAt: null,
+          participantLastReadAt: null,
           unreadCount: 0,
           isLocal: false,
         };
@@ -649,7 +934,7 @@ export default function CommunityPage() {
           throw error ?? new Error('メッセージ送信に失敗しました');
         }
 
-        const mapped = mapMessageRow(data as Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id' | 'body' | 'created_at'>);
+        const mapped = mapMessageRow(data as MessageSummary, selectedThread.participantLastReadAt);
 
         setMessagesByThreadId((prev) => ({
           ...prev,

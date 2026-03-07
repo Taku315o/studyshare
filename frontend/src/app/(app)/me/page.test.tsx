@@ -10,12 +10,19 @@ jest.mock('@/lib/supabase/client', () => ({
 
 jest.mock('@/lib/api', () => ({
   uploadAvatarImage: jest.fn(),
+  isUploadApiError: jest.fn((error: unknown) => Boolean(error && typeof error === 'object' && 'kind' in error)),
 }));
 
 jest.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
     signOut: jest.fn(),
   }),
+}));
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+  usePathname: () => '/me',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const uploadAvatarImageMock = uploadAvatarImage as jest.Mock;
@@ -192,6 +199,21 @@ describe('MePage', () => {
           upsert: profilesUpsertMock,
         };
       }
+      if (table === 'user_stats') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: {
+                  followers_count: 12,
+                  following_count: 7,
+                },
+                error: null,
+              }),
+            })),
+          })),
+        };
+      }
       if (table === 'universities') {
         return {
           select: jest.fn(() => ({
@@ -259,6 +281,8 @@ describe('MePage', () => {
     expect(screen.getByRole('heading', { name: '自分の資産' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '時間割サマリ' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '設定' })).toBeInTheDocument();
+    expect(screen.getByText('フォロワー')).toBeInTheDocument();
+    expect(screen.getByText('フォロー中')).toBeInTheDocument();
   });
 
   it('shows deduplicated saved notes with like/bookmark badges in saved tab', async () => {

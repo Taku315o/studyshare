@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import OfferingHeader from '@/components/offerings/OfferingHeader';
 import OfferingTabs from '@/components/offerings/OfferingTabs';
+import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type {
   NoteListItem,
@@ -11,7 +12,8 @@ import type {
   QuestionListItem,
   ReviewListItem,
 } from '@/types/offering';
-
+//授業の詳細ページコンポーネント。授業の基本情報を表示するヘッダーと、ノート・質問・口コミのタブを含む。
+// URLの offeringId をもとにdbから授業の情報を取得し、存在しない場合は 404 ページを表示する。
 type OfferingRow = {
   id: string;
   instructor: string | null;
@@ -27,6 +29,16 @@ type OfferingRpcClient = {
   rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
+type OfferingQuestionAnswersReadClient = {
+  from: (table: 'question_answers') => {
+    select: (columns: string) => {
+      in: (column: 'question_id', values: string[]) => {
+        is: (column: 'deleted_at', value: null) => Promise<{ data: Array<{ question_id: string }> | null }>;
+      };
+    };
+  };
+};
+
 const PAGE_SIZE = 8;
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -35,19 +47,24 @@ const SEASON_LABELS: Record<string, string> = {
   second_half: '後期',
 };
 
+/**
+ * 指定された値をもとにアクティブなタブを解析する。
+ * @param value - クエリパラメータから取得したタブ名
+ * @returns 解析されたタブ名
+ */
 function parseTab(value?: string): OfferingTab {
   if (value === 'reviews' || value === 'questions' || value === 'students') {
     return value;
   }
   return 'notes';
 }
-
+//クエリパラメータからページ番号を解析する。整数でない場合や1未満の場合は1を返す。
 function parsePage(value?: string) {
   const num = Number(value);
   if (!Number.isInteger(num) || num < 1) return 1;
   return num;
 }
-
+//1, 1 という無機質な数字を、月曜 1限 という親切な表示に変える役割
 function formatTimeslot(
   slots: Array<{ day_of_week: number | null; period: number | null }> | null | undefined,
 ): string {
@@ -61,33 +78,8 @@ function formatTimeslot(
     .join(', ');
 }
 
-async function fetchProfiles(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  userIds: string[],
-) {
-  if (userIds.length === 0) {
-    return new Map<
-      string,
-      { display_name: string; avatar_url: string | null; allow_dm: boolean | null }
-    >();
-  }
-  const { data } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, avatar_url, allow_dm')
-    .in('user_id', userIds);
-  const profiles = (data ?? []) as Array<{
-    user_id: string;
-    display_name: string;
-    avatar_url: string | null;
-    allow_dm: boolean | null;
-  }>;
-  const map = new Map<string, { display_name: string; avatar_url: string | null; allow_dm: boolean | null }>();
-  profiles.forEach((profile) => {
-    map.set(profile.user_id, profile);
-  });
-  return map;
-}
-
+//このページコンポーネントは、授業の詳細情報を表示する。
+// URLから offeringId を取得し、その ID に対応する授業の情報を Supabase から取得する。
 export default async function OfferingDetailPage({
   params,
   searchParams,
@@ -104,6 +96,7 @@ export default async function OfferingDetailPage({
 
   const supabase = await createServerSupabaseClient();
   const rpcClient = supabase as unknown as OfferingRpcClient;
+  const questionAnswersClient = supabase as unknown as OfferingQuestionAnswersReadClient;
 
   const {
     data: { user },
@@ -244,9 +237,11 @@ export default async function OfferingDetailPage({
         ...trimmedQuestions.map((question) => question.author_id),
       ]),
     ),
+    { includeAllowDm: true },
   );
 
   const noteIds = trimmedNotes.map((note) => note.id);
+  const questionIds = trimmedQuestions.map((question) => question.id);
   const [noteReactionsRes, noteCommentsRes] =
     noteIds.length > 0
       ? await Promise.all([
@@ -257,10 +252,15 @@ export default async function OfferingDetailPage({
           { data: [] as Array<{ note_id: string; user_id: string; kind: string }> },
           { data: [] as Array<{ note_id: string }> },
         ];
+  const questionAnswersRes =
+    questionIds.length > 0
+      ? await questionAnswersClient.from('question_answers').select('question_id').in('question_id', questionIds).is('deleted_at', null)
+      : { data: [] as Array<{ question_id: string }> };
 
   const likeCounts = new Map<string, number>();
   const bookmarkCounts = new Map<string, number>();
   const commentCounts = new Map<string, number>();
+  const answerCounts = new Map<string, number>();
   const myLikeSet = new Set<string>();
   const myBookmarkSet = new Set<string>();
 
@@ -277,6 +277,10 @@ export default async function OfferingDetailPage({
 
   (noteCommentsRes.data ?? []).forEach((comment) => {
     commentCounts.set(comment.note_id, (commentCounts.get(comment.note_id) ?? 0) + 1);
+  });
+
+  (questionAnswersRes.data ?? []).forEach((answer) => {
+    answerCounts.set(answer.question_id, (answerCounts.get(answer.question_id) ?? 0) + 1);
   });
 
   const notes: NoteListItem[] = trimmedNotes.map((note) => {
@@ -323,6 +327,7 @@ export default async function OfferingDetailPage({
       authorName: profile?.display_name ?? '匿名ユーザー',
       authorAvatarUrl: profile?.avatar_url ?? null,
       authorAllowDm: profile?.allow_dm ?? null,
+      answersCount: answerCounts.get(question.id) ?? 0,
     };
   });
 
@@ -380,3 +385,11 @@ export default async function OfferingDetailPage({
     </div>
   );
 }
+
+
+//このコードの賢いところは、.in() による一括取得で N + 1 クエリ問題を回避している点。
+// notes や questions の作者情報を取得する際、個別にクエリを投げるのではなく、
+// 必要なユーザーIDをまとめて取得し、一度のクエリで全てのプロフィール情報を取得している。
+// これにより、表示するノートや質問の数に関わらず、常に一定のクエリ数で済むようになっている。
+// さらに、取得したプロフィール情報を Map に格納することで、各ノートや質問の作者情報を高速に参照できるようになっている。
+//また、メインロジック側でsetやmapを駆使して、ユーザーIDの重複排除やカウント集計を効率的に行っている点も賢い。

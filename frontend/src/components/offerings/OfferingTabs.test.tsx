@@ -24,6 +24,7 @@ jest.mock('react-hot-toast', () => ({
 
 jest.mock('@/lib/api', () => ({
   uploadNoteImage: jest.fn(),
+  isUploadApiError: jest.fn((error: unknown) => Boolean(error && typeof error === 'object' && 'kind' in error)),
 }));
 
 jest.mock('@/lib/supabase', () => ({
@@ -96,7 +97,6 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost={false}
-        currentUserId={null}
       />,
     );
 
@@ -118,7 +118,6 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost
-        currentUserId={null}
       />,
     );
 
@@ -149,7 +148,6 @@ describe('OfferingTabs', () => {
         reviewsPage={1}
         questionsPage={1}
         canPost
-        currentUserId={null}
       />,
     );
 

@@ -3,11 +3,19 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import TimetableCell from '@/components/timetable/TimetableCell';
+import {
+  DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+  formatWeekdayLabel,
+  loadEffectiveTimetableConfig,
+} from '@/lib/timetable/config';
 import { createSupabaseClient } from '@/lib/supabase/client';
+import type { Database } from '@/types/supabase';
 import type {
   TimetableCellModel,
   TimetableColorToken,
+  TimetableConfig,
   TimetableGridViewModel,
   TimetableOfferingItem,
   TimetablePeriod,
@@ -35,21 +43,9 @@ type EnrollmentQueryRow = {
     | null;
 };
 
-const WEEKDAYS: Array<{ key: TimetableWeekday; label: string }> = [
-  { key: 1, label: '月' },
-  { key: 2, label: '火' },
-  { key: 3, label: '水' },
-  { key: 4, label: '木' },
-  { key: 5, label: '金' },
-];
-
-const PERIODS: Array<{ key: TimetablePeriod; label: string; startTime: string }> = [
-  { key: 1, label: '1限', startTime: '9:00' },
-  { key: 2, label: '2限', startTime: '10:45' },
-  { key: 3, label: '3限', startTime: '13:10' },
-  { key: 4, label: '4限', startTime: '14:55' },
-  { key: 5, label: '5限', startTime: '16:40' },
-];
+type ProfileQueryRow = {
+  university_id: string | null;
+};
 
 const STATUS_PRIORITY: Record<TimetableStatus, number> = {
   enrolled: 0,
@@ -65,12 +61,12 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function isWeekday(value: number | null): value is TimetableWeekday {
-  return value !== null && value >= 1 && value <= 5;
+function isWeekdayValue(value: number | null): value is TimetableWeekday {
+  return value !== null && value >= 1 && value <= 7;
 }
 
-function isPeriod(value: number | null): value is TimetablePeriod {
-  return value !== null && value >= 1 && value <= 5;
+function isPeriodValue(value: number | null): value is TimetablePeriod {
+  return value !== null && Number.isInteger(value) && value >= 1 && value <= 30;
 }
 
 function isStatus(value: string): value is TimetableStatus {
@@ -95,12 +91,12 @@ function formatTime(value: string | null, fallback: string): string {
   return `${hour}:${minute}`;
 }
 
-function buildViewModel(items: TimetableOfferingItem[]): TimetableGridViewModel {
+function buildViewModel(items: TimetableOfferingItem[], config: TimetableConfig): TimetableGridViewModel {
   const buckets = new Map<string, TimetableOfferingItem[]>();
 
-  WEEKDAYS.forEach((day) => {
-    PERIODS.forEach((period) => {
-      buckets.set(`${day.key}-${period.key}`, []);
+  config.weekdays.forEach((day) => {
+    config.periods.forEach((period) => {
+      buckets.set(`${day}-${period.period}`, []);
     });
   });
 
@@ -119,13 +115,13 @@ function buildViewModel(items: TimetableOfferingItem[]): TimetableGridViewModel 
   });
 
   const cells: TimetableCellModel[] = [];
-  WEEKDAYS.forEach((day) => {
-    PERIODS.forEach((period) => {
-      const key = `${day.key}-${period.key}`;
+  config.weekdays.forEach((day) => {
+    config.periods.forEach((period) => {
+      const key = `${day}-${period.period}`;
       const bucket = buckets.get(key) ?? [];
       cells.push({
-        dayOfWeek: day.key,
-        period: period.key,
+        dayOfWeek: day,
+        period: period.period,
         items: bucket,
         primaryItem: bucket[0] ?? null,
       });
@@ -142,21 +138,30 @@ function modalTitle(state: TimetableSearchModalState): string {
   return '授業追加（準備中）';
 }
 
-function modalDescription(state: TimetableSearchModalState): string {
+function periodLabel(config: TimetableConfig, period: number | undefined) {
+  if (!period) return '時限';
+  return config.periods.find((entry) => entry.period === period)?.label ?? `${period}限`;
+}
+
+function modalDescription(state: TimetableSearchModalState, config: TimetableConfig): string {
   if (!state.isOpen) return '';
   if (state.source === 'page-search') return '検索機能は次のフェーズで実装予定です。';
   if (state.source === 'matching-cta') return '同じ授業の受講者検索は今後のアップデートで対応します。';
-  const day = state.dayOfWeek ? WEEKDAYS.find((entry) => entry.key === state.dayOfWeek)?.label : null;
+  const day = state.dayOfWeek ? formatWeekdayLabel(state.dayOfWeek) : null;
+  const period = periodLabel(config, state.period);
   return day && state.period
-    ? `${day}曜 ${state.period}限への授業追加モーダルは準備中です。`
+    ? `${day}曜 ${period} への授業追加モーダルは準備中です。`
     : '空きコマへの授業追加モーダルは準備中です。';
 }
 
 export default function TimetableGrid() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseClient(), []);
+  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
 
   const [items, setItems] = useState<TimetableOfferingItem[]>([]);
+  const [timetableConfig, setTimetableConfig] = useState<TimetableConfig>(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
+  const [outOfConfigItems, setOutOfConfigItems] = useState<TimetableOfferingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDropped, setShowDropped] = useState(false);
@@ -184,8 +189,37 @@ export default function TimetableGrid() {
         if (!user) {
           if (!cancelled) {
             setItems([]);
+            setOutOfConfigItems([]);
+            setTimetableConfig(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
           }
           return;
+        }
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('university_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          throw profileError;
+        }
+
+        const profile = (profileData ?? null) as ProfileQueryRow | null;
+
+        let activeConfig = DEFAULT_GLOBAL_TIMETABLE_CONFIG;
+        try {
+          const resolvedConfig = await loadEffectiveTimetableConfig(
+            typedSupabase,
+            user.id,
+            profile?.university_id ?? null,
+          );
+          activeConfig = resolvedConfig.config;
+        } catch (error) {
+          console.error('[TimetableGrid] 時間割設定の取得に失敗しました。デフォルトを適用します:', error);
+        }
+        if (!cancelled) {
+          setTimetableConfig(activeConfig);
         }
 
         const statuses: TimetableStatus[] = showDropped ? ['enrolled', 'planned', 'dropped'] : ['enrolled', 'planned'];
@@ -231,9 +265,10 @@ export default function TimetableGrid() {
           const slots = Array.isArray(offering.offering_slots) ? offering.offering_slots : [];
 
           slots.forEach((slot) => {
-            if (!isWeekday(slot.day_of_week) || !isPeriod(slot.period)) return;
+            if (!isWeekdayValue(slot.day_of_week) || !isPeriodValue(slot.period)) return;
 
-            const fallbackStartTime = PERIODS.find((period) => period.key === slot.period)?.startTime ?? '0:00';
+            const fallbackStartTime =
+              activeConfig.periods.find((period) => period.period === slot.period)?.startTime ?? '0:00';
             nextItems.push({
               offeringId: offering.id,
               courseTitle: course?.name ?? '不明な授業',
@@ -248,14 +283,33 @@ export default function TimetableGrid() {
           });
         });
 
+        const availableSlots = new Set<string>();
+        activeConfig.weekdays.forEach((weekday) => {
+          activeConfig.periods.forEach((period) => {
+            availableSlots.add(`${weekday}-${period.period}`);
+          });
+        });
+
+        const uniqueOutOfConfigMap = new Map<string, TimetableOfferingItem>();
+        nextItems.forEach((item) => {
+          const key = `${item.dayOfWeek}-${item.period}`;
+          if (availableSlots.has(key)) {
+            return;
+          }
+          uniqueOutOfConfigMap.set(`${item.offeringId}-${item.dayOfWeek}-${item.period}`, item);
+        });
+
         if (!cancelled) {
           setItems(nextItems);
+          setOutOfConfigItems(Array.from(uniqueOutOfConfigMap.values()));
         }
       } catch (error) {
         console.error(error);
         if (!cancelled) {
           setErrorMessage('時間割の取得に失敗しました。しばらくしてから再度お試しください。');
           setItems([]);
+          setOutOfConfigItems([]);
+          setTimetableConfig(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
         }
       } finally {
         if (!cancelled) {
@@ -269,9 +323,9 @@ export default function TimetableGrid() {
     return () => {
       cancelled = true;
     };
-  }, [showDropped, supabase]);
+  }, [showDropped, supabase, typedSupabase]);
 
-  const viewModel = useMemo(() => buildViewModel(items), [items]);
+  const viewModel = useMemo(() => buildViewModel(items, timetableConfig), [items, timetableConfig]);
 
   const cellLookup = useMemo(() => {
     const map = new Map<string, TimetableCellModel>();
@@ -341,6 +395,19 @@ export default function TimetableGrid() {
 
       {!isLoading && !errorMessage ? (
         <>
+          {outOfConfigItems.length > 0 ? (
+            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-semibold">設定外の授業が {outOfConfigItems.length} 件あります。設定を見直してください。</p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {outOfConfigItems.slice(0, 5).map((item) => (
+                  <li key={`${item.offeringId}-${item.dayOfWeek}-${item.period}`}>
+                    {item.courseTitle} / {formatWeekdayLabel(item.dayOfWeek)}曜 {periodLabel(timetableConfig, item.period)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {items.length === 0 ? (
             <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
               <p className="text-sm text-slate-600">履修中または予定の授業がありません。空きコマから授業を追加できます。</p>
@@ -358,26 +425,26 @@ export default function TimetableGrid() {
             <table className="w-full min-w-[860px] table-fixed border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
-                  <th className="w-24 border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-500" />
-                  {WEEKDAYS.map((day) => (
-                    <th key={day.key} className="border-b border-slate-200 px-2 py-2 text-center font-semibold text-slate-600">
-                      {day.label}
+                  <th className="w-28 border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-500" />
+                  {timetableConfig.weekdays.map((day) => (
+                    <th key={day} className="border-b border-slate-200 px-2 py-2 text-center font-semibold text-slate-600">
+                      {formatWeekdayLabel(day)}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {PERIODS.map((period) => (
-                  <tr key={period.key}>
+                {timetableConfig.periods.map((period) => (
+                  <tr key={period.period}>
                     <td className="border-b border-slate-100 px-2 py-3 align-top text-slate-500">
                       <p className="text-sm font-semibold">{period.label}</p>
                       <p className="text-xs">{period.startTime}</p>
                     </td>
-                    {WEEKDAYS.map((day) => {
-                      const cell = cellLookup.get(`${day.key}-${period.key}`);
-                      const target = cell ?? { dayOfWeek: day.key, period: period.key, primaryItem: null, items: [] };
+                    {timetableConfig.weekdays.map((day) => {
+                      const cell = cellLookup.get(`${day}-${period.period}`);
+                      const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
                       return (
-                        <td key={`${day.key}-${period.key}`} className="h-32 border-b border-slate-100 px-2 py-2 align-top">
+                        <td key={`${day}-${period.period}`} className="h-32 border-b border-slate-100 px-2 py-2 align-top">
                           <TimetableCell
                             dayOfWeek={target.dayOfWeek}
                             period={target.period}
@@ -396,15 +463,15 @@ export default function TimetableGrid() {
           </div>
 
           <div className="space-y-4 md:hidden">
-            {WEEKDAYS.map((day) => (
-              <section key={day.key} className="space-y-2 rounded-2xl border border-slate-200 p-3">
-                <h3 className="text-sm font-semibold text-slate-700">{day.label}曜日</h3>
+            {timetableConfig.weekdays.map((day) => (
+              <section key={day} className="space-y-2 rounded-2xl border border-slate-200 p-3">
+                <h3 className="text-sm font-semibold text-slate-700">{formatWeekdayLabel(day)}曜日</h3>
                 <div className="space-y-2">
-                  {PERIODS.map((period) => {
-                    const cell = cellLookup.get(`${day.key}-${period.key}`);
-                    const target = cell ?? { dayOfWeek: day.key, period: period.key, primaryItem: null, items: [] };
+                  {timetableConfig.periods.map((period) => {
+                    const cell = cellLookup.get(`${day}-${period.period}`);
+                    const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
                     return (
-                      <div key={`${day.key}-${period.key}`} className="grid grid-cols-[54px_minmax(0,1fr)] items-stretch gap-2">
+                      <div key={`${day}-${period.period}`} className="grid grid-cols-[72px_minmax(0,1fr)] items-stretch gap-2">
                         <div className="rounded-lg bg-slate-100 px-2 py-2 text-center text-xs text-slate-600">
                           <p className="font-semibold">{period.label}</p>
                           <p>{period.startTime}</p>
@@ -452,7 +519,7 @@ export default function TimetableGrid() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-sm text-slate-600">{modalDescription(searchModalState)}</p>
+            <p className="text-sm text-slate-600">{modalDescription(searchModalState, timetableConfig)}</p>
             {searchModalState.source === 'page-search' && searchModalState.keyword ? (
               <p className="mt-2 text-xs text-slate-500">入力キーワード: {searchModalState.keyword}</p>
             ) : null}
@@ -472,7 +539,7 @@ export default function TimetableGrid() {
           <div className="w-full max-w-lg rounded-2xl border border-white/70 bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
-                {WEEKDAYS.find((day) => day.key === activeOverlapCell.dayOfWeek)?.label}曜 {activeOverlapCell.period}限
+                {formatWeekdayLabel(activeOverlapCell.dayOfWeek)}曜 {periodLabel(timetableConfig, activeOverlapCell.period)}
               </h3>
               <button
                 type="button"

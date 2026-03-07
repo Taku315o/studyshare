@@ -1,0 +1,5 @@
+-- Moved out of migrations on 2026-03-06.
+-- Timetable preset data is master-dependent configuration data and is now kept in:
+--   - `supabase/seeds/10_timetable_presets.sql`
+--   - `supabase/seeds/timetable_presets_top_universities.csv`
+-- This migration remains as a no-op to preserve migration history.

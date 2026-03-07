@@ -69,4 +69,21 @@ describe('TimetableCell', () => {
     fireEvent.click(emptyButton);
     expect(onOpenAdd).toHaveBeenCalledWith(2, 3);
   });
+
+  it('supports dynamic period numbers', () => {
+    const onOpenAdd = jest.fn();
+
+    render(
+      <TimetableCell
+        dayOfWeek={5}
+        period={8}
+        item={null}
+        overlapCount={0}
+        onOpenAdd={onOpenAdd}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '空きコマ' }));
+    expect(onOpenAdd).toHaveBeenCalledWith(5, 8);
+  });
 });

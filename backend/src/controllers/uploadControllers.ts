@@ -3,9 +3,33 @@
 //this file calls the uploadService to handle the actual upload process
 import { Request, RequestHandler, Response } from 'express';
 import multer from 'multer';
-import { deleteFromStorageByPublicUrl, uploadToStorage, isValidImageType, isValidFileSize } from '../services/uploadService';
+import {
+  deleteFromStorageByPublicUrl,
+  uploadToStorage,
+  isValidImageType,
+  isValidFileSize,
+  StorageUploadError,
+  STORAGE_UPLOAD_ERROR_CODE,
+} from '../services/uploadService';
 
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const FILE_TOO_LARGE_ERROR_CODE = 'FILE_TOO_LARGE' as const;
+const FILE_TOO_LARGE_ERROR_MESSAGE = 'ファイルサイズが大きすぎます（5MBまで）';
+
+const sendFileTooLargeError = (res: Response): void => {
+  res.status(413).json({
+    code: FILE_TOO_LARGE_ERROR_CODE,
+    error: FILE_TOO_LARGE_ERROR_MESSAGE,
+  });
+};
+
+const sendStorageUploadError = (res: Response): void => {
+  res.status(503).json({
+    code: STORAGE_UPLOAD_ERROR_CODE,
+    error: 'ストレージへのアップロードに失敗しました。時間をおいて再度お試しください。',
+  });
+};
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -22,7 +46,7 @@ export const uploadSingleImage: RequestHandler = (req, res, next) => {
     }
 
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+      sendFileTooLargeError(res);
       return;
     }
 
@@ -49,7 +73,7 @@ const validateUploadRequest = (req: Request, res: Response) => {
     return null;
   }
   if (!isValidFileSize(file.size)) {
-    res.status(400).json({ error: 'ファイルサイズが大きすぎます（5MBまで）' });
+    sendFileTooLargeError(res);
     return null;
   }
 
@@ -75,6 +99,10 @@ export const uploadController = async (req: Request, res: Response): Promise<voi
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {
     console.error('アップロードコントローラーエラー:', error);
+    if (error instanceof StorageUploadError) {
+      sendStorageUploadError(res);
+      return;
+    }
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };
@@ -90,6 +118,10 @@ export const uploadNoteImageController = async (req: Request, res: Response): Pr
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {
     console.error('ノート画像アップロードコントローラーエラー:', error);
+    if (error instanceof StorageUploadError) {
+      sendStorageUploadError(res);
+      return;
+    }
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };
@@ -109,6 +141,10 @@ export const uploadAvatarImageController = async (req: Request, res: Response): 
     res.status(200).json({ url: imageUrl });
   } catch (error: any) {
     console.error('アバター画像アップロードコントローラーエラー:', error);
+    if (error instanceof StorageUploadError) {
+      sendStorageUploadError(res);
+      return;
+    }
     res.status(500).json({ error: error.message || 'アップロード処理でエラーが発生しました' });
   }
 };
