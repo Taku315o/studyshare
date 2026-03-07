@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ThreadPanel from '@/components/thread/ThreadPanel';
+import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { ThreadNodeBase } from '@/types/offering';
 
@@ -36,28 +37,6 @@ function formatDate(date: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-async function fetchProfiles(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  userIds: string[],
-) {
-  if (userIds.length === 0) {
-    return new Map<string, { display_name: string; avatar_url: string | null }>();
-  }
-
-  const { data } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', userIds);
-  const rows = (data ?? []) as Array<{
-    user_id: string;
-    display_name: string;
-    avatar_url: string | null;
-  }>;
-
-  const map = new Map<string, { display_name: string; avatar_url: string | null }>();
-  rows.forEach((row) => {
-    map.set(row.user_id, row);
-  });
-  return map;
 }
 
 export default async function OfferingNoteDetailPage({

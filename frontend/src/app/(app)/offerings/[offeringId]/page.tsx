@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import OfferingHeader from '@/components/offerings/OfferingHeader';
 import OfferingTabs from '@/components/offerings/OfferingTabs';
+import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type {
   NoteListItem,
@@ -75,35 +76,6 @@ function formatTimeslot(
       return `${day}曜 ${period}`;
     })
     .join(', ');
-}
-
-//この関数は、Supabase クライアントを使用して、指定されたユーザーIDのプロフィール情報を一括で取得するためのユーティリティ関数。
-// ユーザーIDの配列を受け取り、対応する表示名とアバターURLを含むマップを返します。
-async function fetchProfiles(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  userIds: string[],
-) {
-  if (userIds.length === 0) {
-    return new Map<
-      string,
-      { display_name: string; avatar_url: string | null; allow_dm: boolean | null }
-    >();
-  }
-  const { data } = await supabase
-    .from('profiles')
-    .select('user_id, display_name, avatar_url, allow_dm')
-    .in('user_id', userIds);
-  const profiles = (data ?? []) as Array<{
-    user_id: string;
-    display_name: string;
-    avatar_url: string | null;
-    allow_dm: boolean | null;
-  }>;
-  const map = new Map<string, { display_name: string; avatar_url: string | null; allow_dm: boolean | null }>();
-  profiles.forEach((profile) => {
-    map.set(profile.user_id, profile);
-  });
-  return map;
 }
 
 //このページコンポーネントは、授業の詳細情報を表示する。
@@ -265,6 +237,7 @@ export default async function OfferingDetailPage({
         ...trimmedQuestions.map((question) => question.author_id),
       ]),
     ),
+    { includeAllowDm: true },
   );
 
   const noteIds = trimmedNotes.map((note) => note.id);
