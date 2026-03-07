@@ -1211,11 +1211,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      user_stats_apply_delta: {
-        Args: { _notes_delta: number; _reviews_delta: number; _uid: string }
-        Returns: undefined
-      }
-      user_university_id: { Args: { _uid: string }; Returns: string }
     }
     Enums: {
       connection_status: "requested" | "accepted" | "rejected" | "blocked"
@@ -1398,4 +1393,3 @@ export const Constants = {
     },
   },
 } as const
-
