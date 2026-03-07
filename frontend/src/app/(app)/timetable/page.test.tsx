@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import TimetablePage from './page';
 
-jest.mock('@/components/timetable/TimetableGrid', () => () => <div data-testid="timetable-grid">grid</div>);
+jest.mock('@/components/timetable/TimetableGrid', () => {
+  function MockTimetableGrid() {
+    return <div data-testid="timetable-grid">grid</div>;
+  }
+
+  return MockTimetableGrid;
+});
 
 describe('TimetablePage', () => {
   it('renders navigation to timetable settings modal on me page', () => {

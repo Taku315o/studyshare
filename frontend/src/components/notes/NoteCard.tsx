@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, MessageCircle, Bookmark } from 'lucide-react';
 import type { NoteListItem } from '@/types/offering';
@@ -28,10 +29,12 @@ export default function NoteCard({ offeringId, note, onToggleLike, onToggleBookm
       <div className="mb-3 flex items-center gap-3">
         <Link href={`/profile/${note.authorId}`} className="shrink-0">
           {note.authorAvatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={note.authorAvatarUrl}
               alt={`${note.authorName}のアイコン`}
+              width={36}
+              height={36}
+              sizes="36px"
               className="h-9 w-9 rounded-full border border-slate-200 object-cover"
             />
           ) : (
@@ -53,11 +56,13 @@ export default function NoteCard({ offeringId, note, onToggleLike, onToggleBookm
       </Link>
       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">{note.body ?? '本文なし'}</p>
       {note.imageUrl ? (
-        <img
+        <Image
           src={note.imageUrl}
           alt={`${note.title} の添付画像`}
+          width={800}
+          height={352}
+          sizes="(max-width: 768px) 100vw, 800px"
           className="mt-3 h-44 w-full rounded-xl border border-slate-200 object-cover"
-          loading="lazy"
         />
       ) : null}
 
