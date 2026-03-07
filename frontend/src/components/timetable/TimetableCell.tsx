@@ -18,6 +18,7 @@ type TimetableCellProps = {
   overlapCount: number;
   onOpenAdd: (dayOfWeek: TimetableWeekday, period: TimetablePeriod) => void;
   onOpenOverlaps?: () => void;
+  isHighlighted?: boolean;
 };
 
 const COLOR_STYLES: Record<TimetableColorToken, string> = {
@@ -42,6 +43,7 @@ export default function TimetableCell({
   overlapCount,
   onOpenAdd,
   onOpenOverlaps,
+  isHighlighted = false,
 }: TimetableCellProps) {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
@@ -52,7 +54,12 @@ export default function TimetableCell({
 
   if (!item) {
     return (
-      <div className="relative h-full rounded-xl border border-dashed border-slate-300 bg-slate-50/70">
+      <div
+        className={[
+          'relative h-full rounded-xl border border-dashed border-slate-300 bg-slate-50/70 transition',
+          isHighlighted ? 'border-blue-400 bg-blue-50 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : '',
+        ].join(' ')}
+      >
         <button
           type="button"
           onClick={handleOpenAdd}
@@ -76,8 +83,9 @@ export default function TimetableCell({
         type="button"
         onClick={() => router.push(`/offerings/${item.offeringId}`)}
         className={[
-          'relative flex h-full min-h-24 w-full flex-col rounded-xl border p-3 text-left shadow-sm transition hover:-translate-y-0.5',
+          'relative flex h-full min-h-24 w-full flex-col rounded-xl border p-3 pb-12 text-left shadow-sm transition hover:-translate-y-0.5',
           item.status === 'dropped' ? 'opacity-60' : '',
+          isHighlighted ? 'shadow-[0_0_0_3px_rgba(59,130,246,0.22)] ring-1 ring-blue-300' : '',
           COLOR_STYLES[item.colorToken],
         ].join(' ')}
       >
@@ -93,6 +101,19 @@ export default function TimetableCell({
         >
           {STATUS_STYLES[item.status].label}
         </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleOpenAdd();
+        }}
+        className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-white/80 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white"
+        aria-label="このコマに授業を追加"
+      >
+        <Plus className="h-3 w-3" />
+        追加
       </button>
 
       {overlapCount > 1 && onOpenOverlaps ? (

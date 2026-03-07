@@ -150,10 +150,11 @@ export default async function OfferingDetailPage({
     user
       ? supabase
           .from('enrollments')
-          .select('user_id', { count: 'exact', head: true })
+          .select('status')
           .eq('offering_id', offeringId)
           .eq('user_id', user.id)
-      : Promise.resolve({ count: 0 } as { count: number | null }),
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as { data: { status: string } | null; error: null }),
   ]);
 
   const counts: OfferingCounts = {
@@ -163,7 +164,10 @@ export default async function OfferingDetailPage({
     students: Number(enrollmentsCountRes.data ?? 0),
   };
 
-  const isEnrolled = (enrollmentRes.count ?? 0) > 0;
+  const initialEnrollmentStatus =
+    user && 'data' in enrollmentRes && enrollmentRes.data && typeof enrollmentRes.data === 'object' && 'status' in enrollmentRes.data
+      ? ((enrollmentRes.data.status as string | null) ?? null)
+      : null;
 
   const notesFrom = (notesPage - 1) * PAGE_SIZE;
   const notesTo = notesFrom + PAGE_SIZE;
@@ -367,7 +371,16 @@ export default async function OfferingDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/70 shadow-sm backdrop-blur">
-      <OfferingHeader offeringId={offeringId} offering={offeringMeta} canEnroll={Boolean(user)} isEnrolledInitial={isEnrolled} />
+      <OfferingHeader
+        offeringId={offeringId}
+        offering={offeringMeta}
+        canEnroll={Boolean(user)}
+        initialEnrollmentStatus={
+          initialEnrollmentStatus === 'enrolled' || initialEnrollmentStatus === 'planned' || initialEnrollmentStatus === 'dropped'
+            ? initialEnrollmentStatus
+            : null
+        }
+      />
       <div className="border-t border-slate-100 bg-blue-50/80 px-6 py-3 text-xs text-blue-800">
         ノート・口コミ・質問は同大学スコープで表示されます。大学・学年が未設定だと他ユーザーの投稿が表示されない場合があります（
         <span className="font-mono">/me</span> のプロフィール編集で変更できます）。

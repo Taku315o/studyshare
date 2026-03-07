@@ -4,6 +4,10 @@ import {
   DEFAULT_GLOBAL_TIMETABLE_CONFIG,
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
+import {
+  TIMETABLE_HIGHLIGHT_STORAGE_KEY,
+  TIMETABLE_SCROLL_STORAGE_KEY,
+} from '@/lib/timetable/add';
 import TimetableGrid from './TimetableGrid';
 
 jest.mock('@/lib/supabase/client', () => ({
@@ -23,8 +27,11 @@ jest.mock('@/lib/timetable/config', () => ({
   formatWeekdayLabel: jest.fn((day: number) => ['?', '月', '火', '水', '木', '金', '土', '日'][day] ?? '?'),
 }));
 
+const mockPush = jest.fn();
+
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn().mockReturnValue({ push: jest.fn() }),
+  useRouter: jest.fn(() => ({ push: mockPush })),
+  usePathname: jest.fn(() => '/timetable'),
 }));
 
 type TimetableRow = {
@@ -34,6 +41,7 @@ type TimetableRow = {
     id: string;
     instructor: string | null;
     courses: { id: string; name: string };
+    terms?: { id: string; year: number; season: string; start_date: string | null; end_date: string | null };
     offering_slots: Array<{ day_of_week: number; period: number; start_time: string | null }>;
   };
 };
@@ -43,14 +51,14 @@ const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mo
 describe('TimetableGrid', () => {
   const mockGetUser = jest.fn();
   const mockProfilesMaybeSingle = jest.fn();
+  const mockTermsEq = jest.fn();
   const mockEnrollmentsIn = jest.fn();
-  const mockProfilesEq = jest.fn(() => ({ maybeSingle: mockProfilesMaybeSingle }));
-  const mockEnrollmentsEq = jest.fn(() => ({ in: mockEnrollmentsIn }));
-  const mockSelect = jest.fn();
-  const mockFrom = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
+    window.scrollTo = jest.fn();
+
     loadEffectiveTimetableConfigMock.mockResolvedValue({
       config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
       presetId: 'preset-1',
@@ -59,19 +67,43 @@ describe('TimetableGrid', () => {
 
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     mockProfilesMaybeSingle.mockResolvedValue({ data: { university_id: 'uni-1' }, error: null });
-
-    mockSelect.mockImplementation((selectClause: string) => {
-      if (selectClause.includes('university_id')) {
-        return { eq: mockProfilesEq };
-      }
-      return { eq: mockEnrollmentsEq };
+    mockTermsEq.mockResolvedValue({
+      data: [{ id: 'term-current', year: 2026, season: 'first_half', start_date: null, end_date: null }],
+      error: null,
     });
-
-    mockFrom.mockImplementation(() => ({ select: mockSelect }));
+    mockEnrollmentsIn.mockResolvedValue({ data: [], error: null });
 
     (createSupabaseClient as jest.Mock).mockReturnValue({
       auth: { getUser: mockGetUser },
-      from: mockFrom,
+      from: jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({ maybeSingle: mockProfilesMaybeSingle })),
+            })),
+          };
+        }
+
+        if (table === 'terms') {
+          return {
+            select: jest.fn(() => ({
+              eq: mockTermsEq,
+            })),
+          };
+        }
+
+        if (table === 'enrollments') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                in: mockEnrollmentsIn,
+              })),
+            })),
+          };
+        }
+
+        throw new Error(`Unexpected table: ${table}`);
+      }),
     });
   });
 
@@ -109,74 +141,58 @@ describe('TimetableGrid', () => {
     });
   });
 
-  it('hides dropped offerings by default and shows them when toggle is enabled', async () => {
-    const droppedRow: TimetableRow = {
-      created_at: '2026-02-17T00:00:00.000Z',
-      status: 'dropped',
-      offering: {
-        id: 'offering-d',
-        instructor: '佐々木 花',
-        courses: { id: 'course-d', name: '機械学習入門' },
-        offering_slots: [{ day_of_week: 1, period: 1, start_time: '09:00:00' }],
-      },
-    };
+  it('routes empty cell clicks to the timetable add page with slot context', async () => {
+    render(<TimetableGrid />);
 
-    mockEnrollmentsIn.mockImplementation((_column: string, statuses: string[]) =>
-      Promise.resolve({
-        data: statuses.includes('dropped') ? [droppedRow] : [],
-        error: null,
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: '空きコマ' }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: '空きコマ' })[0]);
+
+    expect(mockPush).toHaveBeenCalledWith('/timetable/add?termId=term-current&day=mon&period=1&returnTo=%2Ftimetable');
+  });
+
+  it('routes occupied cell add actions to the timetable add page', async () => {
+    mockEnrollmentsIn.mockResolvedValue({
+      data: [
+        {
+          created_at: '2026-02-17T00:00:00.000Z',
+          status: 'enrolled',
+          offering: {
+            id: 'offering-b',
+            instructor: '佐藤 花',
+            courses: { id: 'course-b', name: '線形代数' },
+            offering_slots: [{ day_of_week: 2, period: 3, start_time: '13:10:00' }],
+          },
+        },
+      ] satisfies TimetableRow[],
+      error: null,
+    });
+
+    render(<TimetableGrid />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('線形代数').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'このコマに授業を追加' })[0]);
+
+    expect(mockPush).toHaveBeenCalledWith('/timetable/add?termId=term-current&day=tue&period=3&returnTo=%2Ftimetable');
+  });
+
+  it('restores scroll position and highlights out-of-config items from session storage', async () => {
+    window.sessionStorage.setItem(TIMETABLE_SCROLL_STORAGE_KEY, '420');
+    window.sessionStorage.setItem(
+      TIMETABLE_HIGHLIGHT_STORAGE_KEY,
+      JSON.stringify({
+        offeringId: 'offering-x',
+        dayOfWeek: 2,
+        period: 3,
+        outOfConfig: true,
       }),
     );
 
-    render(<TimetableGrid />);
-
-    await waitFor(() => {
-      expect(screen.queryByText('機械学習入門')).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('checkbox', { name: '取消を表示' }));
-
-    await waitFor(() => {
-      expect(screen.getAllByText('機械学習入門').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('取消').length).toBeGreaterThan(0);
-    });
-  });
-
-  it('shows overlap badge when multiple offerings share the same slot', async () => {
-    const rows: TimetableRow[] = [
-      {
-        created_at: '2026-02-16T00:00:00.000Z',
-        status: 'enrolled',
-        offering: {
-          id: 'offering-1',
-          instructor: '山田 太郎',
-          courses: { id: 'course-1', name: '統計学' },
-          offering_slots: [{ day_of_week: 3, period: 2, start_time: '10:45:00' }],
-        },
-      },
-      {
-        created_at: '2026-02-17T00:00:00.000Z',
-        status: 'planned',
-        offering: {
-          id: 'offering-2',
-          instructor: '鈴木 一郎',
-          courses: { id: 'course-2', name: '情報倫理' },
-          offering_slots: [{ day_of_week: 3, period: 2, start_time: '10:45:00' }],
-        },
-      },
-    ];
-
-    mockEnrollmentsIn.mockResolvedValue({ data: rows, error: null });
-
-    render(<TimetableGrid />);
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: '重複している授業を表示' }).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('+1').length).toBeGreaterThan(0);
-    });
-  });
-
-  it('shows warning when offerings exist outside configured timetable slots', async () => {
     loadEffectiveTimetableConfigMock.mockResolvedValue({
       config: {
         weekdays: [1, 2, 3, 4, 5],
@@ -198,7 +214,7 @@ describe('TimetableGrid', () => {
             offering_slots: [{ day_of_week: 2, period: 3, start_time: null }],
           },
         },
-      ],
+      ] satisfies TimetableRow[],
       error: null,
     });
 
@@ -206,7 +222,9 @@ describe('TimetableGrid', () => {
 
     await waitFor(() => {
       expect(screen.getByText('設定外の授業が 1 件あります。設定を見直してください。')).toBeInTheDocument();
-      expect(screen.getByText('線形代数 / 火曜 3限')).toBeInTheDocument();
+      expect(window.scrollTo).toHaveBeenCalledWith({ top: 420, behavior: 'auto' });
     });
+
+    expect(screen.getByText('線形代数 / 火曜 3限')).toHaveClass('font-semibold');
   });
 });

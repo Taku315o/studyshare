@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 import TimetableConfigPreview from '@/components/timetable/TimetableConfigPreview';
 import TimetableSettingsModal from '@/components/timetable/TimetableSettingsModal';
@@ -15,7 +14,6 @@ import {
 } from '@/lib/timetable/config';
 import type { TimetableConfig } from '@/types/timetable';
 import type { MeVisibilityUiState } from '@/types/me';
-import type { Database } from '@/types/supabase';
 import supabase from '@/lib/supabase';
 
 const VISIBILITY_HELP_TEXT: Record<MeVisibilityUiState['selected'], string> = {
@@ -38,7 +36,7 @@ type ProfileSettingsRow = {
 export default function SettingsPanel() {
   const { signOut } = useAuth();
   const supabaseClient = supabase;
-  const typedSupabase = supabaseClient as unknown as SupabaseClient<Database>;
+  const typedSupabase = supabaseClient;
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();

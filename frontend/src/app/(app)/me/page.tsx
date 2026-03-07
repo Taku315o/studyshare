@@ -8,6 +8,7 @@ import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
 import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
+import { formatSeasonLabel, parseDateAtStartOfDay, resolveCurrentTerm } from '@/lib/timetable/terms';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -19,6 +20,7 @@ import type {
   MeUniversityOption,
 } from '@/types/me';
 import type { Database } from '@/types/supabase';
+import type { TimetableTermOption } from '@/types/timetable';
 
 type ProfileRow = {
   user_id: string;
@@ -168,33 +170,11 @@ type EnrollmentQueryRow = {
     | null;
 };
 
-type TermSnapshot = {
-  id: string;
-  label: string;
-  year: number;
-  season: string;
-  startDate: Date | null;
-  endDate: Date | null;
-};
-
 const ENROLLMENT_STATUSES = ['enrolled', 'planned'] as const;
 
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function formatSeasonLabel(season: string) {
-  if (season === 'first_half') return '前期';
-  if (season === 'second_half') return '後期';
-  return season;
-}
-
-// termのstart_dateとend_dateは日付のみで時間情報がないため、日付の開始時刻としてDateオブジェクトを生成する
-function parseDateAtStartOfDay(value: string | null) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 // ユーザープロフィールの情報を表すViewModel
@@ -290,31 +270,6 @@ function isEnrollmentStatus(value: string): value is (typeof ENROLLMENT_STATUSES
   return value === 'enrolled' || value === 'planned';
 }
 
-function resolveCurrentTerm(terms: TermSnapshot[], today: Date) {
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  const active = terms
-    .filter((term) => term.startDate && term.endDate)
-    .filter((term) => {
-      if (!term.startDate || !term.endDate) return false;
-      const endDate = new Date(term.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      return term.startDate <= todayDate && todayDate <= endDate;
-    })
-    .sort((left, right) => {
-      if (!left.startDate || !right.startDate) return 0;
-      return right.startDate.getTime() - left.startDate.getTime();
-    });
-
-  if (active.length > 0) return active[0];
-
-  const seasonRank = (season: string) => (season === 'second_half' ? 2 : 1);
-  return [...terms].sort((left, right) => {
-    if (left.year !== right.year) return right.year - left.year;
-    return seasonRank(right.season) - seasonRank(left.season);
-  })[0] ?? null;
-}
-
 function formatStartTime(value: string | null) {
   if (!value) return null;
   const [hour, minute] = value.split(':');
@@ -323,7 +278,7 @@ function formatStartTime(value: string | null) {
 }
 
 function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryViewModel {
-  const termMap = new Map<string, TermSnapshot>();
+  const termMap = new Map<string, TimetableTermOption>();
   const entries: Array<{
     offeringId: string;
     courseTitle: string;

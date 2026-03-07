@@ -204,7 +204,14 @@ export default function CommunityPage() {
       return false;
     }
 
-    const { data, error } = await typedSupabase.rpc('can_send_message', {
+    const rpcClient = typedSupabase as unknown as {
+      rpc: (
+        fn: 'can_send_message',
+        args: { _uid: string },
+      ) => Promise<{ data: boolean | null; error: { message?: string } | null }>;
+    };
+
+    const { data, error } = await rpcClient.rpc('can_send_message', {
       _uid: currentUserId,
     });
 
@@ -220,7 +227,14 @@ export default function CommunityPage() {
     setMatchingErrorMessage(null);
 
     try {
-      const { data, error } = await typedSupabase.rpc('find_match_candidates', {
+      const rpcClient = typedSupabase as unknown as {
+        rpc: (
+          fn: 'find_match_candidates',
+          args: { _limit: number; _min_shared: number },
+        ) => Promise<{ data: MatchCandidateRpcRow[] | null; error: { message?: string } | null }>;
+      };
+
+      const { data, error } = await rpcClient.rpc('find_match_candidates', {
         _limit: MATCH_LIMIT,
         _min_shared: 1,
       });
@@ -735,7 +749,14 @@ export default function CommunityPage() {
       }
 
       try {
-        const { data, error } = await typedSupabase.rpc('create_direct_conversation', {
+        const rpcClient = typedSupabase as unknown as {
+          rpc: (
+            fn: 'create_direct_conversation',
+            args: { _other_user_id: string },
+          ) => Promise<{ data: string | null; error: { message?: string } | null }>;
+        };
+
+        const { data, error } = await rpcClient.rpc('create_direct_conversation', {
           _other_user_id: candidate.userId,
         });
 

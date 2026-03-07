@@ -1165,6 +1165,24 @@ export type Database = {
         Args: { _offering_id: string }
         Returns: number
       }
+      create_offering_and_enroll: {
+        Args: {
+          _confirm_distinct?: boolean
+          _course_code?: string | null
+          _course_title: string
+          _day_of_week?: number | null
+          _instructor?: string | null
+          _period?: number | null
+          _room?: string | null
+          _term_id: string
+        }
+        Returns: {
+          day_of_week: number | null
+          offering_id: string
+          period: number | null
+          status: Database["public"]["Enums"]["enrollment_status"]
+        }[]
+      }
       offering_review_stats: {
         Args: { _offering_id: string }
         Returns: {
@@ -1181,8 +1199,56 @@ export type Database = {
         Args: { _a: string; _b: string }
         Returns: number
       }
+      search_timetable_offerings: {
+        Args: {
+          _day_of_week?: number | null
+          _limit?: number
+          _offset?: number
+          _period?: number | null
+          _query?: string | null
+          _term_id: string
+        }
+        Returns: {
+          course_code: string | null
+          course_title: string | null
+          created_at: string
+          enrollment_count: number
+          instructor: string | null
+          my_status: Database["public"]["Enums"]["enrollment_status"] | null
+          offering_id: string
+          room: string | null
+          slot_details: Json
+          slot_labels: string[] | null
+          slot_match: boolean
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      suggest_offering_duplicates: {
+        Args: {
+          _course_title: string
+          _day_of_week?: number | null
+          _instructor?: string | null
+          _limit?: number
+          _period?: number | null
+          _term_id: string
+        }
+        Returns: {
+          candidate_kind: string | null
+          course_code: string | null
+          course_title: string | null
+          created_at: string
+          enrollment_count: number
+          instructor: string | null
+          my_status: Database["public"]["Enums"]["enrollment_status"] | null
+          offering_id: string
+          reasons: string[] | null
+          room: string | null
+          slot_details: Json
+          slot_labels: string[] | null
+          slot_match: boolean
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
       unfollow_user: {
         Args: { _following_user_id: string }
@@ -1205,6 +1271,19 @@ export type Database = {
         Returns: undefined
       }
       user_university_id: { Args: { _uid: string }; Returns: string }
+      upsert_enrollment: {
+        Args: {
+          _offering_id: string
+          _status?: Database["public"]["Enums"]["enrollment_status"]
+        }
+        Returns: {
+          offering_id: string
+          previous_status: Database["public"]["Enums"]["enrollment_status"] | null
+          status: Database["public"]["Enums"]["enrollment_status"]
+          visibility: Database["public"]["Enums"]["enrollment_visibility"]
+          was_inserted: boolean
+        }[]
+      }
       update_visibility_settings: {
         Args: {
           new_visibility: Database["public"]["Enums"]["enrollment_visibility"]

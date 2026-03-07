@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 import FollowListModal from '@/components/profile/FollowListModal';
 import { createSupabaseClient } from '@/lib/supabase/client';
@@ -29,7 +28,7 @@ export default function ProfileFollowPanel({
   showFollowButton,
 }: ProfileFollowPanelProps) {
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
+  const typedSupabase = supabase;
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
   const [followingCount, setFollowingCount] = useState(initialFollowingCount);
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
@@ -75,7 +74,16 @@ export default function ProfileFollowPanel({
 
     try {
       const operation = nextIsFollowing ? 'follow_user' : 'unfollow_user';
-      const { data, error } = await typedSupabase
+      const rpcClient = typedSupabase as unknown as {
+        rpc: (
+          fn: 'follow_user' | 'unfollow_user',
+          args: { _following_user_id: string },
+        ) => {
+          single: () => Promise<{ data: FollowSummaryRow | null; error: { message?: string } | null }>;
+        };
+      };
+
+      const { data, error } = await rpcClient
         .rpc(operation, { _following_user_id: targetUserId })
         .single();
 

@@ -16,6 +16,7 @@ describe('TimetableCell', () => {
   });
 
   it('renders offering information and navigates to offering detail on click', () => {
+    const onOpenAdd = jest.fn();
     const item: TimetableOfferingItem = {
       offeringId: 'offering-1',
       courseTitle: 'データベース概論',
@@ -34,7 +35,7 @@ describe('TimetableCell', () => {
         period={1}
         item={item}
         overlapCount={1}
-        onOpenAdd={jest.fn()}
+        onOpenAdd={onOpenAdd}
       />,
     );
 
@@ -46,6 +47,9 @@ describe('TimetableCell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /データベース概論/ }));
     expect(mockPush).toHaveBeenCalledWith('/offerings/offering-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'このコマに授業を追加' }));
+    expect(onOpenAdd).toHaveBeenCalledWith(1, 1);
   });
 
   it('shows add lesson hint on hover and calls add handler when empty cell is clicked', () => {
