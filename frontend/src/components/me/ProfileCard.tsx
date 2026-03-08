@@ -255,6 +255,7 @@ export default function ProfileCard({
                   <label className="block">
                     <span className="text-sm font-medium text-slate-700">自己紹介（任意）</span>
                     <textarea
+                      aria-label="自己紹介（任意）"
                       name="bio"
                       value={bioInput}
                       onChange={(event) => setBioInput(event.target.value)}
