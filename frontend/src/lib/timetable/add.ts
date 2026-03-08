@@ -1,4 +1,5 @@
 import { resolveSafeNextPath } from '@/lib/nextPath';
+import { buildOfferingFinderHref, readOfferingFinderContext } from '@/lib/offerings/finder';
 import type {
   TimetableAddContext,
   TimetableDayParam,
@@ -56,42 +57,26 @@ type BuildTimetableAddHrefArgs = {
 };
 
 export function buildTimetableAddHref(args: BuildTimetableAddHrefArgs) {
-  const params = new URLSearchParams();
-
-  if (args.termId) {
-    params.set('termId', args.termId);
-  }
-
-  if (args.dayOfWeek) {
-    params.set('day', weekdayToDayParam(args.dayOfWeek));
-  }
-
-  if (typeof args.period === 'number' && Number.isFinite(args.period)) {
-    params.set('period', String(args.period));
-  }
-
-  const query = args.query?.trim();
-  if (query) {
-    params.set('q', query);
-  }
-
-  params.set('returnTo', resolveSafeNextPath(args.returnTo, { fallback: '/timetable' }));
-
-  const queryString = params.toString();
-  return queryString ? `/timetable/add?${queryString}` : '/timetable/add';
+  return buildOfferingFinderHref({
+    mode: 'timetable-add',
+    termId: args.termId,
+    dayOfWeek: args.dayOfWeek,
+    period: args.period,
+    q: args.query,
+    returnTo: args.returnTo,
+  });
 }
 
 export function readTimetableAddContext(searchParams: URLSearchParams): TimetableAddContext {
-  const periodParam = searchParams.get('period');
-  const period = periodParam ? Number(periodParam) : null;
+  const context = readOfferingFinderContext(searchParams, 'timetable-add');
 
   return {
-    termId: searchParams.get('termId'),
-    dayParam: (searchParams.get('day') as TimetableDayParam | null) ?? null,
-    dayOfWeek: parseTimetableDayParam(searchParams.get('day')),
-    period: Number.isInteger(period) && period !== null && period > 0 ? period : null,
-    query: searchParams.get('q')?.trim() ?? '',
-    returnTo: resolveSafeNextPath(searchParams.get('returnTo'), { fallback: '/timetable' }),
+    termId: context.termId,
+    dayParam: context.day,
+    dayOfWeek: context.dayOfWeek,
+    period: context.period,
+    query: context.q,
+    returnTo: context.returnTo ?? resolveSafeNextPath(null, { fallback: '/timetable' }),
   };
 }
 

@@ -29,7 +29,6 @@ const mockReplace = jest.fn();
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({ replace: mockReplace })),
-  useSearchParams: jest.fn(() => new URLSearchParams('day=mon&period=1&termId=term-current&q=マーケ&returnTo=%2Ftimetable')),
 }));
 
 const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mock;
@@ -78,8 +77,8 @@ describe('TimetableAddRoute', () => {
     });
     mockTermsEq.mockResolvedValue({
       data: [
-        { id: 'term-current', year: 2026, season: 'first_half', start_date: null, end_date: null },
-        { id: 'term-old', year: 2025, season: 'second_half', start_date: null, end_date: null },
+        { id: 'term-current', year: 2026, season: 'first_half', start_date: '2026-04-01', end_date: '2026-08-01' },
+        { id: 'term-old', year: 2025, season: 'second_half', start_date: '2025-09-01', end_date: '2026-01-31' },
       ],
       error: null,
     });
@@ -98,6 +97,19 @@ describe('TimetableAddRoute', () => {
               slot_match: true,
               enrollment_count: 2,
               my_status: null,
+              created_at: '2026-03-01T00:00:00.000Z',
+            },
+            {
+              offering_id: 'offering-2',
+              course_title: '経営学入門',
+              course_code: null,
+              instructor: '佐藤花',
+              room: '201',
+              slot_labels: ['火曜 2限'],
+              slot_details: [{ dayOfWeek: 2, period: 2, room: '201' }],
+              slot_match: false,
+              enrollment_count: 4,
+              my_status: 'planned',
               created_at: '2026-03-01T00:00:00.000Z',
             },
           ],
@@ -137,30 +149,48 @@ describe('TimetableAddRoute', () => {
     (console.error as jest.Mock).mockRestore();
   });
 
-  it('renders contextual header, query prefill, and slot-matched results', async () => {
-    render(<TimetableAddRoute />);
+  it('renders contextual header and timetable-specific CTAs', async () => {
+    const view = await TimetableAddRoute({
+      searchParams: Promise.resolve({
+        day: 'mon',
+        period: '1',
+        termId: 'term-current',
+        q: 'マーケ',
+        returnTo: '/timetable',
+      }),
+    });
+
+    render(view);
 
     expect(await screen.findByRole('heading', { name: '月曜 1限 の授業を追加' })).toBeInTheDocument();
     expect(await screen.findByText('大学: 専修大学 / 学期: 2026 前期')).toBeInTheDocument();
     expect(await screen.findByText('マーケティング')).toBeInTheDocument();
-
-    expect(screen.getByDisplayValue('マーケ')).toBeInTheDocument();
     expect(screen.getByText('このコマに一致')).toBeInTheDocument();
-    expect(screen.getByText('月曜 1限 に一致する授業を優先表示しています。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登録' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: '詳細を見る' }).length).toBeGreaterThan(0);
+    expect(screen.getByText('追加済み')).toBeInTheDocument();
   });
 
   it('updates the route when the selected term changes', async () => {
-    render(<TimetableAddRoute />);
+    const view = await TimetableAddRoute({
+      searchParams: Promise.resolve({
+        day: 'mon',
+        period: '1',
+        termId: 'term-current',
+        q: 'マーケ',
+        returnTo: '/timetable',
+      }),
+    });
+
+    render(view);
 
     expect(await screen.findByDisplayValue('2026 前期')).toBeInTheDocument();
-    expect(await screen.findByText('マーケティング')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByDisplayValue('2026 前期'), {
+    fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'term-old' },
     });
 
     expect(mockReplace).toHaveBeenCalledWith(
-      '/timetable/add?termId=term-old&day=mon&period=1&q=%E3%83%9E%E3%83%BC%E3%82%B1&returnTo=%2Ftimetable',
+      '/timetable/add?termId=term-old&q=%E3%83%9E%E3%83%BC%E3%82%B1&day=mon&period=1&returnTo=%2Ftimetable',
     );
   });
 });
