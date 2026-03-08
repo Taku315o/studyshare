@@ -41,14 +41,15 @@
 **時間割ページ（追加）**
 - `src/app/(app)/timetable/page.tsx`: Server Componentでページ骨組みを提供
 - `src/app/(app)/timetable/add/page.tsx`: Server Componentで追加ページのラッパーを提供
-- `src/components/timetable/TimetableGrid.tsx`: Client Componentで `enrollments` と `profile_timetable_settings` をもとに動的時間割を構築し、セル文脈を `/timetable/add` へ渡す
-- `src/components/timetable/TimetableCell.tsx`: セル単位の表示責務（授業カード/空セルUI/追加導線）
+- `src/components/timetable/TimetableGrid.tsx`: Client Componentで `enrollments` と `profile_timetable_settings` をもとに動的時間割を構築し、セル文脈を `/timetable/add` へ渡しつつ、取消/再登録の状態更新を扱う
+- `src/components/timetable/TimetableCell.tsx`: セル単位の表示責務（授業カード/空セルUI/追加導線/取消/再登録）
+- `src/components/timetable/TimetableEnrollmentConfirmModal.tsx`: 時間割から外す/戻す確認モーダル
 - `src/components/timetable/TimetableAddPage.tsx`: 文脈付き検索、既存 offering 登録、戻り同期を扱う Client Component
 - `src/components/timetable/CreateOfferingModal.tsx`: 重複候補付きの新規講義作成モーダル
 - `src/components/timetable/TimetableSettingsModal.tsx`: 時間・曜日設定を編集する共有モーダル
 - `src/components/timetable/TimetableConfigPreview.tsx`: 時間割設定のプレビュー表示
 - `src/lib/timetable/add.ts`: 追加ページ用URL/context/sessionStorage utility
-- `src/lib/timetable/enrollment.ts`: `upsert_enrollment` 呼び出しと結果整形
+- `src/lib/timetable/enrollment.ts`: `upsert_enrollment` 呼び出しと状態更新結果整形
 - `src/lib/timetable/search.ts`: 検索結果・重複候補RPCの row mapper
 - `src/lib/timetable/terms.ts`: current term 解決ロジックの共通化
 - `src/lib/validation/offering.ts`: 新規講義作成フォームの `zod` schema
@@ -58,11 +59,13 @@
 - Offeringを主語に表示する（`course_offerings` をUI上「Offering」として扱う）
 - グリッドはユーザーの設定（`weekdays` / `periods`）をもとに動的生成する
 - 時間割の描画ソースは `enrollments + offering_slots` とし、空セルタップ/授業カードの補助ボタンは `/timetable/add?day=...&period=...&termId=...` へ遷移する
+- 時間割ページからの削除は `enrollments.status = 'dropped'` 更新として扱い、履歴を残したまま `取消を表示` と再登録導線で扱う
 - `/timetable/add` の初期一覧は `search_timetable_offerings` を一次ソースとし、同大学・同学期・同曜日限を優先表示する
 - 履修登録は `upsert_enrollment` で統一し、`dropped` 再登録も同じ mutation で扱う
 - 新規作成は `CreateOfferingModal` から `create_offering_and_enroll` を呼び、事前に `suggest_offering_duplicates` を表示して `exact/strong` 候補を blocking 扱いにする
 - 設定外スロットに授業が存在する場合は警告表示し、設定見直しを促す
 - 重複コマは「主表示1件 + `+N` バッジ」で表現し、詳細はモーダルで補完する
+- 削除/再登録導線は主表示カードと重複コマモーダルの両方に配置する
 - 追加ページからの戻り同期は `sessionStorage` による one-shot scroll/highlight payload で行う
 
 **コミュニティページ（追加）**

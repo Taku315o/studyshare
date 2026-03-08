@@ -18,6 +18,9 @@ type TimetableCellProps = {
   overlapCount: number;
   onOpenAdd: (dayOfWeek: TimetableWeekday, period: TimetablePeriod) => void;
   onOpenOverlaps?: () => void;
+  onRequestRemove?: (item: TimetableOfferingItem) => void;
+  onRequestRestore?: (item: TimetableOfferingItem) => void;
+  isMutating?: boolean;
   isHighlighted?: boolean;
 };
 
@@ -43,6 +46,9 @@ export default function TimetableCell({
   overlapCount,
   onOpenAdd,
   onOpenOverlaps,
+  onRequestRemove,
+  onRequestRestore,
+  isMutating = false,
   isHighlighted = false,
 }: TimetableCellProps) {
   const router = useRouter();
@@ -102,6 +108,36 @@ export default function TimetableCell({
           {STATUS_STYLES[item.status].label}
         </span>
       </button>
+
+      {item.status === 'dropped' && onRequestRestore ? (
+        <button
+          type="button"
+          disabled={isMutating}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRequestRestore?.(item);
+          }}
+          className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="時間割へ再登録"
+        >
+          {isMutating ? '処理中...' : '再登録'}
+        </button>
+      ) : null}
+
+      {item.status !== 'dropped' && onRequestRemove ? (
+        <button
+          type="button"
+          disabled={isMutating}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRequestRemove?.(item);
+          }}
+          className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="時間割から削除"
+        >
+          {isMutating ? '処理中...' : '削除'}
+        </button>
+      ) : null}
 
       <button
         type="button"

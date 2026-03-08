@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import toast from 'react-hot-toast';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import {
   DEFAULT_GLOBAL_TIMETABLE_CONFIG,
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
+import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
 import {
   TIMETABLE_HIGHLIGHT_STORAGE_KEY,
   TIMETABLE_SCROLL_STORAGE_KEY,
@@ -12,6 +14,10 @@ import TimetableGrid from './TimetableGrid';
 
 jest.mock('@/lib/supabase/client', () => ({
   createSupabaseClient: jest.fn(),
+}));
+
+jest.mock('@/lib/timetable/enrollment', () => ({
+  updateEnrollmentStatus: jest.fn(),
 }));
 
 jest.mock('@/lib/timetable/config', () => ({
@@ -25,6 +31,14 @@ jest.mock('@/lib/timetable/config', () => ({
   },
   loadEffectiveTimetableConfig: jest.fn(),
   formatWeekdayLabel: jest.fn((day: number) => ['?', '月', '火', '水', '木', '金', '土', '日'][day] ?? '?'),
+}));
+
+jest.mock('react-hot-toast', () => ({
+  __esModule: true,
+  default: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 const mockPush = jest.fn();
@@ -47,6 +61,7 @@ type TimetableRow = {
 };
 
 const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mock;
+const updateEnrollmentStatusMock = updateEnrollmentStatus as jest.Mock;
 
 describe('TimetableGrid', () => {
   const mockGetUser = jest.fn();
@@ -72,6 +87,18 @@ describe('TimetableGrid', () => {
       error: null,
     });
     mockEnrollmentsIn.mockResolvedValue({ data: [], error: null });
+    updateEnrollmentStatusMock.mockResolvedValue({
+      success: true,
+      row: {
+        offering_id: 'offering-1',
+        previous_status: 'enrolled',
+        status: 'dropped',
+        visibility: 'match_only',
+        was_inserted: false,
+      },
+      alreadyActive: false,
+      wasReactivated: false,
+    });
 
     (createSupabaseClient as jest.Mock).mockReturnValue({
       auth: { getUser: mockGetUser },
@@ -226,5 +253,97 @@ describe('TimetableGrid', () => {
     });
 
     expect(screen.getByText('線形代数 / 火曜 3限')).toHaveClass('font-semibold');
+  });
+
+  it('removes an offering from the visible timetable after confirmation', async () => {
+    mockEnrollmentsIn.mockResolvedValue({
+      data: [
+        {
+          created_at: '2026-02-17T00:00:00.000Z',
+          status: 'enrolled',
+          offering: {
+            id: 'offering-1',
+            instructor: '山田 太郎',
+            courses: { id: 'course-1', name: 'データベース概論' },
+            offering_slots: [{ day_of_week: 1, period: 1, start_time: '09:00:00' }],
+          },
+        },
+      ] satisfies TimetableRow[],
+      error: null,
+    });
+
+    render(<TimetableGrid />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('データベース概論').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: '時間割から削除' })[0]);
+    expect(screen.getByRole('dialog', { name: '時間割から外す' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '時間割から外す' }));
+
+    await waitFor(() => {
+      expect(updateEnrollmentStatusMock).toHaveBeenCalledWith(expect.anything(), {
+        offeringId: 'offering-1',
+        status: 'dropped',
+      });
+      expect(screen.queryByText('データベース概論')).not.toBeInTheDocument();
+      expect(toast.success).toHaveBeenCalledWith('時間割から外しました');
+    });
+  });
+
+  it('shows dropped offerings and allows restoring them when the toggle is enabled', async () => {
+    mockEnrollmentsIn.mockResolvedValue({
+      data: [
+        {
+          created_at: '2026-02-17T00:00:00.000Z',
+          status: 'dropped',
+          offering: {
+            id: 'offering-2',
+            instructor: '佐藤 花',
+            courses: { id: 'course-2', name: '統計学' },
+            offering_slots: [{ day_of_week: 2, period: 2, start_time: '10:45:00' }],
+          },
+        },
+      ] satisfies TimetableRow[],
+      error: null,
+    });
+    updateEnrollmentStatusMock.mockResolvedValue({
+      success: true,
+      row: {
+        offering_id: 'offering-2',
+        previous_status: 'dropped',
+        status: 'enrolled',
+        visibility: 'match_only',
+        was_inserted: false,
+      },
+      alreadyActive: false,
+      wasReactivated: true,
+    });
+
+    render(<TimetableGrid />);
+
+    expect(screen.queryByText('統計学')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '取消を表示' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('統計学').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: '時間割へ再登録' })[0]);
+    expect(screen.getByRole('dialog', { name: '時間割に戻す' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '再登録する' }));
+
+    await waitFor(() => {
+      expect(updateEnrollmentStatusMock).toHaveBeenCalledWith(expect.anything(), {
+        offeringId: 'offering-2',
+        status: 'enrolled',
+      });
+      expect(screen.getAllByText('履修中').length).toBeGreaterThan(0);
+      expect(toast.success).toHaveBeenCalledWith('時間割に再登録しました');
+    });
   });
 });

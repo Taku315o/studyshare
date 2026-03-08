@@ -133,7 +133,7 @@ async function fallbackUpsertEnrollment(
   };
 }
 
-export async function upsertEnrollment(
+export async function updateEnrollmentStatus(
   supabase: TypedSupabaseClient,
   args: {
     offeringId: string;
@@ -225,4 +225,17 @@ export async function upsertEnrollment(
       error: message,
     };
   }
+}
+
+export async function upsertEnrollment(
+  supabase: TypedSupabaseClient,
+  args: {
+    offeringId: string;
+    status?: TimetableStatus;
+  },
+): Promise<UpsertEnrollmentResult> {
+  return updateEnrollmentStatus(supabase, {
+    offeringId: args.offeringId,
+    status: args.status ?? 'enrolled',
+  });
 }

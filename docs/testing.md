@@ -14,8 +14,8 @@
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
 - `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
-- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告/セル遷移/戻りハイライト
-- `TimetableCell` セル表示（授業カード/空セル）と遷移動作
+- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告/セル遷移/戻りハイライト/削除/再登録/重複モーダル同期
+- `TimetableCell` セル表示（授業カード/空セル）と遷移動作、削除/再登録アクション
 - `TimetableAddPage` の文脈ヘッダー/検索語初期値/学期切替/slot match 優先表示
 - `CreateOfferingModal` の必須項目バリデーション/「不明」トグル/重複候補 blocking/override
 - `OfferingHeader` の時間割追加CTA（追加済み/再登録/再追加抑止）
@@ -62,6 +62,7 @@
 - `search_timetable_offerings` が `slot_match` / `enrollment_count` / `my_status` を返す
 - `suggest_offering_duplicates` が same title / instructor / slot / term の候補理由を返す
 - `upsert_enrollment` が active 重複追加を吸収し、`dropped` を `enrolled` へ戻せる
+- `upsert_enrollment(status='dropped')` で時間割ページから取消できる
 - `create_offering_and_enroll` が transaction 一括成功し、blocking 候補時は reject する
 - `courses` / `course_offerings` / `offering_slots` の直接 insert が client 前提になっていないこと
 - backend unit
@@ -97,6 +98,8 @@
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
 - 設定外スロットの授業がある場合に警告表示される
 - 空セルと授業カード補助ボタンから `/timetable/add` に文脈付き (`day/period/termId`) で遷移できる
+- 時間割カードと重複モーダルの両方から講義を取消でき、`取消を表示` オフでは即座に消える
+- `取消を表示` オンで取消済みカードが見え、時間割上から再登録できる
 - `/timetable/add` で登録成功後、時間割へ戻って再描画・スクロール復元・追加セルまたは設定外警告行のハイライトが見える
 - 新規講義作成時に重複候補が表示され、blocking 候補がある間は override 明示なしで作成できない
 - コミュニティで非選択スレッドへの新着受信時に一覧未読件数が増える

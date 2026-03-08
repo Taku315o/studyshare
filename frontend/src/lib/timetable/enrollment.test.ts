@@ -1,4 +1,4 @@
-import { upsertEnrollment } from './enrollment';
+import { updateEnrollmentStatus, upsertEnrollment } from './enrollment';
 
 describe('upsertEnrollment', () => {
   const mockGetUser = jest.fn();
@@ -127,5 +127,38 @@ describe('upsertEnrollment', () => {
       error: 'offering_not_found',
     });
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('updates dropped status through the shared mutation helper', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          offering_id: 'offering-1',
+          previous_status: 'enrolled',
+          status: 'dropped',
+          visibility: 'match_only',
+          was_inserted: false,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await updateEnrollmentStatus(supabase, {
+      offeringId: 'offering-1',
+      status: 'dropped',
+    });
+
+    expect(result).toEqual({
+      success: true,
+      row: {
+        offering_id: 'offering-1',
+        previous_status: 'enrolled',
+        status: 'dropped',
+        visibility: 'match_only',
+        was_inserted: false,
+      },
+      alreadyActive: false,
+      wasReactivated: false,
+    });
   });
 });

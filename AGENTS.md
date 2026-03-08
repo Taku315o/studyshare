@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-07
+最終更新: 2026-03-08
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -15,7 +15,7 @@
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
 - 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
-- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画し、セル押下で `/timetable/add` へ遷移して検索/新規作成/登録まで行える
+- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画し、セル押下で `/timetable/add` へ遷移して検索/新規作成/登録まで行え、時間割上から取消/再登録もできる
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - 他ユーザープロフィール (`/profile/[userId]`) ※DM + 片方向フォロー、フォロワー/フォロー中一覧モーダル
 - マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定・フォロー数表示
@@ -150,6 +150,7 @@ bucket未作成時:
 - `/me` の `SettingsPanel` に「時間割の時間・曜日」モーダルを実装（`modal=timetable-settings` クエリで初期表示対応）
 - `/timetable` に「時間・曜日を変更」導線を追加（`/me?modal=timetable-settings&from=timetable`）
 - `/timetable/add` で文脈付き講義検索、既存 offering 登録、重複候補付き新規作成、登録成功後の戻りハイライトに対応
+- `/timetable` で授業カード/重複コマ一覧から `enrollments.status='dropped'` による取消、取消済みカードからの再登録に対応
 - `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
@@ -312,7 +313,7 @@ backend or SQL RPCに寄せるべきもの:
 ### 優先度高
 - 認証復元タイミングが絡む投稿導線（`OfferingTabs`）
 - `AppRouteGuard`（未ログイン / onboarding未完了）
-- `TimetableGrid`（表示/空状態/`dropped`切替/セル遷移/戻りハイライト）
+- `TimetableGrid`（表示/空状態/`dropped`切替/取消/再登録/セル遷移/戻りハイライト/重複モーダル同期）
 - `/timetable/add`（文脈ヘッダー/検索/登録/学期切替）
 - `CreateOfferingModal`（必須項目/「不明」トグル/重複候補blocking）
 - `OfferingHeader` の時間割追加CTA（追加済み/再登録）
@@ -325,6 +326,8 @@ backend or SQL RPCに寄せるべきもの:
 - 同大学ユーザー / 別大学ユーザーで授業詳細の見え方が変わるか
 - 大学未設定ユーザーが `/onboarding` に誘導されるか
 - `/timetable` の空セル/埋まったセルから `/timetable/add` に正しい文脈 (`day/period/termId`) で遷移するか
+- `/timetable` の授業カードと重複コマ一覧から講義を取消でき、`取消を表示` オフでは即座に消えるか
+- `取消を表示` オンで取消済みカードが見え、時間割上から再登録できるか
 - `/timetable/add` で登録成功後、時間割に戻って反映・スクロール復元・追加セルハイライトが行われるか
 - 新規作成で重複候補が表示され、blocking候補があると override 明示なしで作成できないか
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
