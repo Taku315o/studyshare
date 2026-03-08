@@ -34,13 +34,13 @@
 - 質問詳細（`/offerings/[offeringId]/questions/[questionId]`）の回答投稿/返信投稿/削除済み表示
 - 授業詳細の質問一覧で回答件数表示と詳細遷移
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
-- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
+- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / 自己紹介 / アバター画像、外クリック閉じる、保存中は閉じない）
 - `ProfileFollowPanel` のフォロー作成/解除の optimistic update・二重送信防止・失敗時 rollback
 - `FollowListModal` の初回20件表示 / `もっと見る` によるページング
-- `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
+- `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` と `bio` を含めて upsert し、upload失敗時は保存を中断する
 - `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
 - `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
-- `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`）
+- `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`、自己紹介文字数上限）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
 - `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
 - `TimetableSummary` の空状態/授業表示

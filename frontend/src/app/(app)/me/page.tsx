@@ -26,6 +26,7 @@ type ProfileRow = {
   user_id: string;
   display_name: string;
   avatar_url: string | null;
+  bio: string | null;
   faculty: string | null;
   department: string | null;
   university_id: string | null;
@@ -188,6 +189,7 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null, userSt
     userId: user.id,
     displayName,
     avatarUrl: profileRow?.avatar_url ?? null,
+    bio: profileRow?.bio ?? null,
     faculty: profileRow?.faculty ?? null,
     universityId: profileRow?.university_id ?? null,
     universityName: university?.name ?? null,
@@ -418,7 +420,7 @@ export default function MePage() {
       const [profileRes, userStatsRes, universitiesRes, notesRes, reviewsRes, savedReactionsRes, enrollmentsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
+          .select('user_id, display_name, avatar_url, bio, faculty, department, university_id, grade_year, university:university_id(name)')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase
@@ -551,12 +553,14 @@ export default function MePage() {
       universityId,
       gradeYear,
       faculty,
+      bio,
       avatarFile,
     }: {
       displayName: string;
       universityId: string;
       gradeYear: number;
       faculty: string;
+      bio: string;
       avatarFile: File | null;
     }) => {
       if (!currentUserId) {
@@ -568,6 +572,7 @@ export default function MePage() {
         universityId,
         gradeYear,
         faculty,
+        bio,
       });
       if (!validation.success) {
         toast.error(getValidationErrorMessage(validation.error, 'プロフィールの入力内容を確認してください。'));
@@ -579,6 +584,7 @@ export default function MePage() {
         universityId: normalizedUniversityId,
         gradeYear: normalizedGradeYear,
         faculty: normalizedFaculty,
+        bio: normalizedBio,
       } = validation.data;
 
       setIsSavingProfile(true);
@@ -601,11 +607,12 @@ export default function MePage() {
               university_id: normalizedUniversityId,
               grade_year: normalizedGradeYear,
               faculty: normalizedFaculty || null,
+              bio: normalizedBio || null,
               ...(uploadedAvatarUrl ? { avatar_url: uploadedAvatarUrl } : {}),
             },
             { onConflict: 'user_id' },
           )
-          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year')
+          .select('user_id, display_name, avatar_url, bio, faculty, department, university_id, grade_year')
           .single();
 
         if (error) throw error;
@@ -616,6 +623,7 @@ export default function MePage() {
           userId: row.user_id,
           displayName: row.display_name,
           avatarUrl: row.avatar_url ?? null,
+          bio: row.bio ?? null,
           faculty: row.faculty ?? null,
           universityId: row.university_id ?? null,
           universityName: selectedUniversity?.name ?? null,
