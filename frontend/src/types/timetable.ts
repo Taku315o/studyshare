@@ -51,9 +51,10 @@ export type TimetableGridViewModel = {
 
 export type TimetableTermOption = {
   id: string;
-  label: string;
-  year: number;
-  season: string;
+  academicYear: number;
+  code: string;
+  displayName: string;
+  sortKey: number;
   startDate: Date | null;
   endDate: Date | null;
 };
@@ -104,7 +105,7 @@ export type TimetableReturnHighlight = {
   offeringId: string;
   dayOfWeek: TimetableWeekday | null;
   period: TimetablePeriod | null;
-  outOfConfig: boolean;
+  location: 'grid' | 'out_of_config' | 'unslotted';
 };
 
 export type TimetableSearchModalSource = 'page-search' | 'empty-cell' | 'matching-cta';

@@ -4,6 +4,8 @@
 - このページは旧 `assignments` 中心のデータモデルを主に記載している。
 - 現行アプリの中心モデルは `profiles` / `notes` / `reviews` / `course_offerings` / `enrollments` など（詳細は `docs/db_schema.md` を優先参照）。
 - `assignments` 関連は legacy 互換として backend に一部残存しているが、frontend 本体フローからは切り離している。
+- 現行時間割は `selectedTermId` で表示対象を切り替えるが、DB 上の履修 truth は `enrollments -> course_offerings -> terms` のみで管理する。
+- v1 の時間割 term 切替は `1 offering = 1 term` を前提とし、`通年` / `集中` は専用 term にのみ表示する。
 
 **主要テーブル**
 - `users`

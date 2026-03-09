@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import { loadEffectiveTimetableConfig } from '@/lib/timetable/config';
 import OfferingsPage from './page';
@@ -60,8 +60,24 @@ describe('OfferingsPage', () => {
     });
     mockTermsEq.mockResolvedValue({
       data: [
-        { id: 'term-current', year: 2026, season: 'first_half', start_date: null, end_date: null },
-        { id: 'term-old', year: 2025, season: 'second_half', start_date: null, end_date: null },
+        {
+          id: 'term-current',
+          academic_year: 2026,
+          code: 'first_half',
+          display_name: '前期',
+          sort_key: 10,
+          start_date: null,
+          end_date: null,
+        },
+        {
+          id: 'term-old',
+          academic_year: 2025,
+          code: 'second_half',
+          display_name: '後期',
+          sort_key: 20,
+          start_date: null,
+          end_date: null,
+        },
       ],
       error: null,
     });
@@ -127,7 +143,7 @@ describe('OfferingsPage', () => {
     expect(screen.queryByText('このコマに一致')).not.toBeInTheDocument();
   });
 
-  it('shows term prompt when no term is selected and starts search after selection', async () => {
+  it('normalizes to the default term when no term is selected', async () => {
     const view = await OfferingsPage({
       searchParams: Promise.resolve({
         q: 'マーケ',
@@ -136,12 +152,8 @@ describe('OfferingsPage', () => {
 
     render(view);
 
-    expect(await screen.findByText('学期を選択すると授業を検索できます。')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole('combobox'), {
-      target: { value: 'term-old' },
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/offerings?termId=term-current&q=%E3%83%9E%E3%83%BC%E3%82%B1');
     });
-
-    expect(mockReplace).toHaveBeenCalledWith('/offerings?termId=term-old&q=%E3%83%9E%E3%83%BC%E3%82%B1');
   });
 });

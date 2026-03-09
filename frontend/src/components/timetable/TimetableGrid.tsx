@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import TimetableCell from '@/components/timetable/TimetableCell';
 import TimetableEnrollmentConfirmModal from '@/components/timetable/TimetableEnrollmentConfirmModal';
@@ -17,9 +17,9 @@ import {
   formatWeekdayLabel,
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
-import { createSupabaseClient } from '@/lib/supabase/client';
-import { resolveCurrentTerm, formatSeasonLabel, parseDateAtStartOfDay, sortTermsDescending } from '@/lib/timetable/terms';
 import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
+import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
+import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   TimetableCellModel,
   TimetableColorToken,
@@ -32,47 +32,41 @@ import type {
   TimetableWeekday,
 } from '@/types/timetable';
 
-type EnrollmentQueryRow = {
-  created_at: string;
-  status: string;
-  offering:
-    | {
-        id: string;
-        instructor: string | null;
-        courses: { id: string; name: string } | Array<{ id: string; name: string }> | null;
-        terms:
-          | { id: string; year: number; season: string; start_date: string | null; end_date: string | null }
-          | Array<{ id: string; year: number; season: string; start_date: string | null; end_date: string | null }>
-          | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
-      }
-    | Array<{
-        id: string;
-        instructor: string | null;
-        courses: { id: string; name: string } | Array<{ id: string; name: string }> | null;
-        terms:
-          | { id: string; year: number; season: string; start_date: string | null; end_date: string | null }
-          | Array<{ id: string; year: number; season: string; start_date: string | null; end_date: string | null }>
-          | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
-      }>
-    | null;
-};
-
 type ProfileQueryRow = {
   university_id: string | null;
 };
 
 type TermQueryRow = {
   id: string;
-  year: number;
-  season: string;
+  academic_year: number;
+  code: string;
+  display_name: string;
+  sort_key: number;
   start_date: string | null;
   end_date: string | null;
 };
 
+type TimetableRpcRow = {
+  term_id: string;
+  term_academic_year: number;
+  term_code: string;
+  term_display_name: string;
+  term_sort_key: number;
+  offering_id: string;
+  course_title: string | null;
+  instructor: string | null;
+  status: string;
+  created_at: string;
+  day_of_week: number | null;
+  period: number | null;
+  start_time: string | null;
+  room: string | null;
+  is_unslotted: boolean | null;
+};
+
 type TimetableEnrollmentEntry = {
   offeringId: string;
+  termId: string;
   courseTitle: string;
   instructorName: string;
   colorToken: TimetableColorToken;
@@ -83,6 +77,23 @@ type TimetableEnrollmentEntry = {
     period: number;
     startTime: string;
   }>;
+  isUnslotted: boolean;
+  room: string | null;
+};
+
+type TimetableUnslottedItem = {
+  offeringId: string;
+  courseTitle: string;
+  instructorName: string;
+  colorToken: TimetableColorToken;
+  createdAt: string;
+  status: TimetableStatus;
+  room: string | null;
+};
+
+type PendingEnrollmentActionItem = {
+  offeringId: string;
+  courseTitle: string;
 };
 
 type OverlapTarget = {
@@ -98,11 +109,6 @@ const STATUS_PRIORITY: Record<TimetableStatus, number> = {
 
 const COLOR_TOKENS: TimetableColorToken[] = ['sky', 'indigo', 'emerald', 'amber', 'rose', 'teal'];
 const TIMETABLE_STATUSES: TimetableStatus[] = ['enrolled', 'planned', 'dropped'];
-
-function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null;
-  return Array.isArray(value) ? value[0] ?? null : value;
-}
 
 function isWeekdayValue(value: number | null): value is TimetableWeekday {
   return value !== null && value >= 1 && value <= 7;
@@ -142,7 +148,9 @@ function buildViewModel(items: TimetableOfferingItem[], config: TimetableConfig)
   items.forEach((item) => {
     const key = `${item.dayOfWeek}-${item.period}`;
     const current = buckets.get(key);
-    if (current) current.push(item);
+    if (current) {
+      current.push(item);
+    }
   });
 
   buckets.forEach((bucket) => {
@@ -178,81 +186,67 @@ function periodLabel(config: TimetableConfig, period: number | undefined) {
 function toTermOption(row: TermQueryRow): TimetableTermOption {
   return {
     id: row.id,
-    label: `${row.year} ${formatSeasonLabel(row.season)}`,
-    year: row.year,
-    season: row.season,
+    academicYear: row.academic_year,
+    code: row.code,
+    displayName: row.display_name,
+    sortKey: row.sort_key,
     startDate: parseDateAtStartOfDay(row.start_date),
     endDate: parseDateAtStartOfDay(row.end_date),
   };
 }
 
-function normalizeEnrollmentEntries(rows: EnrollmentQueryRow[], config: TimetableConfig) {
-  const entries: TimetableEnrollmentEntry[] = [];
-  const fallbackTermMap = new Map<string, TimetableTermOption>();
-
-  rows.forEach((row) => {
-    const status = row.status;
-    if (!isStatus(status)) return;
-
-    const offering = normalizeOne(row.offering);
-    if (!offering) return;
-
-    const course = normalizeOne(offering.courses);
-    const term = normalizeOne(offering.terms);
-    const rawSlots = Array.isArray(offering.offering_slots) ? offering.offering_slots : [];
-
-    if (term) {
-      fallbackTermMap.set(
-        term.id,
-        toTermOption({
-          id: term.id,
-          year: term.year,
-          season: term.season,
-          start_date: term.start_date,
-          end_date: term.end_date,
-        }),
-      );
-    }
-
-    const slots = rawSlots.flatMap((slot) => {
-      if (!isWeekdayValue(slot.day_of_week) || slot.period === null || !Number.isInteger(slot.period) || slot.period < 1) {
-        return [];
-      }
-
-      const fallbackStartTime = config.periods.find((period) => period.period === slot.period)?.startTime ?? '0:00';
-      return [
-        {
-          dayOfWeek: slot.day_of_week,
-          period: slot.period,
-          startTime: formatTime(slot.start_time, fallbackStartTime),
-        },
-      ];
-    });
-
-    entries.push({
-      offeringId: offering.id,
-      courseTitle: course?.name ?? '不明な授業',
-      instructorName: offering.instructor ?? '教員未設定',
-      colorToken: resolveColorToken(offering.id),
-      createdAt: row.created_at,
-      status,
-      slots,
-    });
-  });
-
-  return {
-    entries,
-    fallbackTerms: sortTermsDescending(Array.from(fallbackTermMap.values())),
-  };
+function buildTimetableHref(pathname: string | null, termId: string | null) {
+  const basePath = pathname ?? '/timetable';
+  if (!termId) return basePath;
+  return `${basePath}?termId=${encodeURIComponent(termId)}`;
 }
 
-function buildDisplayItems(entries: TimetableEnrollmentEntry[], showDropped: boolean) {
-  return entries.flatMap((entry) => {
-    if (!showDropped && entry.status === 'dropped') {
-      return [];
+function normalizeEnrollmentEntries(rows: TimetableRpcRow[], config: TimetableConfig) {
+  const byOfferingId = new Map<string, TimetableEnrollmentEntry>();
+
+  rows.forEach((row) => {
+    if (!isStatus(row.status)) return;
+
+    const existing = byOfferingId.get(row.offering_id);
+    const entry =
+      existing ??
+      {
+        offeringId: row.offering_id,
+        termId: row.term_id,
+        courseTitle: row.course_title ?? '不明な授業',
+        instructorName: row.instructor ?? '教員未設定',
+        colorToken: resolveColorToken(row.offering_id),
+        createdAt: row.created_at,
+        status: row.status,
+        slots: [],
+        isUnslotted: false,
+        room: row.room ?? null,
+      };
+
+    if (isWeekdayValue(row.day_of_week) && row.period !== null && Number.isInteger(row.period) && row.period > 0) {
+      const fallbackStartTime = config.periods.find((period) => period.period === row.period)?.startTime ?? '0:00';
+      entry.slots.push({
+        dayOfWeek: row.day_of_week,
+        period: row.period,
+        startTime: formatTime(row.start_time, fallbackStartTime),
+      });
+    } else if (row.is_unslotted || row.day_of_week === null || row.period === null) {
+      entry.isUnslotted = true;
     }
 
-    return entry.slots.map<TimetableOfferingItem>((slot) => ({
+    if (!entry.room && row.room) {
+      entry.room = row.room;
+    }
+
+    byOfferingId.set(row.offering_id, entry);
+  });
+
+  return Array.from(byOfferingId.values());
+}
+
+function buildDisplayItems(entries: TimetableEnrollmentEntry[]) {
+  return entries.flatMap((entry) =>
+    entry.slots.map<TimetableOfferingItem>((slot) => ({
       offeringId: entry.offeringId,
       courseTitle: entry.courseTitle,
       instructorName: entry.instructorName,
@@ -262,8 +256,8 @@ function buildDisplayItems(entries: TimetableEnrollmentEntry[], showDropped: boo
       status: entry.status,
       colorToken: entry.colorToken,
       createdAt: entry.createdAt,
-    }));
-  });
+    })),
+  );
 }
 
 function buildOutOfConfigItems(items: TimetableOfferingItem[], config: TimetableConfig) {
@@ -285,11 +279,25 @@ function buildOutOfConfigItems(items: TimetableOfferingItem[], config: Timetable
   return Array.from(uniqueMap.values());
 }
 
+function buildUnslottedItems(entries: TimetableEnrollmentEntry[]) {
+  return entries
+    .filter((entry) => entry.isUnslotted || entry.slots.length === 0)
+    .map<TimetableUnslottedItem>((entry) => ({
+      offeringId: entry.offeringId,
+      courseTitle: entry.courseTitle,
+      instructorName: entry.instructorName,
+      colorToken: entry.colorToken,
+      createdAt: entry.createdAt,
+      status: entry.status,
+      room: entry.room,
+    }));
+}
+
 export default function TimetableGrid() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const typedSupabase = supabase;
 
   const [enrollmentEntries, setEnrollmentEntries] = useState<TimetableEnrollmentEntry[]>([]);
   const [terms, setTerms] = useState<TimetableTermOption[]>([]);
@@ -300,7 +308,7 @@ export default function TimetableGrid() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [activeOverlapTarget, setActiveOverlapTarget] = useState<OverlapTarget | null>(null);
   const [activeHighlight, setActiveHighlight] = useState<TimetableReturnHighlight | null>(null);
-  const [pendingActionItem, setPendingActionItem] = useState<TimetableOfferingItem | null>(null);
+  const [pendingActionItem, setPendingActionItem] = useState<PendingEnrollmentActionItem | null>(null);
   const [pendingActionType, setPendingActionType] = useState<'drop' | 'restore' | null>(null);
   const [mutatingOfferingId, setMutatingOfferingId] = useState<string | null>(null);
 
@@ -308,6 +316,15 @@ export default function TimetableGrid() {
   const pendingHighlightRef = useRef<TimetableReturnHighlight | null>(null);
   const hasAppliedReturnStateRef = useRef(false);
   const highlightTimerRef = useRef<number | null>(null);
+
+  const rawSelectedTermId = searchParams.get('termId')?.trim() || null;
+  const defaultTerm = useMemo(() => resolveDefaultTerm(terms, new Date()), [terms]);
+  const selectedTerm = useMemo(
+    () => terms.find((term) => term.id === rawSelectedTermId) ?? defaultTerm,
+    [defaultTerm, rawSelectedTermId, terms],
+  );
+  const selectedTermId = selectedTerm?.id ?? null;
+  const timetableReturnPath = useMemo(() => buildTimetableHref(pathname, selectedTermId), [pathname, selectedTermId]);
 
   useEffect(() => {
     pendingScrollRef.current = consumeTimetableScrollPosition();
@@ -358,7 +375,7 @@ export default function TimetableGrid() {
 
         const profile = (profileData ?? null) as ProfileQueryRow | null;
 
-        const configPromise = loadEffectiveTimetableConfig(typedSupabase, user.id, profile?.university_id ?? null).catch((error) => {
+        const configPromise = loadEffectiveTimetableConfig(supabase, user.id, profile?.university_id ?? null).catch((error) => {
           console.error('[TimetableGrid] 時間割設定の取得に失敗しました。デフォルトを適用します:', error);
           return { config: DEFAULT_GLOBAL_TIMETABLE_CONFIG };
         });
@@ -366,67 +383,56 @@ export default function TimetableGrid() {
         const termsPromise = profile?.university_id
           ? supabase
               .from('terms')
-              .select('id, year, season, start_date, end_date')
+              .select('id, academic_year, code, display_name, sort_key, start_date, end_date')
               .eq('university_id', profile.university_id)
           : Promise.resolve({ data: [] as TermQueryRow[], error: null });
 
-        const statuses: TimetableStatus[] = showDropped ? ['enrolled', 'planned', 'dropped'] : ['enrolled', 'planned'];
-
-        const enrollmentsPromise = supabase
-          .from('enrollments')
-          .select(
-            `
-            created_at,
-            status,
-            offering:course_offerings (
-              id,
-              instructor,
-              courses:course_id (
-                id,
-                name
-              ),
-              terms:term_id (
-                id,
-                year,
-                season,
-                start_date,
-                end_date
-              ),
-              offering_slots (
-                day_of_week,
-                period,
-                start_time
-              )
-            )
-          `,
-          )
-          .eq('user_id', user.id)
-          .in('status', statuses);
-
-        const [configResult, termsResult, enrollmentsResult] = await Promise.all([
-          configPromise,
-          termsPromise,
-          enrollmentsPromise,
-        ]);
+        const [configResult, termsResult] = await Promise.all([configPromise, termsPromise]);
 
         if (termsResult.error) {
           throw termsResult.error;
         }
 
-        if (enrollmentsResult.error) {
-          throw enrollmentsResult.error;
-        }
-
-        const activeConfig = configResult.config;
-        const rows = (enrollmentsResult.data ?? []) as EnrollmentQueryRow[];
-        const normalized = normalizeEnrollmentEntries(rows, activeConfig);
-        const termRows = ((termsResult.data ?? []) as TermQueryRow[]).map(toTermOption);
-        const nextTerms = termRows.length > 0 ? sortTermsDescending(termRows) : normalized.fallbackTerms;
+        const nextTerms = sortTermsForSelector(((termsResult.data ?? []) as TermQueryRow[]).map(toTermOption));
+        const effectiveTerm = nextTerms.find((term) => term.id === rawSelectedTermId) ?? resolveDefaultTerm(nextTerms, new Date());
 
         if (!cancelled) {
-          setTimetableConfig(activeConfig);
-          setEnrollmentEntries(normalized.entries);
+          setTimetableConfig(configResult.config);
           setTerms(nextTerms);
+        }
+
+        if (effectiveTerm && rawSelectedTermId !== effectiveTerm.id) {
+          router.replace(buildTimetableHref(pathname, effectiveTerm.id));
+        }
+
+        if (!effectiveTerm) {
+          if (!cancelled) {
+            setEnrollmentEntries([]);
+          }
+          return;
+        }
+
+        const rpcClient = supabase as unknown as {
+          rpc: (
+            fn: 'list_my_timetable',
+            args: {
+              _term_id: string;
+              _include_dropped: boolean;
+            },
+          ) => Promise<{ data: TimetableRpcRow[] | null; error: { message?: string } | null }>;
+        };
+
+        const { data, error } = await rpcClient.rpc('list_my_timetable', {
+          _term_id: effectiveTerm.id,
+          _include_dropped: showDropped,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (!cancelled) {
+          setEnrollmentEntries(normalizeEnrollmentEntries(data ?? [], configResult.config));
         }
       } catch (error) {
         console.error(error);
@@ -448,7 +454,7 @@ export default function TimetableGrid() {
     return () => {
       cancelled = true;
     };
-  }, [showDropped, supabase, typedSupabase]);
+  }, [pathname, rawSelectedTermId, router, showDropped, supabase]);
 
   useEffect(() => {
     if (isLoading || errorMessage || hasAppliedReturnStateRef.current) {
@@ -472,16 +478,14 @@ export default function TimetableGrid() {
     }
   }, [errorMessage, isLoading]);
 
-  const displayItems = useMemo(
-    () => buildDisplayItems(enrollmentEntries, showDropped),
+  const visibleEntries = useMemo(
+    () => (showDropped ? enrollmentEntries : enrollmentEntries.filter((entry) => entry.status !== 'dropped')),
     [enrollmentEntries, showDropped],
   );
-  const currentTerm = useMemo(() => resolveCurrentTerm(terms, new Date()), [terms]);
+  const displayItems = useMemo(() => buildDisplayItems(visibleEntries), [visibleEntries]);
   const viewModel = useMemo(() => buildViewModel(displayItems, timetableConfig), [displayItems, timetableConfig]);
-  const outOfConfigItems = useMemo(
-    () => buildOutOfConfigItems(displayItems, timetableConfig),
-    [displayItems, timetableConfig],
-  );
+  const outOfConfigItems = useMemo(() => buildOutOfConfigItems(displayItems, timetableConfig), [displayItems, timetableConfig]);
+  const unslottedItems = useMemo(() => buildUnslottedItems(visibleEntries), [visibleEntries]);
 
   const cellLookup = useMemo(() => {
     const map = new Map<string, TimetableCellModel>();
@@ -492,9 +496,7 @@ export default function TimetableGrid() {
   }, [viewModel]);
 
   const activeOverlapCell = useMemo(() => {
-    if (!activeOverlapTarget) {
-      return null;
-    }
+    if (!activeOverlapTarget) return null;
 
     return (
       viewModel.cells.find(
@@ -520,11 +522,11 @@ export default function TimetableGrid() {
     persistTimetableScrollPosition();
     router.push(
       buildTimetableAddHref({
-        termId: currentTerm?.id ?? terms[0]?.id ?? null,
+        termId: selectedTermId,
         dayOfWeek: args.dayOfWeek ?? null,
         period: args.period ?? null,
         query: args.query ?? null,
-        returnTo: pathname ?? '/timetable',
+        returnTo: timetableReturnPath,
       }),
     );
   };
@@ -544,13 +546,19 @@ export default function TimetableGrid() {
     );
   };
 
-  const openDropConfirm = (item: TimetableOfferingItem) => {
-    setPendingActionItem(item);
+  const openDropConfirm = (item: { offeringId: string; courseTitle: string }) => {
+    setPendingActionItem({
+      offeringId: item.offeringId,
+      courseTitle: item.courseTitle,
+    });
     setPendingActionType('drop');
   };
 
-  const openRestoreConfirm = (item: TimetableOfferingItem) => {
-    setPendingActionItem(item);
+  const openRestoreConfirm = (item: { offeringId: string; courseTitle: string }) => {
+    setPendingActionItem({
+      offeringId: item.offeringId,
+      courseTitle: item.courseTitle,
+    });
     setPendingActionType('restore');
   };
 
@@ -571,7 +579,7 @@ export default function TimetableGrid() {
     setMutatingOfferingId(pendingActionItem.offeringId);
 
     try {
-      const result = await updateEnrollmentStatus(typedSupabase, {
+      const result = await updateEnrollmentStatus(supabase, {
         offeringId: pendingActionItem.offeringId,
         status: nextStatus,
       });
@@ -601,27 +609,50 @@ export default function TimetableGrid() {
     }
   };
 
+  const selectedTermLabel = selectedTerm ? buildTermLabel(selectedTerm) : '学期未設定';
+
   return (
     <div className="space-y-5 rounded-3xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur">
       <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 sm:flex-row">
-          <label className="flex h-11 flex-1 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4">
-            <Search className="h-4 w-4 text-slate-500" />
-            <input
-              type="text"
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              placeholder="授業名または教員名で検索"
-              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <form onSubmit={handleSearchSubmit} className="flex flex-1 flex-col gap-3 sm:flex-row">
+            <label className="flex h-11 flex-1 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4">
+              <Search className="h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(event) => setSearchKeyword(event.target.value)}
+                placeholder="授業名または教員名で検索"
+                className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              className="h-11 rounded-full bg-blue-500 px-6 text-sm font-semibold text-white transition hover:bg-blue-400"
+            >
+              検索
+            </button>
+          </form>
+
+          <label className="flex h-11 min-w-[220px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700">
+            <span className="shrink-0 text-slate-500">年度・学期</span>
+            <select
+              value={selectedTermId ?? ''}
+              onChange={(event) => {
+                router.replace(buildTimetableHref(pathname, event.target.value || null));
+              }}
+              disabled={terms.length === 0}
+              className="w-full bg-transparent text-sm focus:outline-none disabled:cursor-not-allowed"
+            >
+              <option value="">選択してください</option>
+              {terms.map((term) => (
+                <option key={term.id} value={term.id}>
+                  {buildTermLabel(term)}
+                </option>
+              ))}
+            </select>
           </label>
-          <button
-            type="submit"
-            className="h-11 rounded-full bg-blue-500 px-6 text-sm font-semibold text-white transition hover:bg-blue-400"
-          >
-            検索
-          </button>
-        </form>
+        </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
@@ -635,7 +666,7 @@ export default function TimetableGrid() {
           </label>
 
           <p className="text-xs text-slate-500">
-            追加候補の初期表示: {currentTerm?.label ?? '学期未設定'} / {terms.length > 0 ? '大学の学期あり' : '学期データ未設定'}
+            表示中: {selectedTermLabel} / {terms.length > 0 ? '大学の学期あり' : '学期データ未設定'}
           </p>
         </div>
       </div>
@@ -656,7 +687,7 @@ export default function TimetableGrid() {
               <ul className="mt-2 space-y-1 text-xs">
                 {outOfConfigItems.slice(0, 5).map((item) => {
                   const isHighlighted =
-                    activeHighlight?.outOfConfig &&
+                    activeHighlight?.location === 'out_of_config' &&
                     activeHighlight.offeringId === item.offeringId &&
                     activeHighlight.dayOfWeek === item.dayOfWeek &&
                     activeHighlight.period === item.period;
@@ -674,15 +705,77 @@ export default function TimetableGrid() {
             </section>
           ) : null}
 
-          {displayItems.length === 0 ? (
+          {unslottedItems.length > 0 ? (
+            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">集中・日時未定</p>
+                  <p className="mt-1 text-xs text-slate-500">曜日や時限が未設定の授業はここに表示されます。</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {unslottedItems.map((item) => {
+                  const isHighlighted =
+                    activeHighlight?.location === 'unslotted' &&
+                    activeHighlight.offeringId === item.offeringId;
+
+                  return (
+                    <div
+                      key={item.offeringId}
+                      className={[
+                        'flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3',
+                        isHighlighted ? 'border-blue-300 shadow-[0_0_0_3px_rgba(59,130,246,0.14)]' : '',
+                      ].join(' ')}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/offerings/${item.offeringId}`)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="truncate text-sm font-semibold text-slate-900">{item.courseTitle}</p>
+                        <p className="mt-1 truncate text-xs text-slate-600">
+                          {item.instructorName} / {item.room ?? '教室未設定'}
+                        </p>
+                      </button>
+
+                      {item.status === 'dropped' ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(mutatingOfferingId)}
+                          onClick={() => openRestoreConfirm(item)}
+                          className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {mutatingOfferingId === item.offeringId ? '処理中...' : '再登録'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={Boolean(mutatingOfferingId)}
+                          onClick={() => openDropConfirm(item)}
+                          className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {mutatingOfferingId === item.offeringId ? '処理中...' : '削除'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {displayItems.length === 0 && unslottedItems.length === 0 ? (
             <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-              <p className="text-sm text-slate-600">履修中または予定の授業がありません。空きコマから授業を追加できます。</p>
+              <p className="text-sm text-slate-600">{selectedTermLabel}にはまだ授業がありません。</p>
+              <p className="text-xs text-slate-500">年度・学期を切り替えると、別の時間割を確認できます。</p>
               <button
                 type="button"
                 onClick={() => navigateToAdd({})}
-                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                disabled={!selectedTermId}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                ＋ 授業を追加
+                ＋ この学期に授業を追加
               </button>
             </div>
           ) : null}
@@ -710,9 +803,9 @@ export default function TimetableGrid() {
                       const cell = cellLookup.get(`${day}-${period.period}`);
                       const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
                       const isHighlighted =
-                        activeHighlight?.outOfConfig !== true &&
-                        activeHighlight?.dayOfWeek === target.dayOfWeek &&
-                        activeHighlight?.period === target.period;
+                        activeHighlight?.location === 'grid' &&
+                        activeHighlight.dayOfWeek === target.dayOfWeek &&
+                        activeHighlight.period === target.period;
 
                       return (
                         <td key={`${day}-${period.period}`} className="h-32 border-b border-slate-100 px-2 py-2 align-top">
@@ -746,9 +839,9 @@ export default function TimetableGrid() {
                     const cell = cellLookup.get(`${day}-${period.period}`);
                     const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
                     const isHighlighted =
-                      activeHighlight?.outOfConfig !== true &&
-                      activeHighlight?.dayOfWeek === target.dayOfWeek &&
-                      activeHighlight?.period === target.period;
+                      activeHighlight?.location === 'grid' &&
+                      activeHighlight.dayOfWeek === target.dayOfWeek &&
+                      activeHighlight.period === target.period;
 
                     return (
                       <div key={`${day}-${period.period}`} className="grid grid-cols-[72px_minmax(0,1fr)] items-stretch gap-2">

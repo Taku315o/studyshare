@@ -22,6 +22,7 @@ declare
   _result_status public.enrollment_status;
   _result_visibility public.enrollment_visibility;
 begin
+-- バリデーション
   if _uid is null then
     raise exception using errcode = 'P0001', message = 'authentication_required';
   end if;
@@ -33,7 +34,7 @@ begin
   ) then
     raise exception using errcode = 'P0001', message = 'offering_not_found';
   end if;
-
+-- 競合ターゲットをenrollments_pkey（user_id, offering_id）に変更し、ON CONFLICT DO UPDATEでstatusのみ更新するように修正。
   select p.enrollment_visibility_default
     into _default_visibility
   from public.profiles p

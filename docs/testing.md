@@ -60,6 +60,7 @@
 - follow insert/delete と block insert 後に `user_stats.followers_count/following_count` が一致する
 - follow insert で `notifications(type='follow')` が1件だけ作成される
 - `search_timetable_offerings` が `slot_match` / `enrollment_count` / `my_status` を返す
+- `list_my_timetable` が selected term の enrollments だけ返し、slot なし offering を `is_unslotted=true` で返す
 - `suggest_offering_duplicates` が same title / instructor / slot / term の候補理由を返す
 - `upsert_enrollment` が active 重複追加を吸収し、`dropped` を `enrolled` へ戻せる
 - `upsert_enrollment(status='dropped')` で時間割ページから取消できる
@@ -96,11 +97,13 @@
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- `/timetable?termId=...` で表示 term が切り替わり、別 term に切り替えても過去 term の履修が消えない
 - 設定外スロットの授業がある場合に警告表示される
+- slot 未設定の授業が「集中・日時未定」セクションに出る
 - 空セルと授業カード補助ボタンから `/timetable/add` に文脈付き (`day/period/termId`) で遷移できる
 - 時間割カードと重複モーダルの両方から講義を取消でき、`取消を表示` オフでは即座に消える
 - `取消を表示` オンで取消済みカードが見え、時間割上から再登録できる
-- `/timetable/add` で登録成功後、時間割へ戻って再描画・スクロール復元・追加セルまたは設定外警告行のハイライトが見える
+- `/timetable/add` で登録成功後、時間割へ戻って再描画・スクロール復元・追加セルまたは設定外/日時未定セクションのハイライトが見える
 - 新規講義作成時に重複候補が表示され、blocking 候補がある間は override 明示なしで作成できない
 - コミュニティで非選択スレッドへの新着受信時に一覧未読件数が増える
 - コミュニティで会話を開くとその時点までの受信メッセージが既読になり、送信側で最新メッセージが `未読 -> 既読` に変わる

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import { upsertEnrollment } from '@/lib/timetable/enrollment';
 import { mapDuplicateCandidateRow } from '@/lib/timetable/search';
+import { buildTermLabel } from '@/lib/timetable/terms';
 import { createOfferingSchema, getOfferingValidationErrorMessage } from '@/lib/validation/offering';
 import { formatWeekdayLabel } from '@/lib/timetable/config';
 import type {
@@ -389,7 +390,7 @@ export default function CreateOfferingModal({
                   <option value="">選択してください</option>
                   {termOptions.map((term) => (
                     <option key={term.id} value={term.id}>
-                      {term.label}
+                      {buildTermLabel(term)}
                     </option>
                   ))}
                 </select>

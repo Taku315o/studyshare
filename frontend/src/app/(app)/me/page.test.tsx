@@ -100,8 +100,10 @@ describe('MePage', () => {
             courses: { name: '応用プログラミング3' },
             terms: {
               id: 'term-1',
-              year: 2026,
-              season: 'first_half',
+              academic_year: 2026,
+              code: 'first_half',
+              display_name: '前期',
+              sort_key: 10,
               start_date: '2026-04-01',
               end_date: '2026-08-01',
             },

@@ -11,7 +11,7 @@ import { persistTimetableReturnHighlight } from '@/lib/timetable/add';
 import { DEFAULT_GLOBAL_TIMETABLE_CONFIG, formatWeekdayLabel, loadEffectiveTimetableConfig } from '@/lib/timetable/config';
 import { upsertEnrollment } from '@/lib/timetable/enrollment';
 import { mapSearchResultRow } from '@/lib/timetable/search';
-import { formatSeasonLabel, parseDateAtStartOfDay, resolveCurrentTerm, sortTermsDescending } from '@/lib/timetable/terms';
+import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   TimetableConfig,
@@ -33,8 +33,10 @@ type ProfileRow = {
 
 type TermRow = {
   id: string;
-  year: number;
-  season: string;
+  academic_year: number;
+  code: string;
+  display_name: string;
+  sort_key: number;
   start_date: string | null;
   end_date: string | null;
 };
@@ -61,27 +63,13 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
 function toTermOption(row: TermRow): TimetableTermOption {
   return {
     id: row.id,
-    label: `${row.year} ${formatSeasonLabel(row.season)}`,
-    year: row.year,
-    season: row.season,
+    academicYear: row.academic_year,
+    code: row.code,
+    displayName: row.display_name,
+    sortKey: row.sort_key,
     startDate: parseDateAtStartOfDay(row.start_date),
     endDate: parseDateAtStartOfDay(row.end_date),
   };
-}
-
-function resolveActiveTerm(terms: TimetableTermOption[], today: Date) {
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  return (
-    terms
-      .filter((term) => term.startDate && term.endDate)
-      .find((term) => {
-        if (!term.startDate || !term.endDate) return false;
-        const endDate = new Date(term.endDate);
-        endDate.setHours(23, 59, 59, 999);
-        return term.startDate <= todayDate && todayDate <= endDate;
-      }) ?? null
-  );
 }
 
 export default function OfferingFinderClient({ mode, initialContext }: OfferingFinderClientProps) {
@@ -153,7 +141,7 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
         const termsPromise = profile?.university_id
           ? supabase
               .from('terms')
-              .select('id, year, season, start_date, end_date')
+              .select('id, academic_year, code, display_name, sort_key, start_date, end_date')
               .eq('university_id', profile.university_id)
           : Promise.resolve({ data: [] as TermRow[], error: null });
 
@@ -165,16 +153,13 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
 
         if (cancelled) return;
 
-        const nextTerms = sortTermsDescending(((termsResult.data ?? []) as TermRow[]).map(toTermOption));
+        const nextTerms = sortTermsForSelector(((termsResult.data ?? []) as TermRow[]).map(toTermOption));
         setUniversityName(university?.name ?? null);
         setTermOptions(nextTerms);
         setTimetableConfig(configResult.config);
 
         if (!initialContext.termId && nextTerms.length > 0) {
-          const activeTerm = resolveActiveTerm(nextTerms, new Date());
-          const currentTerm = resolveCurrentTerm(nextTerms, new Date());
-          const nextTermId =
-            mode === 'browse' ? activeTerm?.id ?? null : currentTerm?.id ?? nextTerms[0]?.id ?? null;
+          const nextTermId = resolveDefaultTerm(nextTerms, new Date())?.id ?? null;
 
           if (nextTermId) {
             const nextContext = { ...initialContext, termId: nextTermId };
@@ -272,8 +257,8 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
   const selectedTerm = useMemo(
     () =>
       termOptions.find((term) => term.id === context.termId) ??
-      (mode === 'timetable-add' ? resolveCurrentTerm(termOptions, new Date()) : null),
-    [context.termId, mode, termOptions],
+      resolveDefaultTerm(termOptions, new Date()),
+    [context.termId, termOptions],
   );
 
   const safePeriodOptions = useMemo(() => {
@@ -315,7 +300,12 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
       offeringId: value.offeringId,
       dayOfWeek: value.dayOfWeek,
       period: value.period,
-      outOfConfig: !isSlotInConfig(value.dayOfWeek, value.period),
+      location:
+        value.dayOfWeek && value.period
+          ? isSlotInConfig(value.dayOfWeek, value.period)
+            ? 'grid'
+            : 'out_of_config'
+          : 'unslotted',
     });
 
     router.replace(context.returnTo ?? '/timetable');
@@ -386,11 +376,13 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
             <p className="mt-2 text-sm text-slate-600">
               {mode === 'browse'
                 ? '授業を検索して、詳細ページでノート・口コミ・質問・受講者情報を確認できます。'
-                : `大学: ${universityName ?? '未設定'} / 学期: ${selectedTerm?.label ?? '未設定'}`}
+                : `大学: ${universityName ?? '未設定'} / 学期: ${selectedTerm ? buildTermLabel(selectedTerm) : '未設定'}`}
             </p>
 
             {mode === 'browse' ? (
-              <p className="mt-2 text-sm text-slate-500">大学: {universityName ?? '未設定'} / 学期: {selectedTerm?.label ?? '未選択'}</p>
+              <p className="mt-2 text-sm text-slate-500">
+                大学: {universityName ?? '未設定'} / 学期: {selectedTerm ? buildTermLabel(selectedTerm) : '未選択'}
+              </p>
             ) : null}
           </div>
 
@@ -438,7 +430,7 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
               <option value="">選択してください</option>
               {termOptions.map((term) => (
                 <option key={term.id} value={term.id}>
-                  {term.label}
+                  {buildTermLabel(term)}
                 </option>
               ))}
             </select>

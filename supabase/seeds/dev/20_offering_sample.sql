@@ -15,10 +15,24 @@ u2 as (
   select id from public.universities where name = '専修大学' limit 1
 ),
 t as (
-  insert into public.terms (university_id, year, season, start_date, end_date)
-  select id, 2025, 'second_half', '2025-09-16', '2026-01-31' from u2
-  on conflict (university_id, year, season)
-  do update set start_date = excluded.start_date, end_date = excluded.end_date
+  insert into public.terms (
+    university_id,
+    year,
+    season,
+    academic_year,
+    code,
+    display_name,
+    sort_key,
+    start_date,
+    end_date
+  )
+  select id, 2025, 'second_half', 2025, 'second_half', '後期', 20, '2025-09-16', '2026-01-31' from u2
+  on conflict (university_id, academic_year, code)
+  do update set
+    start_date = excluded.start_date,
+    end_date = excluded.end_date,
+    display_name = excluded.display_name,
+    sort_key = excluded.sort_key
   returning id, university_id
 ),
 t2 as (
@@ -27,7 +41,7 @@ t2 as (
   select tr.id, tr.university_id
   from public.terms tr
   join u2 on u2.id = tr.university_id
-  where tr.year = 2025 and tr.season = 'second_half'
+  where tr.academic_year = 2025 and tr.code = 'second_half'
   limit 1
 ),
 c as (

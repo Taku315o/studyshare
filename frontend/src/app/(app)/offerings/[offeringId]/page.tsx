@@ -3,6 +3,7 @@ import OfferingHeader from '@/components/offerings/OfferingHeader';
 import OfferingTabs from '@/components/offerings/OfferingTabs';
 import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { buildTermLabel } from '@/lib/timetable/terms';
 import type {
   NoteListItem,
   OfferingCounts,
@@ -21,7 +22,10 @@ type OfferingRow = {
     | { name: string | null; course_code: string | null }
     | Array<{ name: string | null; course_code: string | null }>
     | null;
-  terms: { year: number; season: string } | Array<{ year: number; season: string }> | null;
+  terms:
+    | { academic_year: number; display_name: string }
+    | Array<{ academic_year: number; display_name: string }>
+    | null;
   offering_slots: Array<{ day_of_week: number | null; period: number | null }> | null;
 };
 
@@ -42,11 +46,6 @@ type OfferingQuestionAnswersReadClient = {
 const PAGE_SIZE = 8;
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
-const SEASON_LABELS: Record<string, string> = {
-  first_half: '前期',
-  second_half: '後期',
-};
-
 /**
  * 指定された値をもとにアクティブなタブを解析する。
  * @param value - クエリパラメータから取得したタブ名
@@ -109,7 +108,7 @@ export default async function OfferingDetailPage({
       id,
       instructor,
       courses:course_id(name, course_code),
-      terms:term_id(year, season),
+      terms:term_id(academic_year, display_name),
       offering_slots(day_of_week, period)
     `,
     )
@@ -130,7 +129,7 @@ export default async function OfferingDetailPage({
     courseTitle: course?.name ?? '不明な授業',
     courseCode: course?.course_code ?? null,
     instructorName: offering.instructor ?? null,
-    termLabel: term ? `${term.year} ${SEASON_LABELS[term.season] ?? term.season}` : '未設定',
+    termLabel: term ? buildTermLabel({ academicYear: term.academic_year, displayName: term.display_name }) : '未設定',
     timeslotLabel: formatTimeslot(slots),
   };
 

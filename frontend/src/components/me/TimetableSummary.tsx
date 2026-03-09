@@ -37,7 +37,7 @@ export default function TimetableSummary({ summary, isLoading }: TimetableSummar
       ) : (
         <>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-sm text-slate-600">対象学期: {summary?.termLabel ?? '未設定'}</p>
+            <p className="text-sm text-slate-600">現在学期: {summary?.termLabel ?? '未設定'}</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">
               今学期履修数: {summary?.currentTermEnrollmentCount ?? 0} 件
             </p>

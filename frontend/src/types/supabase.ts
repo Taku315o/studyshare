@@ -860,28 +860,40 @@ export type Database = {
       }
       terms: {
         Row: {
+          academic_year: number
+          code: string
           created_at: string
+          display_name: string
           end_date: string | null
           id: string
           season: Database["public"]["Enums"]["term_season"]
+          sort_key: number
           start_date: string | null
           university_id: string
           year: number
         }
         Insert: {
+          academic_year: number
+          code: string
           created_at?: string
+          display_name: string
           end_date?: string | null
           id?: string
           season: Database["public"]["Enums"]["term_season"]
+          sort_key: number
           start_date?: string | null
           university_id: string
           year: number
         }
         Update: {
+          academic_year?: number
+          code?: string
           created_at?: string
+          display_name?: string
           end_date?: string | null
           id?: string
           season?: Database["public"]["Enums"]["term_season"]
+          sort_key?: number
           start_date?: string | null
           university_id?: string
           year?: number
@@ -1315,7 +1327,16 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "incomplete"
-      term_season: "first_half" | "second_half"
+      term_season:
+        | "first_half"
+        | "second_half"
+        | "quarter_1"
+        | "quarter_2"
+        | "quarter_3"
+        | "quarter_4"
+        | "full_year"
+        | "intensive"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1468,7 +1489,17 @@ export const Constants = {
         "canceled",
         "incomplete",
       ],
-      term_season: ["first_half", "second_half"],
+      term_season: [
+        "first_half",
+        "second_half",
+        "quarter_1",
+        "quarter_2",
+        "quarter_3",
+        "quarter_4",
+        "full_year",
+        "intensive",
+        "other",
+      ],
     },
   },
 } as const

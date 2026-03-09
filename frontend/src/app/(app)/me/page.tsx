@@ -8,7 +8,7 @@ import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
 import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
-import { formatSeasonLabel, parseDateAtStartOfDay, resolveCurrentTerm } from '@/lib/timetable/terms';
+import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm } from '@/lib/timetable/terms';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -131,15 +131,19 @@ type EnrollmentQueryRow = {
         terms:
           | {
               id: string;
-              year: number;
-              season: string;
+              academic_year: number;
+              code: string;
+              display_name: string;
+              sort_key: number;
               start_date: string | null;
               end_date: string | null;
             }
           | Array<{
               id: string;
-              year: number;
-              season: string;
+              academic_year: number;
+              code: string;
+              display_name: string;
+              sort_key: number;
               start_date: string | null;
               end_date: string | null;
             }>
@@ -302,9 +306,10 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
     if (term) {
       termMap.set(term.id, {
         id: term.id,
-        label: `${term.year} ${formatSeasonLabel(term.season)}`,
-        year: term.year,
-        season: term.season,
+        academicYear: term.academic_year,
+        code: term.code,
+        displayName: term.display_name,
+        sortKey: term.sort_key,
         startDate: parseDateAtStartOfDay(term.start_date),
         endDate: parseDateAtStartOfDay(term.end_date),
       });
@@ -333,7 +338,7 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
   }
 
   const today = new Date();
-  const currentTerm = resolveCurrentTerm(Array.from(termMap.values()), today);
+  const currentTerm = resolveDefaultTerm(Array.from(termMap.values()), today);
   const scopedEntries = currentTerm ? entries.filter((entry) => entry.termId === currentTerm.id) : entries;
 
   const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
@@ -358,7 +363,7 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
     });
 
   return {
-    termLabel: currentTerm?.label ?? '未設定',
+    termLabel: currentTerm ? buildTermLabel(currentTerm) : '未設定',
     currentTermEnrollmentCount: scopedEntries.length,
     todayClasses,
   };
@@ -497,7 +502,7 @@ export default function MePage() {
               id,
               instructor,
               courses:course_id(name),
-              terms:term_id(id, year, season, start_date, end_date),
+              terms:term_id(id, academic_year, code, display_name, sort_key, start_date, end_date),
               offering_slots(day_of_week, period, start_time)
             )
           `,

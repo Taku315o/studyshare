@@ -77,8 +77,24 @@ describe('TimetableAddRoute', () => {
     });
     mockTermsEq.mockResolvedValue({
       data: [
-        { id: 'term-current', year: 2026, season: 'first_half', start_date: '2026-04-01', end_date: '2026-08-01' },
-        { id: 'term-old', year: 2025, season: 'second_half', start_date: '2025-09-01', end_date: '2026-01-31' },
+        {
+          id: 'term-current',
+          academic_year: 2026,
+          code: 'first_half',
+          display_name: '前期',
+          sort_key: 10,
+          start_date: '2026-04-01',
+          end_date: '2026-08-01',
+        },
+        {
+          id: 'term-old',
+          academic_year: 2025,
+          code: 'second_half',
+          display_name: '後期',
+          sort_key: 20,
+          start_date: '2025-09-01',
+          end_date: '2026-01-31',
+        },
       ],
       error: null,
     });

@@ -21,8 +21,11 @@
 - `universities`: 大学マスタ（`name` は一意）
 
 ### B. Term（学期）
-- `terms`: `(university_id, year, season)` が一意
-- 例: 専修大学 2026 first_half（前期）
+- `terms`: 大学ごとの表示可能期間マスタ
+- 真実は `academic_year` / `code` / `display_name` / `sort_key`
+- `course_offerings.term_id` が所属 term の唯一の真実で、`enrollments` には term 情報を重複保持しない
+- `year` / `season` は legacy 互換として残るが、term selector や時間割表示は `academic_year` / `display_name` を使う
+- 例: 専修大学 `academic_year=2026`, `code='first_half'`, `display_name='前期'`
 
 ### C. Course（科目の恒久枠）
 - `courses`: 「科目コード / 科目名」の恒久枠
@@ -40,6 +43,7 @@
 - `status`: `enrolled` / `planned` / `dropped`
 - `visibility`: `private` / `match_only` / `public`
 - 時間割は「ユーザー × Offering の関係」として表現し、入力UXやシラバス検索導線と接続する。
+- `/timetable?termId=...` の `selectedTermId` は UI 状態であり、DB の truth ではない
 - `upsert_enrollment()` は `profiles.enrollment_visibility_default` を優先しつつ `(user_id, offering_id)` を insert/update する
 
 ## ユーザー領域（プロフィール・統計）
@@ -124,6 +128,9 @@
 - `search_timetable_offerings(term_id, day_of_week, period, query, limit, offset)`
 	- 同大学・指定学期の offering を返す。
 	- `slot_match` / `enrollment_count` / `my_status` を含み、`/timetable/add` の一次ソースになる。
+- `list_my_timetable(term_id, include_dropped)`
+	- 指定 term の自分の時間割だけを返す。
+	- `course_offerings.term_id = term_id` で絞り込み、slot が無い offering も `is_unslotted=true` で 1 行返す。
 - `suggest_offering_duplicates(term_id, course_title, instructor, day_of_week, period, limit)`
 	- 同名または類似名、同一教員、同一曜日限、同一学期の候補を返す。
 	- UI は `candidate_kind = exact|strong|related` をもとに作成可否を制御する。
@@ -238,6 +245,7 @@
 ## 典型フロー
 1. `/timetable` のセル押下 → `/timetable/add?day=...&period=...&termId=...` へ遷移
 2. `/timetable/add` → `search_timetable_offerings()` で既存 offering を検索し、登録時は `upsert_enrollment()` を呼ぶ
+3. `/timetable` 自体の描画は `list_my_timetable()` の返却を使い、表示 term は URL の `termId` で切り替える
 3. 見つからない場合 → `suggest_offering_duplicates()` で候補確認後、`create_offering_and_enroll()` で作成と登録を一括処理
 4. マッチング → `find_match_candidates()`（履修の中身は漏れない）
 5. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）

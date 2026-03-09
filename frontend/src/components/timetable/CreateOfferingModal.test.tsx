@@ -43,7 +43,17 @@ describe('CreateOfferingModal', () => {
           { period: 1, label: '1限' },
           { period: 2, label: '2限' },
         ]}
-        termOptions={[{ id: 'term-1', label: '2026 前期', year: 2026, season: 'first_half', startDate: null, endDate: null }]}
+        termOptions={[
+          {
+            id: 'term-1',
+            academicYear: 2026,
+            code: 'first_half',
+            displayName: '前期',
+            sortKey: 10,
+            startDate: null,
+            endDate: null,
+          },
+        ]}
         initialTermId="term-1"
         initialDayOfWeek={1}
         initialPeriod={1}
@@ -87,7 +97,17 @@ describe('CreateOfferingModal', () => {
           { period: 1, label: '1限' },
           { period: 2, label: '2限' },
         ]}
-        termOptions={[{ id: 'term-1', label: '2026 前期', year: 2026, season: 'first_half', startDate: null, endDate: null }]}
+        termOptions={[
+          {
+            id: 'term-1',
+            academicYear: 2026,
+            code: 'first_half',
+            displayName: '前期',
+            sortKey: 10,
+            startDate: null,
+            endDate: null,
+          },
+        ]}
         initialTermId="term-1"
         initialDayOfWeek={1}
         initialPeriod={1}

@@ -1,15 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import toast from 'react-hot-toast';
 import { createSupabaseClient } from '@/lib/supabase/client';
-import {
-  DEFAULT_GLOBAL_TIMETABLE_CONFIG,
-  loadEffectiveTimetableConfig,
-} from '@/lib/timetable/config';
+import { DEFAULT_GLOBAL_TIMETABLE_CONFIG, loadEffectiveTimetableConfig } from '@/lib/timetable/config';
 import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
-import {
-  TIMETABLE_HIGHLIGHT_STORAGE_KEY,
-  TIMETABLE_SCROLL_STORAGE_KEY,
-} from '@/lib/timetable/add';
+import { TIMETABLE_HIGHLIGHT_STORAGE_KEY, TIMETABLE_SCROLL_STORAGE_KEY } from '@/lib/timetable/add';
 import TimetableGrid from './TimetableGrid';
 
 jest.mock('@/lib/supabase/client', () => ({
@@ -42,22 +36,31 @@ jest.mock('react-hot-toast', () => ({
 }));
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
+let queryString = 'termId=term-current';
 
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(() => ({ push: mockPush })),
+  useRouter: jest.fn(() => ({ push: mockPush, replace: mockReplace })),
   usePathname: jest.fn(() => '/timetable'),
+  useSearchParams: jest.fn(() => new URLSearchParams(queryString)),
 }));
 
-type TimetableRow = {
-  created_at: string;
+type TimetableRpcRow = {
+  term_id: string;
+  term_academic_year: number;
+  term_code: string;
+  term_display_name: string;
+  term_sort_key: number;
+  offering_id: string;
+  course_title: string | null;
+  instructor: string | null;
   status: 'enrolled' | 'planned' | 'dropped';
-  offering: {
-    id: string;
-    instructor: string | null;
-    courses: { id: string; name: string };
-    terms?: { id: string; year: number; season: string; start_date: string | null; end_date: string | null };
-    offering_slots: Array<{ day_of_week: number; period: number; start_time: string | null }>;
-  };
+  created_at: string;
+  day_of_week: number | null;
+  period: number | null;
+  start_time: string | null;
+  room: string | null;
+  is_unslotted: boolean;
 };
 
 const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mock;
@@ -67,10 +70,11 @@ describe('TimetableGrid', () => {
   const mockGetUser = jest.fn();
   const mockProfilesMaybeSingle = jest.fn();
   const mockTermsEq = jest.fn();
-  const mockEnrollmentsIn = jest.fn();
+  const mockRpc = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    queryString = 'termId=term-current';
     window.sessionStorage.clear();
     window.scrollTo = jest.fn();
 
@@ -83,10 +87,29 @@ describe('TimetableGrid', () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
     mockProfilesMaybeSingle.mockResolvedValue({ data: { university_id: 'uni-1' }, error: null });
     mockTermsEq.mockResolvedValue({
-      data: [{ id: 'term-current', year: 2026, season: 'first_half', start_date: null, end_date: null }],
+      data: [
+        {
+          id: 'term-current',
+          academic_year: 2026,
+          code: 'first_half',
+          display_name: '前期',
+          sort_key: 10,
+          start_date: '2026-04-01',
+          end_date: '2026-08-01',
+        },
+        {
+          id: 'term-next',
+          academic_year: 2026,
+          code: 'second_half',
+          display_name: '後期',
+          sort_key: 20,
+          start_date: '2026-09-15',
+          end_date: '2027-01-31',
+        },
+      ],
       error: null,
     });
-    mockEnrollmentsIn.mockResolvedValue({ data: [], error: null });
+    mockRpc.mockResolvedValue({ data: [], error: null });
     updateEnrollmentStatusMock.mockResolvedValue({
       success: true,
       row: {
@@ -102,6 +125,7 @@ describe('TimetableGrid', () => {
 
     (createSupabaseClient as jest.Mock).mockReturnValue({
       auth: { getUser: mockGetUser },
+      rpc: mockRpc,
       from: jest.fn((table: string) => {
         if (table === 'profiles') {
           return {
@@ -119,16 +143,6 @@ describe('TimetableGrid', () => {
           };
         }
 
-        if (table === 'enrollments') {
-          return {
-            select: jest.fn(() => ({
-              eq: jest.fn(() => ({
-                in: mockEnrollmentsIn,
-              })),
-            })),
-          };
-        }
-
         throw new Error(`Unexpected table: ${table}`);
       }),
     });
@@ -142,21 +156,29 @@ describe('TimetableGrid', () => {
     expect(screen.getByText('時間割を読み込み中...')).toBeInTheDocument();
   });
 
-  it('renders enrolled offerings in timetable cells using configured periods', async () => {
-    const rows: TimetableRow[] = [
-      {
-        created_at: '2026-02-17T00:00:00.000Z',
-        status: 'enrolled',
-        offering: {
-          id: 'offering-a',
+  it('renders selected term enrollments in timetable cells', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          term_id: 'term-current',
+          term_academic_year: 2026,
+          term_code: 'first_half',
+          term_display_name: '前期',
+          term_sort_key: 10,
+          offering_id: 'offering-a',
+          course_title: 'Webプログラミング',
           instructor: '田中 健太',
-          courses: { id: 'course-a', name: 'Webプログラミング' },
-          offering_slots: [{ day_of_week: 2, period: 3, start_time: '13:10:00' }],
+          status: 'enrolled',
+          created_at: '2026-02-17T00:00:00.000Z',
+          day_of_week: 2,
+          period: 3,
+          start_time: '13:10:00',
+          room: '302',
+          is_unslotted: false,
         },
-      },
-    ];
-
-    mockEnrollmentsIn.mockResolvedValue({ data: rows, error: null });
+      ] satisfies TimetableRpcRow[],
+      error: null,
+    });
 
     render(<TimetableGrid />);
 
@@ -164,11 +186,30 @@ describe('TimetableGrid', () => {
       expect(screen.getAllByText('Webプログラミング').length).toBeGreaterThan(0);
       expect(screen.getAllByText('田中 健太').length).toBeGreaterThan(0);
       expect(screen.getAllByText('13:10').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('3限').length).toBeGreaterThan(0);
+      expect(screen.getByDisplayValue('2026 前期')).toBeInTheDocument();
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('list_my_timetable', {
+      _term_id: 'term-current',
+      _include_dropped: false,
     });
   });
 
-  it('routes empty cell clicks to the timetable add page with slot context', async () => {
+  it('updates the route when the selected term changes', async () => {
+    render(<TimetableGrid />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('2026 前期')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'term-next' },
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith('/timetable?termId=term-next');
+  });
+
+  it('routes empty cell clicks to the timetable add page with selected term context', async () => {
     render(<TimetableGrid />);
 
     await waitFor(() => {
@@ -177,35 +218,7 @@ describe('TimetableGrid', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: '空きコマ' })[0]);
 
-    expect(mockPush).toHaveBeenCalledWith('/timetable/add?termId=term-current&day=mon&period=1&returnTo=%2Ftimetable');
-  });
-
-  it('routes occupied cell add actions to the timetable add page', async () => {
-    mockEnrollmentsIn.mockResolvedValue({
-      data: [
-        {
-          created_at: '2026-02-17T00:00:00.000Z',
-          status: 'enrolled',
-          offering: {
-            id: 'offering-b',
-            instructor: '佐藤 花',
-            courses: { id: 'course-b', name: '線形代数' },
-            offering_slots: [{ day_of_week: 2, period: 3, start_time: '13:10:00' }],
-          },
-        },
-      ] satisfies TimetableRow[],
-      error: null,
-    });
-
-    render(<TimetableGrid />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText('線形代数').length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'このコマに授業を追加' })[0]);
-
-    expect(mockPush).toHaveBeenCalledWith('/timetable/add?termId=term-current&day=tue&period=3&returnTo=%2Ftimetable');
+    expect(mockPush).toHaveBeenCalledWith('/timetable/add?termId=term-current&day=mon&period=1&returnTo=%2Ftimetable%3FtermId%3Dterm-current');
   });
 
   it('restores scroll position and highlights out-of-config items from session storage', async () => {
@@ -216,7 +229,7 @@ describe('TimetableGrid', () => {
         offeringId: 'offering-x',
         dayOfWeek: 2,
         period: 3,
-        outOfConfig: true,
+        location: 'out_of_config',
       }),
     );
 
@@ -229,19 +242,26 @@ describe('TimetableGrid', () => {
       source: 'user',
     });
 
-    mockEnrollmentsIn.mockResolvedValue({
+    mockRpc.mockResolvedValue({
       data: [
         {
-          created_at: '2026-02-17T00:00:00.000Z',
+          term_id: 'term-current',
+          term_academic_year: 2026,
+          term_code: 'first_half',
+          term_display_name: '前期',
+          term_sort_key: 10,
+          offering_id: 'offering-x',
+          course_title: '線形代数',
+          instructor: '教師',
           status: 'enrolled',
-          offering: {
-            id: 'offering-x',
-            instructor: '教師',
-            courses: { id: 'course-x', name: '線形代数' },
-            offering_slots: [{ day_of_week: 2, period: 3, start_time: null }],
-          },
+          created_at: '2026-02-17T00:00:00.000Z',
+          day_of_week: 2,
+          period: 3,
+          start_time: null,
+          room: null,
+          is_unslotted: false,
         },
-      ] satisfies TimetableRow[],
+      ] satisfies TimetableRpcRow[],
       error: null,
     });
 
@@ -255,20 +275,59 @@ describe('TimetableGrid', () => {
     expect(screen.getByText('線形代数 / 火曜 3限')).toHaveClass('font-semibold');
   });
 
-  it('removes an offering from the visible timetable after confirmation', async () => {
-    mockEnrollmentsIn.mockResolvedValue({
+  it('shows unslotted offerings in a dedicated section', async () => {
+    mockRpc.mockResolvedValue({
       data: [
         {
-          created_at: '2026-02-17T00:00:00.000Z',
+          term_id: 'term-current',
+          term_academic_year: 2026,
+          term_code: 'full_year',
+          term_display_name: '通年',
+          term_sort_key: 50,
+          offering_id: 'offering-u',
+          course_title: '集中講義',
+          instructor: '特別講師',
           status: 'enrolled',
-          offering: {
-            id: 'offering-1',
-            instructor: '山田 太郎',
-            courses: { id: 'course-1', name: 'データベース概論' },
-            offering_slots: [{ day_of_week: 1, period: 1, start_time: '09:00:00' }],
-          },
+          created_at: '2026-02-17T00:00:00.000Z',
+          day_of_week: null,
+          period: null,
+          start_time: null,
+          room: '講堂',
+          is_unslotted: true,
         },
-      ] satisfies TimetableRow[],
+      ] satisfies TimetableRpcRow[],
+      error: null,
+    });
+
+    render(<TimetableGrid />);
+
+    await waitFor(() => {
+      expect(screen.getByText('集中・日時未定')).toBeInTheDocument();
+      expect(screen.getByText('集中講義')).toBeInTheDocument();
+    });
+  });
+
+  it('removes an offering from the visible timetable after confirmation', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          term_id: 'term-current',
+          term_academic_year: 2026,
+          term_code: 'first_half',
+          term_display_name: '前期',
+          term_sort_key: 10,
+          offering_id: 'offering-1',
+          course_title: 'データベース概論',
+          instructor: '山田 太郎',
+          status: 'enrolled',
+          created_at: '2026-02-17T00:00:00.000Z',
+          day_of_week: 1,
+          period: 1,
+          start_time: '09:00:00',
+          room: null,
+          is_unslotted: false,
+        },
+      ] satisfies TimetableRpcRow[],
       error: null,
     });
 
@@ -294,21 +353,32 @@ describe('TimetableGrid', () => {
   });
 
   it('shows dropped offerings and allows restoring them when the toggle is enabled', async () => {
-    mockEnrollmentsIn.mockResolvedValue({
-      data: [
-        {
-          created_at: '2026-02-17T00:00:00.000Z',
-          status: 'dropped',
-          offering: {
-            id: 'offering-2',
-            instructor: '佐藤 花',
-            courses: { id: 'course-2', name: '統計学' },
-            offering_slots: [{ day_of_week: 2, period: 2, start_time: '10:45:00' }],
-          },
-        },
-      ] satisfies TimetableRow[],
-      error: null,
-    });
+    mockRpc.mockImplementation((_fn: string, args: { _include_dropped: boolean }) =>
+      Promise.resolve({
+        data: args._include_dropped
+          ? [
+              {
+                term_id: 'term-current',
+                term_academic_year: 2026,
+                term_code: 'first_half',
+                term_display_name: '前期',
+                term_sort_key: 10,
+                offering_id: 'offering-2',
+                course_title: '統計学',
+                instructor: '佐藤 花',
+                status: 'dropped',
+                created_at: '2026-02-17T00:00:00.000Z',
+                day_of_week: 2,
+                period: 2,
+                start_time: '10:45:00',
+                room: null,
+                is_unslotted: false,
+              },
+            ]
+          : [],
+        error: null,
+      }),
+    );
     updateEnrollmentStatusMock.mockResolvedValue({
       success: true,
       row: {
