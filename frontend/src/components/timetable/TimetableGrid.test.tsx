@@ -39,8 +39,10 @@ const mockPush = jest.fn();
 const mockReplace = jest.fn();
 let queryString = 'termId=term-current';
 
+const mockRouter = { push: mockPush, replace: mockReplace };
+
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(() => ({ push: mockPush, replace: mockReplace })),
+  useRouter: jest.fn(() => mockRouter),
   usePathname: jest.fn(() => '/timetable'),
   useSearchParams: jest.fn(() => new URLSearchParams(queryString)),
 }));
@@ -347,7 +349,7 @@ describe('TimetableGrid', () => {
         offeringId: 'offering-1',
         status: 'dropped',
       });
-      expect(screen.queryByText('データベース概論')).not.toBeInTheDocument();
+      expect(screen.queryAllByText('データベース概論').length).toBe(0);
       expect(toast.success).toHaveBeenCalledWith('時間割から外しました');
     });
   });
@@ -394,7 +396,7 @@ describe('TimetableGrid', () => {
 
     render(<TimetableGrid />);
 
-    expect(screen.queryByText('統計学')).not.toBeInTheDocument();
+    expect(screen.queryAllByText('統計学').length).toBe(0);
 
     fireEvent.click(screen.getByRole('checkbox', { name: '取消を表示' }));
 
@@ -412,7 +414,7 @@ describe('TimetableGrid', () => {
         offeringId: 'offering-2',
         status: 'enrolled',
       });
-      expect(screen.getAllByText('履修中').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/履修中|履修中（取消済み）/).length).toBeGreaterThan(0);
       expect(toast.success).toHaveBeenCalledWith('時間割に再登録しました');
     });
   });

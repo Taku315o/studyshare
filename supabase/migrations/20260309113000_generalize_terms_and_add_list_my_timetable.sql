@@ -37,7 +37,7 @@ set
   academic_year = coalesce(academic_year, year),
   code = coalesce(
     nullif(code, ''),
-    case season
+    case season::text
       when 'first_half' then 'first_half'
       when 'second_half' then 'second_half'
       when 'quarter_1' then 'quarter_1'
@@ -51,7 +51,7 @@ set
   ),
   display_name = coalesce(
     nullif(display_name, ''),
-    case season
+    case season::text
       when 'first_half' then '前期'
       when 'second_half' then '後期'
       when 'quarter_1' then '1学期'
@@ -65,7 +65,7 @@ set
   ),
   sort_key = coalesce(
     sort_key,
-    case season
+    case season::text
       when 'first_half' then 10
       when 'quarter_1' then 10
       when 'quarter_2' then 20
