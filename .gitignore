@@ -2,7 +2,7 @@
 .DS_Store
 
 # AI関連ファイル
-gemini.md
+
 
 # 共通で無視したいファイルやディレクトリ
 node_modules/
