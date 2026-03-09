@@ -151,7 +151,7 @@ describe('TimetableGrid', () => {
   });
 
   it('shows loading state while timetable is being fetched', () => {
-    mockGetUser.mockReturnValue(new Promise(() => {}));
+    mockGetUser.mockReturnValue(new Promise(() => { }));
 
     render(<TimetableGrid />);
 
@@ -188,7 +188,7 @@ describe('TimetableGrid', () => {
       expect(screen.getAllByText('Webプログラミング').length).toBeGreaterThan(0);
       expect(screen.getAllByText('田中 健太').length).toBeGreaterThan(0);
       expect(screen.getAllByText('13:10').length).toBeGreaterThan(0);
-      expect(screen.getByDisplayValue('2026 前期')).toBeInTheDocument();
+      expect(screen.getByText('2026 前期')).toBeInTheDocument();
     });
 
     expect(mockRpc).toHaveBeenCalledWith('list_my_timetable', {
@@ -197,16 +197,21 @@ describe('TimetableGrid', () => {
     });
   });
 
-  it('updates the route when the selected term changes', async () => {
+  it('updates the route when the selected term changes via modal', async () => {
     render(<TimetableGrid />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('2026 前期')).toBeInTheDocument();
+      expect(screen.getByText('2026 前期')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), {
-      target: { value: 'term-next' },
+    fireEvent.click(screen.getByText('2026 前期'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: '年度・学期切替' })).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByLabelText('後期'));
+    fireEvent.click(screen.getByRole('button', { name: '変更する' }));
 
     expect(mockReplace).toHaveBeenCalledWith('/timetable?termId=term-next');
   });
@@ -359,24 +364,24 @@ describe('TimetableGrid', () => {
       Promise.resolve({
         data: args._include_dropped
           ? [
-              {
-                term_id: 'term-current',
-                term_academic_year: 2026,
-                term_code: 'first_half',
-                term_display_name: '前期',
-                term_sort_key: 10,
-                offering_id: 'offering-2',
-                course_title: '統計学',
-                instructor: '佐藤 花',
-                status: 'dropped',
-                created_at: '2026-02-17T00:00:00.000Z',
-                day_of_week: 2,
-                period: 2,
-                start_time: '10:45:00',
-                room: null,
-                is_unslotted: false,
-              },
-            ]
+            {
+              term_id: 'term-current',
+              term_academic_year: 2026,
+              term_code: 'first_half',
+              term_display_name: '前期',
+              term_sort_key: 10,
+              offering_id: 'offering-2',
+              course_title: '統計学',
+              instructor: '佐藤 花',
+              status: 'dropped',
+              created_at: '2026-02-17T00:00:00.000Z',
+              day_of_week: 2,
+              period: 2,
+              start_time: '10:45:00',
+              room: null,
+              is_unslotted: false,
+            },
+          ]
           : [],
         error: null,
       }),

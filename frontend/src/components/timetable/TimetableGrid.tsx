@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import TimetableCell from '@/components/timetable/TimetableCell';
@@ -18,6 +18,7 @@ import {
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
 import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
+import TermSelectorModal from './TermSelectorModal';
 import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -311,6 +312,7 @@ export default function TimetableGrid() {
   const [pendingActionItem, setPendingActionItem] = useState<PendingEnrollmentActionItem | null>(null);
   const [pendingActionType, setPendingActionType] = useState<'drop' | 'restore' | null>(null);
   const [mutatingOfferingId, setMutatingOfferingId] = useState<string | null>(null);
+  const [isTermModalOpen, setIsTermModalOpen] = useState(false);
 
   const pendingScrollRef = useRef<number | null>(null);
   const pendingHighlightRef = useRef<TimetableReturnHighlight | null>(null);
@@ -382,9 +384,9 @@ export default function TimetableGrid() {
 
         const termsPromise = profile?.university_id
           ? supabase
-              .from('terms')
-              .select('id, academic_year, code, display_name, sort_key, start_date, end_date')
-              .eq('university_id', profile.university_id)
+            .from('terms')
+            .select('id, academic_year, code, display_name, sort_key, start_date, end_date')
+            .eq('university_id', profile.university_id)
           : Promise.resolve({ data: [] as TermQueryRow[], error: null });
 
         const [configResult, termsResult] = await Promise.all([configPromise, termsPromise]);
@@ -634,24 +636,27 @@ export default function TimetableGrid() {
             </button>
           </form>
 
-          <label className="flex h-11 min-w-[220px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700">
+          <button
+            type="button"
+            onClick={() => setIsTermModalOpen(true)}
+            disabled={terms.length === 0}
+            className="flex h-11 min-w-[220px] items-center justify-between gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
             <span className="shrink-0 text-slate-500">年度・学期</span>
-            <select
-              value={selectedTermId ?? ''}
-              onChange={(event) => {
-                router.replace(buildTimetableHref(pathname, event.target.value || null));
-              }}
-              disabled={terms.length === 0}
-              className="w-full bg-transparent text-sm focus:outline-none disabled:cursor-not-allowed"
-            >
-              <option value="">選択してください</option>
-              {terms.map((term) => (
-                <option key={term.id} value={term.id}>
-                  {buildTermLabel(term)}
-                </option>
-              ))}
-            </select>
-          </label>
+            <span className="truncate font-medium">{selectedTermLabel}</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+          </button>
+
+          <TermSelectorModal
+            isOpen={isTermModalOpen}
+            terms={terms}
+            selectedTermId={selectedTermId}
+            onSelect={(termId) => {
+              router.replace(buildTimetableHref(pathname, termId));
+              setIsTermModalOpen(false);
+            }}
+            onClose={() => setIsTermModalOpen(false)}
+          />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
