@@ -26,22 +26,30 @@ t as (
     start_date,
     end_date
   )
-  select id, 2025, 'second_half', 2025, 'second_half', '後期', 20, '2025-09-16', '2026-01-31' from u2
+  select id, y.year, s.season::public.term_season, y.year, s.season, s.display_name, s.sort_key, (y.year || s.start_date)::date, (y.year + s.year_offset || s.end_date)::date
+  from u2
+  cross join (values (2025), (2026)) as y(year)
+  cross join (values
+    ('first_half', '前期', 10, '-04-01', 0, '-08-31'),
+    ('second_half', '後期', 20, '-09-15', 1, '-01-31'),
+    ('quarter_1', '1学期', 10, '-04-01', 0, '-05-31'),
+    ('quarter_2', '2学期', 20, '-06-01', 0, '-07-31'),
+    ('quarter_3', '3学期', 30, '-09-15', 0, '-11-15'),
+    ('quarter_4', '4学期', 40, '-11-16', 1, '-01-31'),
+    ('full_year', '通年', 50, '-04-01', 1, '-01-31'),
+    ('intensive', '集中', 60, null, 0, null)
+  ) as s(season, display_name, sort_key, start_date, year_offset, end_date)
   on conflict (university_id, academic_year, code)
   do update set
     start_date = excluded.start_date,
     end_date = excluded.end_date,
     display_name = excluded.display_name,
     sort_key = excluded.sort_key
-  returning id, university_id
+  returning id, university_id, academic_year, code
 ),
 t2 as (
   select id, university_id from t
-  union all
-  select tr.id, tr.university_id
-  from public.terms tr
-  join u2 on u2.id = tr.university_id
-  where tr.academic_year = 2025 and tr.code = 'second_half'
+  where academic_year = 2025 and code = 'second_half'
   limit 1
 ),
 c as (
