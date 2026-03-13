@@ -19,7 +19,7 @@ import {
 } from '@/lib/timetable/config';
 import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
 import TermSelectorModal from './TermSelectorModal';
-import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
+import { buildTermLabel, parseDateOnly, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   TimetableCellModel,
@@ -191,8 +191,8 @@ function toTermOption(row: TermQueryRow): TimetableTermOption {
     code: row.code,
     displayName: row.display_name,
     sortKey: row.sort_key,
-    startDate: parseDateAtStartOfDay(row.start_date),
-    endDate: parseDateAtStartOfDay(row.end_date),
+    startDate: parseDateOnly(row.start_date),
+    endDate: parseDateOnly(row.end_date),
   };
 }
 

@@ -8,7 +8,7 @@ import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
 import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
-import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm } from '@/lib/timetable/terms';
+import { buildTermLabel, parseDateOnly, resolveDefaultTerm } from '@/lib/timetable/terms';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -314,8 +314,8 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
         code: term.code,
         displayName: term.display_name,
         sortKey: term.sort_key,
-        startDate: parseDateAtStartOfDay(term.start_date),
-        endDate: parseDateAtStartOfDay(term.end_date),
+        startDate: parseDateOnly(term.start_date),
+        endDate: parseDateOnly(term.end_date),
       });
     }
 

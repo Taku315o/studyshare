@@ -55,8 +55,8 @@ export type TimetableTermOption = {
   code: string;
   displayName: string;
   sortKey: number;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string | null;
+  endDate: string | null;
 };
 
 export type TimetableResolvedTerm = TimetableTermOption | null;

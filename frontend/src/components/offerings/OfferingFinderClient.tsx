@@ -11,7 +11,7 @@ import { persistTimetableReturnHighlight } from '@/lib/timetable/add';
 import { DEFAULT_GLOBAL_TIMETABLE_CONFIG, formatWeekdayLabel, loadEffectiveTimetableConfig } from '@/lib/timetable/config';
 import { upsertEnrollment } from '@/lib/timetable/enrollment';
 import { mapSearchResultRow } from '@/lib/timetable/search';
-import { buildTermLabel, parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
+import { buildTermLabel, parseDateOnly, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
   TimetableConfig,
@@ -67,8 +67,8 @@ function toTermOption(row: TermRow): TimetableTermOption {
     code: row.code,
     displayName: row.display_name,
     sortKey: row.sort_key,
-    startDate: parseDateAtStartOfDay(row.start_date),
-    endDate: parseDateAtStartOfDay(row.end_date),
+    startDate: parseDateOnly(row.start_date),
+    endDate: parseDateOnly(row.end_date),
   };
 }
 

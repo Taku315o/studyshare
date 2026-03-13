@@ -4,7 +4,7 @@ import {
   DEFAULT_GLOBAL_TIMETABLE_CONFIG,
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
-import { parseDateAtStartOfDay, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
+import { parseDateOnly, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import type {
   TimetableColorToken,
   TimetableConfig,
@@ -116,8 +116,8 @@ function toTermOption(row: TermQueryRow): TimetableTermOption {
     code: row.code,
     displayName: row.display_name,
     sortKey: row.sort_key,
-    startDate: parseDateAtStartOfDay(row.start_date),
-    endDate: parseDateAtStartOfDay(row.end_date),
+    startDate: parseDateOnly(row.start_date),
+    endDate: parseDateOnly(row.end_date),
   };
 }
 

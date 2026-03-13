@@ -23,37 +23,11 @@ export function parseDateOnly(value: string | null) {
   return DATE_ONLY_PATTERN.test(value) ? value : null;
 }
 
-export function parseDateAtStartOfDay(value: string | null): Date | null {
-  if (!value) return null;
-  const match = DATE_ONLY_PATTERN.exec(value);
-  if (!match) return null;
+function toDateKey(value: string | null) {
+  const parsed = parseDateOnly(value);
+  if (!parsed) return null;
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  if (
-    Number.isNaN(year) ||
-    Number.isNaN(month) ||
-    Number.isNaN(day) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31
-  ) {
-    return null;
-  }
-
-  return new Date(year, month - 1, day);
-}
-
-function toDateKey(value: Date | string | null) {
-  if (!value) return null;
-
-  const date = value instanceof Date ? value : parseDateAtStartOfDay(value);
-  if (!date || Number.isNaN(date.getTime())) return null;
-
-  return date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
+  return Number(parsed.replace(/-/g, ''));
 }
 
 function toLocalDateKey(today: Date) {
