@@ -23,7 +23,7 @@ export function parseDateOnly(value: string | null) {
   return DATE_ONLY_PATTERN.test(value) ? value : null;
 }
 
-function toDateKey(value: string | null) {
+export function parseDateAtStartOfDay(value: string | null): Date | null {
   if (!value) return null;
   const match = DATE_ONLY_PATTERN.exec(value);
   if (!match) return null;
@@ -44,7 +44,16 @@ function toDateKey(value: string | null) {
     return null;
   }
 
-  return year * 10_000 + month * 100 + day;
+  return new Date(year, month - 1, day);
+}
+
+function toDateKey(value: Date | string | null) {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : parseDateAtStartOfDay(value);
+  if (!date || Number.isNaN(date.getTime())) return null;
+
+  return date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
 }
 
 function toLocalDateKey(today: Date) {
