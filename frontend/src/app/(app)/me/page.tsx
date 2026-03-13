@@ -150,27 +150,31 @@ type EnrollmentQueryRow = {
           | null;
         offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
       }
-    | Array<{
-        id: string;
-        instructor: string | null;
-        courses: { name: string | null } | Array<{ name: string | null }> | null;
-        terms:
-          | {
-              id: string;
-              year: number;
-              season: string;
-              start_date: string | null;
-              end_date: string | null;
-            }
-          | Array<{
-              id: string;
-              year: number;
-              season: string;
-              start_date: string | null;
-              end_date: string | null;
-            }>
-          | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
+     | Array<{
+         id: string;
+         instructor: string | null;
+         courses: { name: string | null } | Array<{ name: string | null }> | null;
+         terms:
+           | {
+               id: string;
+               academic_year: number;
+               code: string;
+               display_name: string;
+               sort_key: number;
+               start_date: string | null;
+               end_date: string | null;
+             }
+           | Array<{
+               id: string;
+               academic_year: number;
+               code: string;
+               display_name: string;
+               sort_key: number;
+               start_date: string | null;
+               end_date: string | null;
+             }>
+           | null;
+         offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
       }>
     | null;
 };

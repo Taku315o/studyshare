@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 import type { TimetableStatus } from '@/types/timetable';
@@ -100,7 +101,9 @@ async function fallbackUpsertEnrollment(
     profile?.enrollment_visibility_default ??
     'match_only';
 
-  const { data: rowData, error: upsertError } = await supabase
+  const writer = supabase as unknown as SupabaseClient<Database>;
+
+  const { data: rowData, error: upsertError } = await writer
     .from('enrollments')
     .upsert(
       {
