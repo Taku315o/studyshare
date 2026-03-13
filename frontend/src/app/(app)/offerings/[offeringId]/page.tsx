@@ -3,6 +3,7 @@ import OfferingHeader from '@/components/offerings/OfferingHeader';
 import OfferingTabs from '@/components/offerings/OfferingTabs';
 import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { buildTermLabel } from '@/lib/timetable/terms';
 import type {
   NoteListItem,
   OfferingCounts,
@@ -21,7 +22,10 @@ type OfferingRow = {
     | { name: string | null; course_code: string | null }
     | Array<{ name: string | null; course_code: string | null }>
     | null;
-  terms: { year: number; season: string } | Array<{ year: number; season: string }> | null;
+  terms:
+    | { academic_year: number; display_name: string }
+    | Array<{ academic_year: number; display_name: string }>
+    | null;
   offering_slots: Array<{ day_of_week: number | null; period: number | null }> | null;
 };
 
@@ -42,11 +46,6 @@ type OfferingQuestionAnswersReadClient = {
 const PAGE_SIZE = 8;
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
-const SEASON_LABELS: Record<string, string> = {
-  first_half: '前期',
-  second_half: '後期',
-};
-
 /**
  * 指定された値をもとにアクティブなタブを解析する。
  * @param value - クエリパラメータから取得したタブ名
@@ -109,7 +108,7 @@ export default async function OfferingDetailPage({
       id,
       instructor,
       courses:course_id(name, course_code),
-      terms:term_id(year, season),
+      terms:term_id(academic_year, display_name),
       offering_slots(day_of_week, period)
     `,
     )
@@ -130,7 +129,7 @@ export default async function OfferingDetailPage({
     courseTitle: course?.name ?? '不明な授業',
     courseCode: course?.course_code ?? null,
     instructorName: offering.instructor ?? null,
-    termLabel: term ? `${term.year} ${SEASON_LABELS[term.season] ?? term.season}` : '未設定',
+    termLabel: term ? buildTermLabel({ academicYear: term.academic_year, displayName: term.display_name }) : '未設定',
     timeslotLabel: formatTimeslot(slots),
   };
 
@@ -150,10 +149,11 @@ export default async function OfferingDetailPage({
     user
       ? supabase
           .from('enrollments')
-          .select('user_id', { count: 'exact', head: true })
+          .select('status')
           .eq('offering_id', offeringId)
           .eq('user_id', user.id)
-      : Promise.resolve({ count: 0 } as { count: number | null }),
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as { data: { status: string } | null; error: null }),
   ]);
 
   const counts: OfferingCounts = {
@@ -163,7 +163,10 @@ export default async function OfferingDetailPage({
     students: Number(enrollmentsCountRes.data ?? 0),
   };
 
-  const isEnrolled = (enrollmentRes.count ?? 0) > 0;
+  const initialEnrollmentStatus =
+    user && 'data' in enrollmentRes && enrollmentRes.data && typeof enrollmentRes.data === 'object' && 'status' in enrollmentRes.data
+      ? ((enrollmentRes.data.status as string | null) ?? null)
+      : null;
 
   const notesFrom = (notesPage - 1) * PAGE_SIZE;
   const notesTo = notesFrom + PAGE_SIZE;
@@ -367,7 +370,16 @@ export default async function OfferingDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl rounded-3xl border border-white/70 bg-white/70 shadow-sm backdrop-blur">
-      <OfferingHeader offeringId={offeringId} offering={offeringMeta} canEnroll={Boolean(user)} isEnrolledInitial={isEnrolled} />
+      <OfferingHeader
+        offeringId={offeringId}
+        offering={offeringMeta}
+        canEnroll={Boolean(user)}
+        initialEnrollmentStatus={
+          initialEnrollmentStatus === 'enrolled' || initialEnrollmentStatus === 'planned' || initialEnrollmentStatus === 'dropped'
+            ? initialEnrollmentStatus
+            : null
+        }
+      />
       <div className="border-t border-slate-100 bg-blue-50/80 px-6 py-3 text-xs text-blue-800">
         ノート・口コミ・質問は同大学スコープで表示されます。大学・学年が未設定だと他ユーザーの投稿が表示されない場合があります（
         <span className="font-mono">/me</span> のプロフィール編集で変更できます）。

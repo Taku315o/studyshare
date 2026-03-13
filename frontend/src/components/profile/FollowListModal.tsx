@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 
@@ -39,7 +38,7 @@ export default function FollowListModal({
   title,
 }: FollowListModalProps) {
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
+  const typedSupabase = supabase;
   const [profiles, setProfiles] = useState<FollowListProfileRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -56,8 +55,19 @@ export default function FollowListModal({
       setErrorMessage(null);
 
       try {
-        const { data, error } = await typedSupabase
-          .rpc('list_follow_profiles', {
+        const rpcClient = typedSupabase as unknown as {
+          rpc: (
+            fn: 'list_follow_profiles',
+            args: {
+              _target_user_id: string;
+              _direction: 'followers' | 'following';
+              _limit: number;
+              _offset: number;
+            },
+          ) => Promise<{ data: FollowListProfileRow[] | null; error: { message?: string } | null }>;
+        };
+
+        const { data, error } = await rpcClient.rpc('list_follow_profiles', {
             _target_user_id: targetUserId,
             _direction: mode,
             _limit: PAGE_SIZE + 1,

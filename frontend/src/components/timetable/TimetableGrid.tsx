@@ -1,50 +1,105 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Search, X } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import toast from 'react-hot-toast';
 import TimetableCell from '@/components/timetable/TimetableCell';
+import TimetableEnrollmentConfirmModal from '@/components/timetable/TimetableEnrollmentConfirmModal';
+import {
+  buildTimetableAddHref,
+  consumeTimetableReturnHighlight,
+  consumeTimetableScrollPosition,
+  persistTimetableScrollPosition,
+} from '@/lib/timetable/add';
 import {
   DEFAULT_GLOBAL_TIMETABLE_CONFIG,
   formatWeekdayLabel,
   loadEffectiveTimetableConfig,
 } from '@/lib/timetable/config';
+import { updateEnrollmentStatus } from '@/lib/timetable/enrollment';
+import TermSelectorModal from './TermSelectorModal';
+import { buildTermLabel, parseDateOnly, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
-import type { Database } from '@/types/supabase';
 import type {
   TimetableCellModel,
   TimetableColorToken,
   TimetableConfig,
   TimetableGridViewModel,
   TimetableOfferingItem,
-  TimetablePeriod,
-  TimetableSearchModalState,
+  TimetableReturnHighlight,
   TimetableStatus,
+  TimetableTermOption,
   TimetableWeekday,
 } from '@/types/timetable';
 
-type EnrollmentQueryRow = {
-  created_at: string;
-  status: string;
-  offering:
-    | {
-        id: string;
-        instructor: string | null;
-        courses: { id: string; name: string } | Array<{ id: string; name: string }> | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
-      }
-    | Array<{
-        id: string;
-        instructor: string | null;
-        courses: { id: string; name: string } | Array<{ id: string; name: string }> | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
-      }>
-    | null;
-};
-
 type ProfileQueryRow = {
   university_id: string | null;
+};
+
+type TermQueryRow = {
+  id: string;
+  academic_year: number;
+  code: string;
+  display_name: string;
+  sort_key: number;
+  start_date: string | null;
+  end_date: string | null;
+};
+
+type TimetableRpcRow = {
+  term_id: string;
+  term_academic_year: number;
+  term_code: string;
+  term_display_name: string;
+  term_sort_key: number;
+  offering_id: string;
+  course_title: string | null;
+  instructor: string | null;
+  status: string;
+  created_at: string;
+  day_of_week: number | null;
+  period: number | null;
+  start_time: string | null;
+  room: string | null;
+  is_unslotted: boolean | null;
+};
+
+type TimetableEnrollmentEntry = {
+  offeringId: string;
+  termId: string;
+  courseTitle: string;
+  instructorName: string;
+  colorToken: TimetableColorToken;
+  createdAt: string;
+  status: TimetableStatus;
+  slots: Array<{
+    dayOfWeek: TimetableWeekday;
+    period: number;
+    startTime: string;
+  }>;
+  isUnslotted: boolean;
+  room: string | null;
+};
+
+type TimetableUnslottedItem = {
+  offeringId: string;
+  courseTitle: string;
+  instructorName: string;
+  colorToken: TimetableColorToken;
+  createdAt: string;
+  status: TimetableStatus;
+  room: string | null;
+};
+
+type PendingEnrollmentActionItem = {
+  offeringId: string;
+  courseTitle: string;
+};
+
+type OverlapTarget = {
+  dayOfWeek: TimetableWeekday;
+  period: number;
 };
 
 const STATUS_PRIORITY: Record<TimetableStatus, number> = {
@@ -56,17 +111,8 @@ const STATUS_PRIORITY: Record<TimetableStatus, number> = {
 const COLOR_TOKENS: TimetableColorToken[] = ['sky', 'indigo', 'emerald', 'amber', 'rose', 'teal'];
 const TIMETABLE_STATUSES: TimetableStatus[] = ['enrolled', 'planned', 'dropped'];
 
-function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null;
-  return Array.isArray(value) ? value[0] ?? null : value;
-}
-
 function isWeekdayValue(value: number | null): value is TimetableWeekday {
   return value !== null && value >= 1 && value <= 7;
-}
-
-function isPeriodValue(value: number | null): value is TimetablePeriod {
-  return value !== null && Number.isInteger(value) && value >= 1 && value <= 30;
 }
 
 function isStatus(value: string): value is TimetableStatus {
@@ -103,7 +149,9 @@ function buildViewModel(items: TimetableOfferingItem[], config: TimetableConfig)
   items.forEach((item) => {
     const key = `${item.dayOfWeek}-${item.period}`;
     const current = buckets.get(key);
-    if (current) current.push(item);
+    if (current) {
+      current.push(item);
+    }
   });
 
   buckets.forEach((bucket) => {
@@ -131,43 +179,165 @@ function buildViewModel(items: TimetableOfferingItem[], config: TimetableConfig)
   return { cells };
 }
 
-function modalTitle(state: TimetableSearchModalState): string {
-  if (!state.isOpen) return '';
-  if (state.source === 'page-search') return 'Offering検索（準備中）';
-  if (state.source === 'matching-cta') return 'マッチング機能（準備中）';
-  return '授業追加（準備中）';
-}
-
 function periodLabel(config: TimetableConfig, period: number | undefined) {
   if (!period) return '時限';
   return config.periods.find((entry) => entry.period === period)?.label ?? `${period}限`;
 }
 
-function modalDescription(state: TimetableSearchModalState, config: TimetableConfig): string {
-  if (!state.isOpen) return '';
-  if (state.source === 'page-search') return '検索機能は次のフェーズで実装予定です。';
-  if (state.source === 'matching-cta') return '同じ授業の受講者検索は今後のアップデートで対応します。';
-  const day = state.dayOfWeek ? formatWeekdayLabel(state.dayOfWeek) : null;
-  const period = periodLabel(config, state.period);
-  return day && state.period
-    ? `${day}曜 ${period} への授業追加モーダルは準備中です。`
-    : '空きコマへの授業追加モーダルは準備中です。';
+function toTermOption(row: TermQueryRow): TimetableTermOption {
+  return {
+    id: row.id,
+    academicYear: row.academic_year,
+    code: row.code,
+    displayName: row.display_name,
+    sortKey: row.sort_key,
+    startDate: parseDateOnly(row.start_date),
+    endDate: parseDateOnly(row.end_date),
+  };
+}
+
+function buildTimetableHref(pathname: string | null, termId: string | null) {
+  const basePath = pathname ?? '/timetable';
+  if (!termId) return basePath;
+  return `${basePath}?termId=${encodeURIComponent(termId)}`;
+}
+
+function normalizeEnrollmentEntries(rows: TimetableRpcRow[], config: TimetableConfig) {
+  const byOfferingId = new Map<string, TimetableEnrollmentEntry>();
+
+  rows.forEach((row) => {
+    if (!isStatus(row.status)) return;
+
+    const existing = byOfferingId.get(row.offering_id);
+    const entry =
+      existing ??
+      {
+        offeringId: row.offering_id,
+        termId: row.term_id,
+        courseTitle: row.course_title ?? '不明な授業',
+        instructorName: row.instructor ?? '教員未設定',
+        colorToken: resolveColorToken(row.offering_id),
+        createdAt: row.created_at,
+        status: row.status,
+        slots: [],
+        isUnslotted: false,
+        room: row.room ?? null,
+      };
+
+    if (isWeekdayValue(row.day_of_week) && row.period !== null && Number.isInteger(row.period) && row.period > 0) {
+      const fallbackStartTime = config.periods.find((period) => period.period === row.period)?.startTime ?? '0:00';
+      entry.slots.push({
+        dayOfWeek: row.day_of_week,
+        period: row.period,
+        startTime: formatTime(row.start_time, fallbackStartTime),
+      });
+    } else if (row.is_unslotted || row.day_of_week === null || row.period === null) {
+      entry.isUnslotted = true;
+    }
+
+    if (!entry.room && row.room) {
+      entry.room = row.room;
+    }
+
+    byOfferingId.set(row.offering_id, entry);
+  });
+
+  return Array.from(byOfferingId.values());
+}
+
+function buildDisplayItems(entries: TimetableEnrollmentEntry[]) {
+  return entries.flatMap((entry) =>
+    entry.slots.map<TimetableOfferingItem>((slot) => ({
+      offeringId: entry.offeringId,
+      courseTitle: entry.courseTitle,
+      instructorName: entry.instructorName,
+      startTime: slot.startTime,
+      dayOfWeek: slot.dayOfWeek,
+      period: slot.period,
+      status: entry.status,
+      colorToken: entry.colorToken,
+      createdAt: entry.createdAt,
+    })),
+  );
+}
+
+function buildOutOfConfigItems(items: TimetableOfferingItem[], config: TimetableConfig) {
+  const availableSlots = new Set<string>();
+  config.weekdays.forEach((weekday) => {
+    config.periods.forEach((period) => {
+      availableSlots.add(`${weekday}-${period.period}`);
+    });
+  });
+
+  const uniqueMap = new Map<string, TimetableOfferingItem>();
+  items.forEach((item) => {
+    if (availableSlots.has(`${item.dayOfWeek}-${item.period}`)) {
+      return;
+    }
+    uniqueMap.set(`${item.offeringId}-${item.dayOfWeek}-${item.period}`, item);
+  });
+
+  return Array.from(uniqueMap.values());
+}
+
+function buildUnslottedItems(entries: TimetableEnrollmentEntry[]) {
+  return entries
+    .filter((entry) => entry.isUnslotted || entry.slots.length === 0)
+    .map<TimetableUnslottedItem>((entry) => ({
+      offeringId: entry.offeringId,
+      courseTitle: entry.courseTitle,
+      instructorName: entry.instructorName,
+      colorToken: entry.colorToken,
+      createdAt: entry.createdAt,
+      status: entry.status,
+      room: entry.room,
+    }));
 }
 
 export default function TimetableGrid() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
 
-  const [items, setItems] = useState<TimetableOfferingItem[]>([]);
+  const [enrollmentEntries, setEnrollmentEntries] = useState<TimetableEnrollmentEntry[]>([]);
+  const [terms, setTerms] = useState<TimetableTermOption[]>([]);
   const [timetableConfig, setTimetableConfig] = useState<TimetableConfig>(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
-  const [outOfConfigItems, setOutOfConfigItems] = useState<TimetableOfferingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDropped, setShowDropped] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [searchModalState, setSearchModalState] = useState<TimetableSearchModalState>({ isOpen: false });
-  const [activeOverlapCell, setActiveOverlapCell] = useState<TimetableCellModel | null>(null);
+  const [activeOverlapTarget, setActiveOverlapTarget] = useState<OverlapTarget | null>(null);
+  const [activeHighlight, setActiveHighlight] = useState<TimetableReturnHighlight | null>(null);
+  const [pendingActionItem, setPendingActionItem] = useState<PendingEnrollmentActionItem | null>(null);
+  const [pendingActionType, setPendingActionType] = useState<'drop' | 'restore' | null>(null);
+  const [mutatingOfferingId, setMutatingOfferingId] = useState<string | null>(null);
+  const [isTermModalOpen, setIsTermModalOpen] = useState(false);
+
+  const pendingScrollRef = useRef<number | null>(null);
+  const pendingHighlightRef = useRef<TimetableReturnHighlight | null>(null);
+  const hasAppliedReturnStateRef = useRef(false);
+  const highlightTimerRef = useRef<number | null>(null);
+
+  const rawSelectedTermId = searchParams.get('termId')?.trim() || null;
+  const defaultTerm = useMemo(() => resolveDefaultTerm(terms, new Date()), [terms]);
+  const selectedTerm = useMemo(
+    () => terms.find((term) => term.id === rawSelectedTermId) ?? defaultTerm,
+    [defaultTerm, rawSelectedTermId, terms],
+  );
+  const selectedTermId = selectedTerm?.id ?? null;
+  const timetableReturnPath = useMemo(() => buildTimetableHref(pathname, selectedTermId), [pathname, selectedTermId]);
+
+  useEffect(() => {
+    pendingScrollRef.current = consumeTimetableScrollPosition();
+    pendingHighlightRef.current = consumeTimetableReturnHighlight();
+
+    return () => {
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,8 +358,8 @@ export default function TimetableGrid() {
 
         if (!user) {
           if (!cancelled) {
-            setItems([]);
-            setOutOfConfigItems([]);
+            setEnrollmentEntries([]);
+            setTerms([]);
             setTimetableConfig(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
           }
           return;
@@ -207,108 +377,71 @@ export default function TimetableGrid() {
 
         const profile = (profileData ?? null) as ProfileQueryRow | null;
 
-        let activeConfig = DEFAULT_GLOBAL_TIMETABLE_CONFIG;
-        try {
-          const resolvedConfig = await loadEffectiveTimetableConfig(
-            typedSupabase,
-            user.id,
-            profile?.university_id ?? null,
-          );
-          activeConfig = resolvedConfig.config;
-        } catch (error) {
+        const configPromise = loadEffectiveTimetableConfig(supabase, user.id, profile?.university_id ?? null).catch((error) => {
           console.error('[TimetableGrid] 時間割設定の取得に失敗しました。デフォルトを適用します:', error);
+          return { config: DEFAULT_GLOBAL_TIMETABLE_CONFIG };
+        });
+
+        const termsPromise = profile?.university_id
+          ? supabase
+            .from('terms')
+            .select('id, academic_year, code, display_name, sort_key, start_date, end_date')
+            .eq('university_id', profile.university_id)
+          : Promise.resolve({ data: [] as TermQueryRow[], error: null });
+
+        const [configResult, termsResult] = await Promise.all([configPromise, termsPromise]);
+
+        if (termsResult.error) {
+          throw termsResult.error;
         }
+
+        const nextTerms = sortTermsForSelector(((termsResult.data ?? []) as TermQueryRow[]).map(toTermOption));
+        const effectiveTerm = nextTerms.find((term) => term.id === rawSelectedTermId) ?? resolveDefaultTerm(nextTerms, new Date());
+
         if (!cancelled) {
-          setTimetableConfig(activeConfig);
+          setTimetableConfig(configResult.config);
+          setTerms(nextTerms);
         }
 
-        const statuses: TimetableStatus[] = showDropped ? ['enrolled', 'planned', 'dropped'] : ['enrolled', 'planned'];
+        if (effectiveTerm && rawSelectedTermId !== effectiveTerm.id) {
+          router.replace(buildTimetableHref(pathname, effectiveTerm.id));
+        }
 
-        const { data, error } = await supabase
-          .from('enrollments')
-          .select(
-            `
-            created_at,
-            status,
-            offering:course_offerings (
-              id,
-              instructor,
-              courses:course_id (
-                id,
-                name
-              ),
-              offering_slots (
-                day_of_week,
-                period,
-                start_time
-              )
-            )
-          `,
-          )
-          .eq('user_id', user.id)
-          .in('status', statuses);
+        if (!effectiveTerm) {
+          if (!cancelled) {
+            setEnrollmentEntries([]);
+          }
+          return;
+        }
+
+        const rpcClient = supabase as unknown as {
+          rpc: (
+            fn: 'list_my_timetable',
+            args: {
+              _term_id: string;
+              _include_dropped: boolean;
+            },
+          ) => Promise<{ data: TimetableRpcRow[] | null; error: { message?: string } | null }>;
+        };
+
+        const { data, error } = await rpcClient.rpc('list_my_timetable', {
+          _term_id: effectiveTerm.id,
+          _include_dropped: showDropped,
+        });
 
         if (error) {
           throw error;
         }
 
-        const rows = (data ?? []) as EnrollmentQueryRow[];
-        const nextItems: TimetableOfferingItem[] = [];
-
-        rows.forEach((row) => {
-          const status = row.status;
-          if (!isStatus(status)) return;
-          const offering = normalizeOne(row.offering);
-          if (!offering) return;
-
-          const course = normalizeOne(offering.courses);
-          const slots = Array.isArray(offering.offering_slots) ? offering.offering_slots : [];
-
-          slots.forEach((slot) => {
-            if (!isWeekdayValue(slot.day_of_week) || !isPeriodValue(slot.period)) return;
-
-            const fallbackStartTime =
-              activeConfig.periods.find((period) => period.period === slot.period)?.startTime ?? '0:00';
-            nextItems.push({
-              offeringId: offering.id,
-              courseTitle: course?.name ?? '不明な授業',
-              instructorName: offering.instructor ?? '教員未設定',
-              startTime: formatTime(slot.start_time, fallbackStartTime),
-              dayOfWeek: slot.day_of_week,
-              period: slot.period,
-              status,
-              colorToken: resolveColorToken(offering.id),
-              createdAt: row.created_at,
-            });
-          });
-        });
-
-        const availableSlots = new Set<string>();
-        activeConfig.weekdays.forEach((weekday) => {
-          activeConfig.periods.forEach((period) => {
-            availableSlots.add(`${weekday}-${period.period}`);
-          });
-        });
-
-        const uniqueOutOfConfigMap = new Map<string, TimetableOfferingItem>();
-        nextItems.forEach((item) => {
-          const key = `${item.dayOfWeek}-${item.period}`;
-          if (availableSlots.has(key)) {
-            return;
-          }
-          uniqueOutOfConfigMap.set(`${item.offeringId}-${item.dayOfWeek}-${item.period}`, item);
-        });
-
         if (!cancelled) {
-          setItems(nextItems);
-          setOutOfConfigItems(Array.from(uniqueOutOfConfigMap.values()));
+          setEnrollmentEntries(normalizeEnrollmentEntries(data ?? [], configResult.config));
         }
       } catch (error) {
         console.error(error);
         if (!cancelled) {
           setErrorMessage('時間割の取得に失敗しました。しばらくしてから再度お試しください。');
-          setItems([]);
-          setOutOfConfigItems([]);
+          setEnrollmentEntries([]);
+          setTerms([]);
           setTimetableConfig(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
         }
       } finally {
@@ -323,9 +456,38 @@ export default function TimetableGrid() {
     return () => {
       cancelled = true;
     };
-  }, [showDropped, supabase, typedSupabase]);
+  }, [pathname, rawSelectedTermId, router, showDropped, supabase]);
 
-  const viewModel = useMemo(() => buildViewModel(items, timetableConfig), [items, timetableConfig]);
+  useEffect(() => {
+    if (isLoading || errorMessage || hasAppliedReturnStateRef.current) {
+      return;
+    }
+
+    hasAppliedReturnStateRef.current = true;
+
+    if (pendingScrollRef.current !== null && typeof window !== 'undefined') {
+      const top = pendingScrollRef.current;
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top, behavior: 'auto' });
+      });
+    }
+
+    if (pendingHighlightRef.current && typeof window !== 'undefined') {
+      setActiveHighlight(pendingHighlightRef.current);
+      highlightTimerRef.current = window.setTimeout(() => {
+        setActiveHighlight(null);
+      }, 2600);
+    }
+  }, [errorMessage, isLoading]);
+
+  const visibleEntries = useMemo(
+    () => (showDropped ? enrollmentEntries : enrollmentEntries.filter((entry) => entry.status !== 'dropped')),
+    [enrollmentEntries, showDropped],
+  );
+  const displayItems = useMemo(() => buildDisplayItems(visibleEntries), [visibleEntries]);
+  const viewModel = useMemo(() => buildViewModel(displayItems, timetableConfig), [displayItems, timetableConfig]);
+  const outOfConfigItems = useMemo(() => buildOutOfConfigItems(displayItems, timetableConfig), [displayItems, timetableConfig]);
+  const unslottedItems = useMemo(() => buildUnslottedItems(visibleEntries), [visibleEntries]);
 
   const cellLookup = useMemo(() => {
     const map = new Map<string, TimetableCellModel>();
@@ -335,54 +497,183 @@ export default function TimetableGrid() {
     return map;
   }, [viewModel]);
 
+  const activeOverlapCell = useMemo(() => {
+    if (!activeOverlapTarget) return null;
+
+    return (
+      viewModel.cells.find(
+        (cell) =>
+          cell.dayOfWeek === activeOverlapTarget.dayOfWeek &&
+          cell.period === activeOverlapTarget.period &&
+          cell.items.length > 0,
+      ) ?? null
+    );
+  }, [activeOverlapTarget, viewModel.cells]);
+
+  useEffect(() => {
+    if (activeOverlapTarget && !activeOverlapCell) {
+      setActiveOverlapTarget(null);
+    }
+  }, [activeOverlapCell, activeOverlapTarget]);
+
+  const navigateToAdd = (args: {
+    dayOfWeek?: TimetableWeekday | null;
+    period?: number | null;
+    query?: string | null;
+  }) => {
+    persistTimetableScrollPosition();
+    router.push(
+      buildTimetableAddHref({
+        termId: selectedTermId,
+        dayOfWeek: args.dayOfWeek ?? null,
+        period: args.period ?? null,
+        query: args.query ?? null,
+        returnTo: timetableReturnPath,
+      }),
+    );
+  };
+
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSearchModalState({
-      isOpen: true,
-      source: 'page-search',
-      keyword: searchKeyword.trim() || undefined,
+    navigateToAdd({ query: searchKeyword });
+  };
+
+  const handleOpenAdd = (dayOfWeek: TimetableWeekday, period: number) => {
+    navigateToAdd({ dayOfWeek, period });
+  };
+
+  const applyEnrollmentStatusUpdate = (offeringId: string, status: TimetableStatus) => {
+    setEnrollmentEntries((current) =>
+      current.map((entry) => (entry.offeringId === offeringId ? { ...entry, status } : entry)),
+    );
+  };
+
+  const openDropConfirm = (item: { offeringId: string; courseTitle: string }) => {
+    setPendingActionItem({
+      offeringId: item.offeringId,
+      courseTitle: item.courseTitle,
     });
+    setPendingActionType('drop');
   };
 
-  const handleOpenAdd = (dayOfWeek: TimetableWeekday, period: TimetablePeriod) => {
-    setSearchModalState({ isOpen: true, source: 'empty-cell', dayOfWeek, period });
+  const openRestoreConfirm = (item: { offeringId: string; courseTitle: string }) => {
+    setPendingActionItem({
+      offeringId: item.offeringId,
+      courseTitle: item.courseTitle,
+    });
+    setPendingActionType('restore');
   };
 
-  const handleCloseModal = () => {
-    setSearchModalState({ isOpen: false });
+  const closeActionModal = () => {
+    if (mutatingOfferingId) {
+      return;
+    }
+    setPendingActionItem(null);
+    setPendingActionType(null);
   };
+
+  const handleConfirmEnrollmentAction = async () => {
+    if (!pendingActionItem || !pendingActionType || mutatingOfferingId) {
+      return;
+    }
+
+    const nextStatus = pendingActionType === 'drop' ? 'dropped' : 'enrolled';
+    setMutatingOfferingId(pendingActionItem.offeringId);
+
+    try {
+      const result = await updateEnrollmentStatus(supabase, {
+        offeringId: pendingActionItem.offeringId,
+        status: nextStatus,
+      });
+
+      if (!result.success) {
+        if (result.requiresAuth) {
+          toast.error('ログインが必要です');
+          return;
+        }
+
+        toast.error(result.error || '時間割の更新に失敗しました');
+        return;
+      }
+
+      applyEnrollmentStatusUpdate(pendingActionItem.offeringId, nextStatus);
+      setPendingActionItem(null);
+      setPendingActionType(null);
+
+      if (pendingActionType === 'drop') {
+        toast.success(result.alreadyActive ? 'すでに取消済みです' : '時間割から外しました');
+        return;
+      }
+
+      toast.success(result.alreadyActive ? 'すでに履修中です' : '時間割に再登録しました');
+    } finally {
+      setMutatingOfferingId(null);
+    }
+  };
+
+  const selectedTermLabel = selectedTerm ? buildTermLabel(selectedTerm) : '学期未設定';
 
   return (
     <div className="space-y-5 rounded-3xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur">
       <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 sm:flex-row">
-          <label className="flex h-11 flex-1 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4">
-            <Search className="h-4 w-4 text-slate-500" />
-            <input
-              type="text"
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              placeholder="Offeringを検索（準備中）"
-              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
-          </label>
-          <button
-            type="submit"
-            className="h-11 rounded-full bg-blue-500 px-6 text-sm font-semibold text-white transition hover:bg-blue-400"
-          >
-            検索
-          </button>
-        </form>
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <form onSubmit={handleSearchSubmit} className="flex flex-1 flex-col gap-3 sm:flex-row">
+            <label className="flex h-11 flex-1 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4">
+              <Search className="h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(event) => setSearchKeyword(event.target.value)}
+                placeholder="授業名または教員名で検索"
+                className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              className="h-11 rounded-full bg-blue-500 px-6 text-sm font-semibold text-white transition hover:bg-blue-400"
+            >
+              検索
+            </button>
+          </form>
 
-        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={showDropped}
-            onChange={(event) => setShowDropped(event.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-blue-500"
+          <button
+            type="button"
+            onClick={() => setIsTermModalOpen(true)}
+            disabled={terms.length === 0}
+            className="flex h-11 min-w-[220px] items-center justify-between gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="shrink-0 text-slate-500">年度・学期</span>
+            <span className="truncate font-medium">{selectedTermLabel}</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+          </button>
+
+          <TermSelectorModal
+            isOpen={isTermModalOpen}
+            terms={terms}
+            selectedTermId={selectedTermId}
+            onSelect={(termId) => {
+              router.replace(buildTimetableHref(pathname, termId));
+              setIsTermModalOpen(false);
+            }}
+            onClose={() => setIsTermModalOpen(false)}
           />
-          取消を表示
-        </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={showDropped}
+              onChange={(event) => setShowDropped(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-blue-500"
+            />
+            取消を表示
+          </label>
+
+          <p className="text-xs text-slate-500">
+            表示中: {selectedTermLabel} / {terms.length > 0 ? '大学の学期あり' : '学期データ未設定'}
+          </p>
+        </div>
       </div>
 
       {isLoading ? (
@@ -399,24 +690,97 @@ export default function TimetableGrid() {
             <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-semibold">設定外の授業が {outOfConfigItems.length} 件あります。設定を見直してください。</p>
               <ul className="mt-2 space-y-1 text-xs">
-                {outOfConfigItems.slice(0, 5).map((item) => (
-                  <li key={`${item.offeringId}-${item.dayOfWeek}-${item.period}`}>
-                    {item.courseTitle} / {formatWeekdayLabel(item.dayOfWeek)}曜 {periodLabel(timetableConfig, item.period)}
-                  </li>
-                ))}
+                {outOfConfigItems.slice(0, 5).map((item) => {
+                  const isHighlighted =
+                    activeHighlight?.location === 'out_of_config' &&
+                    activeHighlight.offeringId === item.offeringId &&
+                    activeHighlight.dayOfWeek === item.dayOfWeek &&
+                    activeHighlight.period === item.period;
+
+                  return (
+                    <li
+                      key={`${item.offeringId}-${item.dayOfWeek}-${item.period}`}
+                      className={isHighlighted ? 'rounded-md bg-white/80 px-2 py-1 font-semibold text-amber-950' : undefined}
+                    >
+                      {item.courseTitle} / {formatWeekdayLabel(item.dayOfWeek)}曜 {periodLabel(timetableConfig, item.period)}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ) : null}
 
-          {items.length === 0 ? (
+          {unslottedItems.length > 0 ? (
+            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">集中・日時未定</p>
+                  <p className="mt-1 text-xs text-slate-500">曜日や時限が未設定の授業はここに表示されます。</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {unslottedItems.map((item) => {
+                  const isHighlighted =
+                    activeHighlight?.location === 'unslotted' &&
+                    activeHighlight.offeringId === item.offeringId;
+
+                  return (
+                    <div
+                      key={item.offeringId}
+                      className={[
+                        'flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3',
+                        isHighlighted ? 'border-blue-300 shadow-[0_0_0_3px_rgba(59,130,246,0.14)]' : '',
+                      ].join(' ')}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/offerings/${item.offeringId}`)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <p className="truncate text-sm font-semibold text-slate-900">{item.courseTitle}</p>
+                        <p className="mt-1 truncate text-xs text-slate-600">
+                          {item.instructorName} / {item.room ?? '教室未設定'}
+                        </p>
+                      </button>
+
+                      {item.status === 'dropped' ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(mutatingOfferingId)}
+                          onClick={() => openRestoreConfirm(item)}
+                          className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {mutatingOfferingId === item.offeringId ? '処理中...' : '再登録'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={Boolean(mutatingOfferingId)}
+                          onClick={() => openDropConfirm(item)}
+                          className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {mutatingOfferingId === item.offeringId ? '処理中...' : '削除'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {displayItems.length === 0 && unslottedItems.length === 0 ? (
             <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-              <p className="text-sm text-slate-600">履修中または予定の授業がありません。空きコマから授業を追加できます。</p>
+              <p className="text-sm text-slate-600">{selectedTermLabel}にはまだ授業がありません。</p>
+              <p className="text-xs text-slate-500">年度・学期を切り替えると、別の時間割を確認できます。</p>
               <button
                 type="button"
-                onClick={() => setSearchModalState({ isOpen: true, source: 'empty-cell' })}
-                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                onClick={() => navigateToAdd({})}
+                disabled={!selectedTermId}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                ＋ 授業を追加
+                ＋ この学期に授業を追加
               </button>
             </div>
           ) : null}
@@ -443,6 +807,11 @@ export default function TimetableGrid() {
                     {timetableConfig.weekdays.map((day) => {
                       const cell = cellLookup.get(`${day}-${period.period}`);
                       const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
+                      const isHighlighted =
+                        activeHighlight?.location === 'grid' &&
+                        activeHighlight.dayOfWeek === target.dayOfWeek &&
+                        activeHighlight.period === target.period;
+
                       return (
                         <td key={`${day}-${period.period}`} className="h-32 border-b border-slate-100 px-2 py-2 align-top">
                           <TimetableCell
@@ -451,7 +820,11 @@ export default function TimetableGrid() {
                             item={target.primaryItem}
                             overlapCount={target.items.length}
                             onOpenAdd={handleOpenAdd}
-                            onOpenOverlaps={() => setActiveOverlapCell(target)}
+                            onOpenOverlaps={() => setActiveOverlapTarget({ dayOfWeek: target.dayOfWeek, period: target.period })}
+                            onRequestRemove={openDropConfirm}
+                            onRequestRestore={openRestoreConfirm}
+                            isMutating={Boolean(mutatingOfferingId)}
+                            isHighlighted={Boolean(isHighlighted)}
                           />
                         </td>
                       );
@@ -470,6 +843,11 @@ export default function TimetableGrid() {
                   {timetableConfig.periods.map((period) => {
                     const cell = cellLookup.get(`${day}-${period.period}`);
                     const target = cell ?? { dayOfWeek: day, period: period.period, primaryItem: null, items: [] };
+                    const isHighlighted =
+                      activeHighlight?.location === 'grid' &&
+                      activeHighlight.dayOfWeek === target.dayOfWeek &&
+                      activeHighlight.period === target.period;
+
                     return (
                       <div key={`${day}-${period.period}`} className="grid grid-cols-[72px_minmax(0,1fr)] items-stretch gap-2">
                         <div className="rounded-lg bg-slate-100 px-2 py-2 text-center text-xs text-slate-600">
@@ -482,7 +860,11 @@ export default function TimetableGrid() {
                           item={target.primaryItem}
                           overlapCount={target.items.length}
                           onOpenAdd={handleOpenAdd}
-                          onOpenOverlaps={() => setActiveOverlapCell(target)}
+                          onOpenOverlaps={() => setActiveOverlapTarget({ dayOfWeek: target.dayOfWeek, period: target.period })}
+                          onRequestRemove={openDropConfirm}
+                          onRequestRestore={openRestoreConfirm}
+                          isMutating={Boolean(mutatingOfferingId)}
+                          isHighlighted={Boolean(isHighlighted)}
                         />
                       </div>
                     );
@@ -498,41 +880,12 @@ export default function TimetableGrid() {
         <p className="text-sm text-blue-800">同じ授業を受講している人を探して、一緒に勉強しませんか？</p>
         <button
           type="button"
-          onClick={() => setSearchModalState({ isOpen: true, source: 'matching-cta' })}
+          onClick={() => router.push('/community')}
           className="mt-3 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-400"
         >
-          受講者を探す（準備中）
+          受講者を探す
         </button>
       </section>
-
-      {searchModalState.isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">{modalTitle(searchModalState)}</h3>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
-                aria-label="モーダルを閉じる"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-sm text-slate-600">{modalDescription(searchModalState, timetableConfig)}</p>
-            {searchModalState.source === 'page-search' && searchModalState.keyword ? (
-              <p className="mt-2 text-xs text-slate-500">入力キーワード: {searchModalState.keyword}</p>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleCloseModal}
-              className="mt-5 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-            >
-              閉じる
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {activeOverlapCell ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
@@ -543,7 +896,7 @@ export default function TimetableGrid() {
               </h3>
               <button
                 type="button"
-                onClick={() => setActiveOverlapCell(null)}
+                onClick={() => setActiveOverlapTarget(null)}
                 className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
                 aria-label="重複モーダルを閉じる"
               >
@@ -552,26 +905,56 @@ export default function TimetableGrid() {
             </div>
             <div className="space-y-2">
               {activeOverlapCell.items.map((item) => (
-                <button
+                <div
                   key={`${item.offeringId}-${item.createdAt}`}
-                  type="button"
-                  onClick={() => {
-                    setActiveOverlapCell(null);
-                    router.push(`/offerings/${item.offeringId}`);
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
                 >
-                  <span>
-                    <p className="text-sm font-semibold text-slate-900">{item.courseTitle}</p>
-                    <p className="text-xs text-slate-600">{item.instructorName}</p>
-                  </span>
-                  <span className="text-xs text-slate-500">{item.startTime}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveOverlapTarget(null);
+                      router.push(`/offerings/${item.offeringId}`);
+                    }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="truncate text-sm font-semibold text-slate-900">{item.courseTitle}</p>
+                    <p className="truncate text-xs text-slate-600">{item.instructorName}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.startTime}</p>
+                  </button>
+                  {item.status === 'dropped' ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(mutatingOfferingId)}
+                      onClick={() => openRestoreConfirm(item)}
+                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {mutatingOfferingId === item.offeringId ? '処理中...' : '再登録'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={Boolean(mutatingOfferingId)}
+                      onClick={() => openDropConfirm(item)}
+                      className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {mutatingOfferingId === item.offeringId ? '処理中...' : '削除'}
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
         </div>
       ) : null}
+
+      <TimetableEnrollmentConfirmModal
+        open={Boolean(pendingActionItem && pendingActionType)}
+        mode={pendingActionType ?? 'drop'}
+        courseTitle={pendingActionItem?.courseTitle ?? ''}
+        isSubmitting={Boolean(mutatingOfferingId)}
+        onConfirm={handleConfirmEnrollmentAction}
+        onClose={closeActionModal}
+      />
     </div>
   );
 }

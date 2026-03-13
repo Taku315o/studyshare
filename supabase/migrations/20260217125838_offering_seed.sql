@@ -1,4 +1,0 @@
--- Moved out of migrations on 2026-03-06.
--- Offering sample data is time-dependent operational data and is now kept as an
--- explicit dev-only seed at `supabase/seeds/dev/20_offering_sample.sql`.
--- This migration remains as a no-op to preserve migration history.

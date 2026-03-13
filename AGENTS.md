@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-06
+最終更新: 2026-03-08
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -15,7 +15,7 @@
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
 - 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
-- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画
+- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画し、セル押下で `/timetable/add` へ遷移して検索/新規作成/登録まで行え、時間割上から取消/再登録もできる
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - 他ユーザープロフィール (`/profile/[userId]`) ※DM + 片方向フォロー、フォロワー/フォロー中一覧モーダル
 - マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定・フォロー数表示
@@ -28,6 +28,7 @@
 
 ### 現在の大きな実装方針
 - 読み取りの多く: frontend -> Supabase 直接参照（RLS/RPC前提）
+- 複雑な時間割登録/講義作成: frontend -> Supabase RPC
 - 副作用/画像アップロード: frontend -> backend (Express) -> Supabase
 - 認証: Supabase Auth
 - データ中心: `course_offerings` / `enrollments` / `notes` / `reviews` / `questions` / `profiles` / `follows`
@@ -98,6 +99,7 @@
 
 ### RLSの重要前提
 - `enrollments`: 本人のみ参照/更新（プライバシーの中核）
+- `courses` / `course_offerings` / `offering_slots`: crowd insert を避け、ユーザー追加はRPC経由に寄せる
 - `notes/reviews/questions`: 本人または同大学（`profiles.university_id`）中心の可視性制御
 - `profiles.university_id` 未設定ユーザーは授業系投稿の閲覧に制約がかかるため、`/onboarding` 必須化で整合
 - Messaging系は `conversation_members` policyの自己再帰に注意（helper関数経由）
@@ -107,6 +109,10 @@
 - `create_direct_conversation`
 - `offering_enrollment_count`
 - `offering_review_stats`
+- `search_timetable_offerings`
+- `suggest_offering_duplicates`
+- `upsert_enrollment`
+- `create_offering_and_enroll`
 - `follow_user`
 - `unfollow_user`
 - `get_follow_summary`
@@ -143,6 +149,8 @@ bucket未作成時:
 - `timetable_presets` / `profile_timetable_settings` による大学標準時間割 + 個別設定保存
 - `/me` の `SettingsPanel` に「時間割の時間・曜日」モーダルを実装（`modal=timetable-settings` クエリで初期表示対応）
 - `/timetable` に「時間・曜日を変更」導線を追加（`/me?modal=timetable-settings&from=timetable`）
+- `/timetable/add` で文脈付き講義検索、既存 offering 登録、重複候補付き新規作成、登録成功後の戻りハイライトに対応
+- `/timetable` で授業カード/重複コマ一覧から `enrollments.status='dropped'` による取消、取消済みカードからの再登録に対応
 - `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
@@ -158,7 +166,6 @@ bucket未作成時:
   - `list_threads` 相当の専用RPC/viewは未整備（フロントで複数クエリ合成）
 - `timetable`:
   - 表示は実データ (`enrollments` + `course_offerings` + `offering_slots`) + `profile_timetable_settings` / `timetable_presets`
-  - 検索/追加モーダル/受講者探索CTAは準備中
   - セルのお気に入りはUIプレースホルダ
 - `/me`:
   - `保存` タブで「いいね/ブックマーク」したノートを統合表示（解除操作は未実装）
@@ -243,7 +250,7 @@ studyshare/
 
 ### 直接Supabase参照の原則
 - 読み取り系は frontend から直接読むケースが多い
-- 「他人データ」「安全性」「複雑な判定」が絡む場合は raw table SELECT を避け、RPCやbackendへ寄せる
+- 「他人データ」「安全性」「複雑な判定」が絡む場合は raw table SELECT / INSERT を避け、RPCやbackendへ寄せる
 
 ## DB / Supabase 運用ルール（最重要）
 
@@ -297,6 +304,7 @@ backend or SQL RPCに寄せるべきもの:
 ### 重複講義（将来実装時の注意）
 - ユーザー追加講義を安易に `course_offerings` 乱立で作らない
 - 「候補検索 -> 無ければ作成 -> 近似候補提示」の流れを前提に設計する
+- 現行の `/timetable/add` 新規作成では `suggest_offering_duplicates` を先に見せ、`exact/strong` 候補がある場合は override 明示なしで作成しない
 
 ## テスト方針（実務向け要点）
 
@@ -305,7 +313,10 @@ backend or SQL RPCに寄せるべきもの:
 ### 優先度高
 - 認証復元タイミングが絡む投稿導線（`OfferingTabs`）
 - `AppRouteGuard`（未ログイン / onboarding未完了）
-- `TimetableGrid`（表示/空状態/`dropped`切替）
+- `TimetableGrid`（表示/空状態/`dropped`切替/取消/再登録/セル遷移/戻りハイライト/重複モーダル同期）
+- `/timetable/add`（文脈ヘッダー/検索/登録/学期切替）
+- `CreateOfferingModal`（必須項目/「不明」トグル/重複候補blocking）
+- `OfferingHeader` の時間割追加CTA（追加済み/再登録）
 - `community/page` のDM送信条件未達時警告（2年生以上は投稿2件以上）と送信抑止
 - `community/page` の未読件数/既読更新/Realtime追従
 - `SettingsPanel` の公開範囲保存
@@ -314,6 +325,11 @@ backend or SQL RPCに寄せるべきもの:
 ### 手動確認で必ず見る観点
 - 同大学ユーザー / 別大学ユーザーで授業詳細の見え方が変わるか
 - 大学未設定ユーザーが `/onboarding` に誘導されるか
+- `/timetable` の空セル/埋まったセルから `/timetable/add` に正しい文脈 (`day/period/termId`) で遷移するか
+- `/timetable` の授業カードと重複コマ一覧から講義を取消でき、`取消を表示` オフでは即座に消えるか
+- `取消を表示` オンで取消済みカードが見え、時間割上から再登録できるか
+- `/timetable/add` で登録成功後、時間割に戻って反映・スクロール復元・追加セルハイライトが行われるか
+- 新規作成で重複候補が表示され、blocking候補があると override 明示なしで作成できないか
 - bucket未作成時の `/api/notes/upload` エラー切り分けができるか
 - コミュニティでDM送信条件未達時に警告表示され、送信/スレッド作成されないか
 - コミュニティで未読件数が増減し、会話を開くと既読化されるか
@@ -335,3 +351,4 @@ backend or SQL RPCに寄せるべきもの:
 - セキュリティ: @docs/security.md 
 - db schema: @docs/db_schema.md
 - Supabase運用: @docs/supabase_operations.md
+- Seed運用: @docs/supabase_seeds.md

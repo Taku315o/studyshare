@@ -8,6 +8,7 @@
 - 旧 `assignments` 機能は frontend 本体導線から切り離し済みだが、backend には legacy 互換として一部残存。
 - Storage bucket は少なくとも `notes`（現行ノート画像）、`avatars`（プロフィール画像）、`assignments`（legacy互換）を用意する前提。
 - bucket 未作成時は backend ログに `Bucket not found` が出るため、Storage bucket 作成 migration の適用を確認すること。
+- 2026-03-07 時点で時間割追加フローは `/timetable/add` を起点にし、既存 offering 検索・重複候補提示付き新規作成・`enrollments` upsert を RPC で処理する。
 
 ## このDBが解いている問題（設計の核）
 - 「授業（Course）」と「その学期の実体（Offering）」と「自分の時間割（Enrollment）」を分離し、誤マッチやUX破綻を防ぐ。
@@ -20,23 +21,30 @@
 - `universities`: 大学マスタ（`name` は一意）
 
 ### B. Term（学期）
-- `terms`: `(university_id, year, season)` が一意
-- 例: 専修大学 2026 first_half（前期）
+- `terms`: 大学ごとの表示可能期間マスタ
+- 真実は `academic_year` / `code` / `display_name` / `sort_key`
+- `course_offerings.term_id` が所属 term の唯一の真実で、`enrollments` には term 情報を重複保持しない
+- `year` / `season` は legacy 互換として残るが、term selector や時間割表示は `academic_year` / `display_name` を使う
+- 例: 専修大学 `academic_year=2026`, `code='first_half'`, `display_name='前期'`
 
 ### C. Course（科目の恒久枠）
 - `courses`: 「科目コード / 科目名」の恒久枠
 - `course_code` は存在する場合のみ一意制約（`university_id + course_code`）
+- client からの直接 insert は前提にせず、ユーザー発の追加は `create_offering_and_enroll()` で正規化・重複候補確認を通して作る
 
 ### D. Offering（その学期の授業実体）
 - `course_offerings`: `course_id + term_id` に紐づく「その学期のクラス」
 - `section` / `instructor` / `syllabus_url` を保持
 - `offering_slots`: 曜日・時限・教室などの時間割スロット（`intensive` は `null` 許容）
+- `offering_slots` は時間割グリッド描画と `/timetable/add` の slot match 判定の一次ソース
 
 ### E. Enrollment（ユーザーの時間割）
 - `enrollments`: `(user_id, offering_id)` 複合PK
 - `status`: `enrolled` / `planned` / `dropped`
 - `visibility`: `private` / `match_only` / `public`
 - 時間割は「ユーザー × Offering の関係」として表現し、入力UXやシラバス検索導線と接続する。
+- `/timetable?termId=...` の `selectedTermId` は UI 状態であり、DB の truth ではない
+- `upsert_enrollment()` は `profiles.enrollment_visibility_default` を優先しつつ `(user_id, offering_id)` を insert/update する
 
 ## ユーザー領域（プロフィール・統計）
 - `profiles`: `auth.users` と1:1の公開プロフィール
@@ -117,6 +125,20 @@
 	- `enrollments` の `status='enrolled'` 件数のみ返す（受講者一覧は返さない）。
 - `offering_review_stats(offering_id)`
 	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
+- `search_timetable_offerings(term_id, day_of_week, period, query, limit, offset)`
+	- 同大学・指定学期の offering を返す。
+	- `slot_match` / `enrollment_count` / `my_status` を含み、`/timetable/add` の一次ソースになる。
+- `list_my_timetable(term_id, include_dropped)`
+	- 指定 term の自分の時間割だけを返す。
+	- `course_offerings.term_id = term_id` で絞り込み、slot が無い offering も `is_unslotted=true` で 1 行返す。
+- `suggest_offering_duplicates(term_id, course_title, instructor, day_of_week, period, limit)`
+	- 同名または類似名、同一教員、同一曜日限、同一学期の候補を返す。
+	- UI は `candidate_kind = exact|strong|related` をもとに作成可否を制御する。
+- `upsert_enrollment(offering_id, status)`
+	- `enrollments` を upsert し、既存 `dropped` の再登録も同じ入口で扱う。
+- `create_offering_and_enroll(term_id, course_title, course_code, day_of_week, period, instructor, room, confirm_distinct)`
+	- `courses` / `course_offerings` / `offering_slots` / `enrollments` を transaction でまとめて処理する。
+	- term の大学と `auth.uid()` の `profiles.university_id` が一致しない場合は reject する。
 - `follow_user(following_user_id)`
 	- `auth.uid()` からの片方向 follow を作成する
 	- 自己フォロー / block 関係 / 重複 follow をサーバ側で吸収する
@@ -183,7 +205,7 @@
 
 ### マスタ系（universities / terms / courses / offerings / slots / timetable_presets）
 - `SELECT`: 全員可
-- `INSERT`: `authenticated` が投稿（`created_by = auth.uid` など）
+- `INSERT`: direct DML は admin のみ。ユーザー発の講義追加は `create_offering_and_enroll()` などの RPC 経由に限定する
 - `UPDATE / DELETE`: adminのみ（`is_admin`）
 - `timetable_presets` は `insert/update/delete` も admin のみ
 
@@ -221,10 +243,12 @@
 - Messaging系RLSは `conversation_members` 自己参照による再帰を避ける（helper関数経由）
 
 ## 典型フロー
-1. シラバス検索 → `courses / course_offerings` を作成 or 既存を選択
-2. 追加ボタン → `enrollments` に `(user_id, offering_id, status=enrolled/planned)`
-3. マッチング → `find_match_candidates()`（履修の中身は漏れない）
-4. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）
+1. `/timetable` のセル押下 → `/timetable/add?day=...&period=...&termId=...` へ遷移
+2. `/timetable/add` → `search_timetable_offerings()` で既存 offering を検索し、登録時は `upsert_enrollment()` を呼ぶ
+3. `/timetable` 自体の描画は `list_my_timetable()` の返却を使い、表示 term は URL の `termId` で切り替える
+3. 見つからない場合 → `suggest_offering_duplicates()` で候補確認後、`create_offering_and_enroll()` で作成と登録を一括処理
+4. マッチング → `find_match_candidates()`（履修の中身は漏れない）
+5. ノート投稿 → `notes`（`offering_id` 紐付けでクラス誤爆防止）
    - 画像添付あり: 先に backend `POST /api/notes/upload` で Storage へアップロードし、返却URLを `notes.image_url` に保存
-5. 質問投稿 → `questions`（`offering_id` 紐付け）
-6. DM → `create_direct_conversation()` → `messages` insert（開始は `can_dm`、返信は既存会話例外あり）
+6. 質問投稿 → `questions`（`offering_id` 紐付け）
+7. DM → `create_direct_conversation()` → `messages` insert（開始は `can_dm`、返信は既存会話例外あり）

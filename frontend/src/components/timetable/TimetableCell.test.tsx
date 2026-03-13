@@ -16,6 +16,8 @@ describe('TimetableCell', () => {
   });
 
   it('renders offering information and navigates to offering detail on click', () => {
+    const onOpenAdd = jest.fn();
+    const onRequestRemove = jest.fn();
     const item: TimetableOfferingItem = {
       offeringId: 'offering-1',
       courseTitle: 'データベース概論',
@@ -34,7 +36,8 @@ describe('TimetableCell', () => {
         period={1}
         item={item}
         overlapCount={1}
-        onOpenAdd={jest.fn()}
+        onOpenAdd={onOpenAdd}
+        onRequestRemove={onRequestRemove}
       />,
     );
 
@@ -46,6 +49,42 @@ describe('TimetableCell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /データベース概論/ }));
     expect(mockPush).toHaveBeenCalledWith('/offerings/offering-1');
+
+    fireEvent.click(screen.getByRole('button', { name: '時間割から削除' }));
+    expect(onRequestRemove).toHaveBeenCalledWith(item);
+    expect(mockPush).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'このコマに授業を追加' }));
+    expect(onOpenAdd).toHaveBeenCalledWith(1, 1);
+  });
+
+  it('shows restore action for dropped items', () => {
+    const onRequestRestore = jest.fn();
+    const item: TimetableOfferingItem = {
+      offeringId: 'offering-2',
+      courseTitle: '統計学',
+      instructorName: '佐藤 花',
+      startTime: '10:45',
+      dayOfWeek: 2,
+      period: 2,
+      status: 'dropped',
+      colorToken: 'amber',
+      createdAt: '2026-02-17T00:00:00.000Z',
+    };
+
+    render(
+      <TimetableCell
+        dayOfWeek={2}
+        period={2}
+        item={item}
+        overlapCount={1}
+        onOpenAdd={jest.fn()}
+        onRequestRestore={onRequestRestore}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '時間割へ再登録' }));
+    expect(onRequestRestore).toHaveBeenCalledWith(item);
   });
 
   it('shows add lesson hint on hover and calls add handler when empty cell is clicked', () => {

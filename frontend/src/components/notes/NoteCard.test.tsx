@@ -36,4 +36,20 @@ describe('NoteCard', () => {
     expect(links[2]).toHaveAttribute('href', '/offerings/offering-1/notes/note-1');
     expect(links[3]).toHaveAttribute('href', '/offerings/offering-1/notes/note-1');
   });
+
+  it('links self-authored notes to /me', () => {
+    render(
+      <NoteCard
+        offeringId="offering-1"
+        note={baseNote}
+        currentUserId="author-1"
+        onToggleLike={jest.fn().mockResolvedValue(undefined)}
+        onToggleBookmark={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    const links = screen.getAllByRole('link');
+    expect(links[0]).toHaveAttribute('href', '/me');
+    expect(links[1]).toHaveAttribute('href', '/me');
+  });
 });

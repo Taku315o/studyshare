@@ -4,6 +4,7 @@ export type MeProfileViewModel = {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
   faculty: string | null;
   universityId: string | null;
   universityName: string | null;

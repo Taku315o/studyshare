@@ -12,6 +12,7 @@ describe('ProfileCard', () => {
     userId: 'user-1',
     displayName: '旧表示名',
     avatarUrl: null,
+    bio: 'テスト用の自己紹介です。',
     faculty: '経済学部',
     universityId: 'uni-1',
     universityName: '専修大学',
@@ -63,8 +64,37 @@ describe('ProfileCard', () => {
         universityId: 'uni-2',
         gradeYear: 3,
         faculty: '理工学部',
+        bio: 'テスト用の自己紹介です。',
         avatarFile,
       });
+    });
+  });
+
+  it('updates bio in edit modal', async () => {
+    const user = userEvent.setup();
+    const onSaveProfile = jest.fn().mockResolvedValue(undefined);
+
+    render(
+      <ProfileCard
+        profile={baseProfile}
+        universities={universities}
+        isLoading={false}
+        isSaving={false}
+        onSaveProfile={onSaveProfile}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'プロフィール編集' }));
+    await user.clear(screen.getByLabelText('自己紹介（任意）'));
+    await user.type(screen.getByLabelText('自己紹介（任意）'), '授業の感想交換をしたいです');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(onSaveProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bio: '授業の感想交換をしたいです',
+        }),
+      );
     });
   });
 
@@ -164,6 +194,20 @@ describe('ProfileCard', () => {
     );
 
     expect(screen.getByText('学部未設定')).toBeInTheDocument();
+  });
+
+  it('shows default bio text when bio is empty', () => {
+    render(
+      <ProfileCard
+        profile={{ ...baseProfile, bio: null }}
+        universities={universities}
+        isLoading={false}
+        isSaving={false}
+        onSaveProfile={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText('自己紹介はまだ設定されていません。')).toBeInTheDocument();
   });
 
   it('shows follower and following counts', () => {

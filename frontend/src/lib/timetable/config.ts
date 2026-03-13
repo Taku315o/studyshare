@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { createSupabaseClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 import type { TimetableConfig, TimetablePeriodConfig, TimetableWeekday } from '@/types/timetable';
+
+type TypedSupabaseClient = ReturnType<typeof createSupabaseClient>;
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -125,7 +128,7 @@ export function formatWeekdayList(weekdays: number[]): string {
 }
 
 export async function loadUniversityDefaultPreset(
-  supabase: SupabaseClient<Database>,
+  supabase: TypedSupabaseClient,
   universityId: string | null,
 ): Promise<ResolvedTimetablePreset> {
   if (universityId) {
@@ -180,7 +183,7 @@ export async function loadUniversityDefaultPreset(
 }
 
 export async function loadEffectiveTimetableConfig(
-  supabase: SupabaseClient<Database>,
+  supabase: TypedSupabaseClient,
   userId: string,
   universityId: string | null,
 ): Promise<ResolvedTimetablePreset> {
@@ -207,7 +210,7 @@ export async function loadEffectiveTimetableConfig(
 }
 
 export async function upsertUserTimetableSettings(
-  supabase: SupabaseClient<Database>,
+  supabase: TypedSupabaseClient,
   args: {
     userId: string;
     presetId: string | null;
@@ -224,7 +227,9 @@ export async function upsertUserTimetableSettings(
     periods: sortPeriods(validation.data.periods),
   };
 
-  const { error } = await supabase.from('profile_timetable_settings').upsert(
+  const writer = supabase as unknown as SupabaseClient<Database>;
+
+  const { error } = await writer.from('profile_timetable_settings').upsert(
     {
       user_id: args.userId,
       preset_id: args.presetId,

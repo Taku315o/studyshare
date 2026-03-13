@@ -21,6 +21,10 @@
 - 時間割表示（`/timetable`）
 - frontend(Client Component) → Supabase SELECT（`enrollments` + `course_offerings` + `courses` + `offering_slots`）
 - 表示対象は `status in ('enrolled','planned')` がデフォルト。`dropped` はUIトグルで表示
+- 時間割上の削除/再登録は frontend(Client Component) → Supabase RPC（`upsert_enrollment`）で `status='dropped'/'enrolled'` を更新する
+- 時間割追加（`/timetable/add`）
+- frontend(Client Component) → Supabase RPC（`search_timetable_offerings` / `suggest_offering_duplicates` / `upsert_enrollment` / `create_offering_and_enroll`）
+- `/timetable` は `day` / `period` / `termId` / `returnTo` をクエリで渡し、追加成功後は `sessionStorage` の one-shot payload で scroll 復元とハイライトを行う
 - コミュニティ表示（`/community`）
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
 - DM開始は `create_direct_conversation` RPC を利用し、DM制約未達時は警告表示で送信を抑止する
@@ -64,6 +68,7 @@
 - `DELETE /api/assignments/:id` 課題削除（管理者のみ）
 - `GET /profile` は互換リダイレクトとして `/me` へ転送
 - `GET /timetable` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
+- `GET /timetable/add` はAPI経由ではなく、フロントからSupabase RPC/SELECT を直接利用する
 - `GET /community` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `GET /me` はAPI経由ではなく、フロントからSupabaseを直接参照（RLS前提）
 - `assignments` 系APIは legacy 互換のため backend に残存しているが、現行本体機能（授業詳細のノート/口コミ/質問）とは責務を分離して扱う
@@ -71,6 +76,7 @@
 
 **前提/依存**
 - Supabase RPC: `search_assignments`, `search_assignments_filtered`
+- Supabase RPC: `search_timetable_offerings`, `suggest_offering_duplicates`, `upsert_enrollment`, `create_offering_and_enroll`
 - Supabase RPC: `find_match_candidates`, `create_direct_conversation`, `follow_user`, `unfollow_user`, `get_follow_summary`, `list_follow_profiles`
 - Storage bucket: `notes`（現行ノート画像アップロード）
 - Storage bucket: `avatars`（プロフィールアバター画像アップロード）

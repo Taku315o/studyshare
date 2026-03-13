@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { Star } from 'lucide-react';
+import { buildProfileHref } from '@/lib/profileHref';
 import type { ReviewListItem } from '@/types/offering';
 
 type ReviewCardProps = {
   review: ReviewListItem;
+  currentUserId?: string | null;
 };
 
 function formatDate(date: string) {
@@ -15,12 +17,14 @@ function formatDate(date: string) {
   });
 }
 
-export default function ReviewCard({ review }: ReviewCardProps) {
+export default function ReviewCard({ review, currentUserId = null }: ReviewCardProps) {
+  const authorHref = buildProfileHref(review.authorId, currentUserId);
+
   return (
     <article className="rounded-2xl border border-white/50 bg-white/70 p-5 shadow-sm backdrop-blur">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <Link href={`/profile/${review.authorId}`} className="shrink-0">
+          <Link href={authorHref} className="shrink-0">
             {review.authorAvatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -35,7 +39,7 @@ export default function ReviewCard({ review }: ReviewCardProps) {
             )}
           </Link>
           <div>
-            <Link href={`/profile/${review.authorId}`} className="text-sm font-semibold text-slate-800 hover:underline">
+            <Link href={authorHref} className="text-sm font-semibold text-slate-800 hover:underline">
               {review.authorName}
             </Link>
             <p className="text-xs text-slate-500">{formatDate(review.createdAt)}</p>

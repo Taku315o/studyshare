@@ -4,6 +4,7 @@ export const GRADE_YEAR_MIN = 1;
 export const GRADE_YEAR_MAX = 6;
 export const GRADE_YEAR_OPTIONS = [1, 2, 3, 4, 5, 6] as const;
 export const FACULTY_MAX_LENGTH = 80;
+export const BIO_MAX_LENGTH = 300;
 
 const createGradeYearSchema = (message: string) =>
   z
@@ -22,11 +23,19 @@ const facultySchema = z
     message: `学部は${FACULTY_MAX_LENGTH}文字以内で入力してください。`,
   });
 
+const bioSchema = z
+  .string()
+  .trim()
+  .max(BIO_MAX_LENGTH, {
+    message: `自己紹介は${BIO_MAX_LENGTH}文字以内で入力してください。`,
+  });
+
 export const profileEditSchema = z.object({
   displayName: z.string().trim().min(1, { message: '表示名を入力してください。' }),
   universityId: z.string().trim().min(1, { message: '所属大学を選択してください。' }),
   gradeYear: createGradeYearSchema('学年を選択してください。'),
   faculty: facultySchema.optional().default(''),
+  bio: bioSchema.optional().default(''),
 });
 
 export const profileSetupSchema = z.object({

@@ -43,7 +43,7 @@ export default function OnboardingPage() {
   const searchParams = useSearchParams();
   const nextPath = searchParams?.get('next') || '/home';
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
+  const typedSupabase = supabase;
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -202,7 +202,9 @@ export default function OnboardingPage() {
     isSavingRef.current = true;
     setIsSaving(true);
     try {
-      const { error } = await typedSupabase
+      const profileWriter = supabase as unknown as SupabaseClient<Database>;
+
+      const { error } = await profileWriter
         .from('profiles')
         .upsert(
           {

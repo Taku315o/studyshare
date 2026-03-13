@@ -1,1 +1,1 @@
-select u.name, p.name, p.periods from universities u join timetable_presets p on p.university_id=u.id where p.name='default';
+select pg_get_functiondef('public.upsert_enrollment(uuid, public.enrollment_status)'::regprocedure);

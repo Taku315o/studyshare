@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { buildProfileHref } from '@/lib/profileHref';
 import supabase from '@/lib/supabase';
 import { buildThreadTree, type ThreadTreeNode } from '@/lib/thread/buildThreadTree';
 import type { ThreadNodeBase } from '@/types/offering';
@@ -139,11 +140,12 @@ export default function ThreadPanel({
   const renderNode = (node: ThreadTreeNode<ThreadNodeBase>) => {
     const isSubmittingThisReply = submittingTargetId === node.id;
     const replyValue = replyBodies[node.id] ?? '';
+    const authorHref = buildProfileHref(node.author.id, currentUserId);
 
     return (
       <article key={node.id} className="rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex items-center gap-2">
-          <Link href={`/profile/${node.author.id}`} className="shrink-0">
+          <Link href={authorHref} className="shrink-0">
             {node.author.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -158,7 +160,7 @@ export default function ThreadPanel({
             )}
           </Link>
           <p className="text-xs text-slate-500">
-            <Link href={`/profile/${node.author.id}`} className="font-semibold text-slate-700 hover:underline">
+            <Link href={authorHref} className="font-semibold text-slate-700 hover:underline">
               {node.author.name}
             </Link>
             {' / '}

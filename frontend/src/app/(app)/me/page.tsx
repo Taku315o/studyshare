@@ -8,6 +8,7 @@ import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
 import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
+import { buildTermLabel, parseDateOnly, resolveDefaultTerm } from '@/lib/timetable/terms';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
@@ -19,11 +20,13 @@ import type {
   MeUniversityOption,
 } from '@/types/me';
 import type { Database } from '@/types/supabase';
+import type { TimetableTermOption } from '@/types/timetable';
 
 type ProfileRow = {
   user_id: string;
   display_name: string;
   avatar_url: string | null;
+  bio: string | null;
   faculty: string | null;
   department: string | null;
   university_id: string | null;
@@ -128,53 +131,52 @@ type EnrollmentQueryRow = {
         terms:
           | {
               id: string;
-              year: number;
-              season: string;
+              academic_year: number;
+              code: string;
+              display_name: string;
+              sort_key: number;
               start_date: string | null;
               end_date: string | null;
             }
           | Array<{
               id: string;
-              year: number;
-              season: string;
+              academic_year: number;
+              code: string;
+              display_name: string;
+              sort_key: number;
               start_date: string | null;
               end_date: string | null;
             }>
           | null;
         offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
       }
-    | Array<{
-        id: string;
-        instructor: string | null;
-        courses: { name: string | null } | Array<{ name: string | null }> | null;
-        terms:
-          | {
-              id: string;
-              year: number;
-              season: string;
-              start_date: string | null;
-              end_date: string | null;
-            }
-          | Array<{
-              id: string;
-              year: number;
-              season: string;
-              start_date: string | null;
-              end_date: string | null;
-            }>
-          | null;
-        offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
+     | Array<{
+         id: string;
+         instructor: string | null;
+         courses: { name: string | null } | Array<{ name: string | null }> | null;
+         terms:
+           | {
+               id: string;
+               academic_year: number;
+               code: string;
+               display_name: string;
+               sort_key: number;
+               start_date: string | null;
+               end_date: string | null;
+             }
+           | Array<{
+               id: string;
+               academic_year: number;
+               code: string;
+               display_name: string;
+               sort_key: number;
+               start_date: string | null;
+               end_date: string | null;
+             }>
+           | null;
+         offering_slots: Array<{ day_of_week: number | null; period: number | null; start_time: string | null }> | null;
       }>
     | null;
-};
-
-type TermSnapshot = {
-  id: string;
-  label: string;
-  year: number;
-  season: string;
-  startDate: Date | null;
-  endDate: Date | null;
 };
 
 const ENROLLMENT_STATUSES = ['enrolled', 'planned'] as const;
@@ -182,19 +184,6 @@ const ENROLLMENT_STATUSES = ['enrolled', 'planned'] as const;
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function formatSeasonLabel(season: string) {
-  if (season === 'first_half') return '前期';
-  if (season === 'second_half') return '後期';
-  return season;
-}
-
-// termのstart_dateとend_dateは日付のみで時間情報がないため、日付の開始時刻としてDateオブジェクトを生成する
-function parseDateAtStartOfDay(value: string | null) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 // ユーザープロフィールの情報を表すViewModel
@@ -208,6 +197,7 @@ function buildProfileViewModel(user: User, profileRow: ProfileRow | null, userSt
     userId: user.id,
     displayName,
     avatarUrl: profileRow?.avatar_url ?? null,
+    bio: profileRow?.bio ?? null,
     faculty: profileRow?.faculty ?? null,
     universityId: profileRow?.university_id ?? null,
     universityName: university?.name ?? null,
@@ -290,31 +280,6 @@ function isEnrollmentStatus(value: string): value is (typeof ENROLLMENT_STATUSES
   return value === 'enrolled' || value === 'planned';
 }
 
-function resolveCurrentTerm(terms: TermSnapshot[], today: Date) {
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  const active = terms
-    .filter((term) => term.startDate && term.endDate)
-    .filter((term) => {
-      if (!term.startDate || !term.endDate) return false;
-      const endDate = new Date(term.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      return term.startDate <= todayDate && todayDate <= endDate;
-    })
-    .sort((left, right) => {
-      if (!left.startDate || !right.startDate) return 0;
-      return right.startDate.getTime() - left.startDate.getTime();
-    });
-
-  if (active.length > 0) return active[0];
-
-  const seasonRank = (season: string) => (season === 'second_half' ? 2 : 1);
-  return [...terms].sort((left, right) => {
-    if (left.year !== right.year) return right.year - left.year;
-    return seasonRank(right.season) - seasonRank(left.season);
-  })[0] ?? null;
-}
-
 function formatStartTime(value: string | null) {
   if (!value) return null;
   const [hour, minute] = value.split(':');
@@ -323,7 +288,7 @@ function formatStartTime(value: string | null) {
 }
 
 function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryViewModel {
-  const termMap = new Map<string, TermSnapshot>();
+  const termMap = new Map<string, TimetableTermOption>();
   const entries: Array<{
     offeringId: string;
     courseTitle: string;
@@ -345,11 +310,12 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
     if (term) {
       termMap.set(term.id, {
         id: term.id,
-        label: `${term.year} ${formatSeasonLabel(term.season)}`,
-        year: term.year,
-        season: term.season,
-        startDate: parseDateAtStartOfDay(term.start_date),
-        endDate: parseDateAtStartOfDay(term.end_date),
+        academicYear: term.academic_year,
+        code: term.code,
+        displayName: term.display_name,
+        sortKey: term.sort_key,
+        startDate: parseDateOnly(term.start_date),
+        endDate: parseDateOnly(term.end_date),
       });
     }
 
@@ -376,7 +342,7 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
   }
 
   const today = new Date();
-  const currentTerm = resolveCurrentTerm(Array.from(termMap.values()), today);
+  const currentTerm = resolveDefaultTerm(Array.from(termMap.values()), today);
   const scopedEntries = currentTerm ? entries.filter((entry) => entry.termId === currentTerm.id) : entries;
 
   const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
@@ -401,7 +367,7 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
     });
 
   return {
-    termLabel: currentTerm?.label ?? '未設定',
+    termLabel: currentTerm ? buildTermLabel(currentTerm) : '未設定',
     currentTermEnrollmentCount: scopedEntries.length,
     todayClasses,
   };
@@ -463,7 +429,7 @@ export default function MePage() {
       const [profileRes, userStatsRes, universitiesRes, notesRes, reviewsRes, savedReactionsRes, enrollmentsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year, university:university_id(name)')
+          .select('user_id, display_name, avatar_url, bio, faculty, department, university_id, grade_year, university:university_id(name)')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase
@@ -540,7 +506,7 @@ export default function MePage() {
               id,
               instructor,
               courses:course_id(name),
-              terms:term_id(id, year, season, start_date, end_date),
+              terms:term_id(id, academic_year, code, display_name, sort_key, start_date, end_date),
               offering_slots(day_of_week, period, start_time)
             )
           `,
@@ -596,12 +562,14 @@ export default function MePage() {
       universityId,
       gradeYear,
       faculty,
+      bio,
       avatarFile,
     }: {
       displayName: string;
       universityId: string;
       gradeYear: number;
       faculty: string;
+      bio: string;
       avatarFile: File | null;
     }) => {
       if (!currentUserId) {
@@ -613,6 +581,7 @@ export default function MePage() {
         universityId,
         gradeYear,
         faculty,
+        bio,
       });
       if (!validation.success) {
         toast.error(getValidationErrorMessage(validation.error, 'プロフィールの入力内容を確認してください。'));
@@ -624,6 +593,7 @@ export default function MePage() {
         universityId: normalizedUniversityId,
         gradeYear: normalizedGradeYear,
         faculty: normalizedFaculty,
+        bio: normalizedBio,
       } = validation.data;
 
       setIsSavingProfile(true);
@@ -646,11 +616,12 @@ export default function MePage() {
               university_id: normalizedUniversityId,
               grade_year: normalizedGradeYear,
               faculty: normalizedFaculty || null,
+              bio: normalizedBio || null,
               ...(uploadedAvatarUrl ? { avatar_url: uploadedAvatarUrl } : {}),
             },
             { onConflict: 'user_id' },
           )
-          .select('user_id, display_name, avatar_url, faculty, department, university_id, grade_year')
+          .select('user_id, display_name, avatar_url, bio, faculty, department, university_id, grade_year')
           .single();
 
         if (error) throw error;
@@ -661,6 +632,7 @@ export default function MePage() {
           userId: row.user_id,
           displayName: row.display_name,
           avatarUrl: row.avatar_url ?? null,
+          bio: row.bio ?? null,
           faculty: row.faculty ?? null,
           universityId: row.university_id ?? null,
           universityName: selectedUniversity?.name ?? null,

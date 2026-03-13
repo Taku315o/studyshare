@@ -14,8 +14,11 @@
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
 - `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
-- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告
-- `TimetableCell` セル表示（授業カード/空セル）と遷移動作
+- `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告/セル遷移/戻りハイライト/削除/再登録/重複モーダル同期
+- `TimetableCell` セル表示（授業カード/空セル）と遷移動作、削除/再登録アクション
+- `TimetableAddPage` の文脈ヘッダー/検索語初期値/学期切替/slot match 優先表示
+- `CreateOfferingModal` の必須項目バリデーション/「不明」トグル/重複候補 blocking/override
+- `OfferingHeader` の時間割追加CTA（追加済み/再登録/再追加抑止）
 - `Sidebar` の `/timetable` 導線有効化
 - `Sidebar` の `/community` 導線有効化
 - `CommunityPane` の候補0件空状態
@@ -31,13 +34,13 @@
 - 質問詳細（`/offerings/[offeringId]/questions/[questionId]`）の回答投稿/返信投稿/削除済み表示
 - 授業詳細の質問一覧で回答件数表示と詳細遷移
 - `me/page` の4セクション表示（プロフィール/資産/時間割サマリ/設定）
-- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / アバター画像、外クリック閉じる、保存中は閉じない）
+- `ProfileCard` のプロフィール編集モーダル開閉と保存（display_name / 大学 / 学年 / 学部 / 自己紹介 / アバター画像、外クリック閉じる、保存中は閉じない）
 - `ProfileFollowPanel` のフォロー作成/解除の optimistic update・二重送信防止・失敗時 rollback
 - `FollowListModal` の初回20件表示 / `もっと見る` によるページング
-- `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` を含めて upsert し、upload失敗時は保存を中断する
+- `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` と `bio` を含めて upsert し、upload失敗時は保存を中断する
 - `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
 - `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
-- `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`）
+- `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`、自己紹介文字数上限）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
 - `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
 - `TimetableSummary` の空状態/授業表示
@@ -56,6 +59,13 @@
 - `unfollow_user` が作成者本人の edge のみ削除する
 - follow insert/delete と block insert 後に `user_stats.followers_count/following_count` が一致する
 - follow insert で `notifications(type='follow')` が1件だけ作成される
+- `search_timetable_offerings` が `slot_match` / `enrollment_count` / `my_status` を返す
+- `list_my_timetable` が selected term の enrollments だけ返し、slot なし offering を `is_unslotted=true` で返す
+- `suggest_offering_duplicates` が same title / instructor / slot / term の候補理由を返す
+- `upsert_enrollment` が active 重複追加を吸収し、`dropped` を `enrolled` へ戻せる
+- `upsert_enrollment(status='dropped')` で時間割ページから取消できる
+- `create_offering_and_enroll` が transaction 一括成功し、blocking 候補時は reject する
+- `courses` / `course_offerings` / `offering_slots` の直接 insert が client 前提になっていないこと
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証
@@ -87,7 +97,14 @@
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- `/timetable?termId=...` で表示 term が切り替わり、別 term に切り替えても過去 term の履修が消えない
 - 設定外スロットの授業がある場合に警告表示される
+- slot 未設定の授業が「集中・日時未定」セクションに出る
+- 空セルと授業カード補助ボタンから `/timetable/add` に文脈付き (`day/period/termId`) で遷移できる
+- 時間割カードと重複モーダルの両方から講義を取消でき、`取消を表示` オフでは即座に消える
+- `取消を表示` オンで取消済みカードが見え、時間割上から再登録できる
+- `/timetable/add` で登録成功後、時間割へ戻って再描画・スクロール復元・追加セルまたは設定外/日時未定セクションのハイライトが見える
+- 新規講義作成時に重複候補が表示され、blocking 候補がある間は override 明示なしで作成できない
 - コミュニティで非選択スレッドへの新着受信時に一覧未読件数が増える
 - コミュニティで会話を開くとその時点までの受信メッセージが既読になり、送信側で最新メッセージが `未読 -> 既読` に変わる
 - 投稿導線（ノート/口コミ/質問）

@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { MessageCircle } from 'lucide-react';
+import { buildProfileHref } from '@/lib/profileHref';
 import type { QuestionListItem } from '@/types/offering';
 
 type QuestionCardProps = {
   offeringId: string;
   question: QuestionListItem;
+  currentUserId?: string | null;
 };
 
 function formatDate(date: string) {
@@ -18,7 +20,9 @@ function formatDate(date: string) {
   });
 }
 
-export default function QuestionCard({ offeringId, question }: QuestionCardProps) {
+export default function QuestionCard({ offeringId, question, currentUserId = null }: QuestionCardProps) {
+  const authorHref = buildProfileHref(question.authorId, currentUserId);
+
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4">
       <Link
@@ -30,7 +34,7 @@ export default function QuestionCard({ offeringId, question }: QuestionCardProps
       <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{question.body}</p>
 
       <div className="mt-2 flex items-center gap-2">
-        <Link href={`/profile/${question.authorId}`} className="shrink-0">
+        <Link href={authorHref} className="shrink-0">
           {question.authorAvatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -45,7 +49,7 @@ export default function QuestionCard({ offeringId, question }: QuestionCardProps
           )}
         </Link>
         <p className="text-xs text-slate-500">
-          <Link href={`/profile/${question.authorId}`} className="hover:underline">
+          <Link href={authorHref} className="hover:underline">
             {question.authorName}
           </Link>
           {' / '}

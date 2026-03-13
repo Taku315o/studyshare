@@ -100,8 +100,10 @@ describe('MePage', () => {
             courses: { name: '応用プログラミング3' },
             terms: {
               id: 'term-1',
-              year: 2026,
-              season: 'first_half',
+              academic_year: 2026,
+              code: 'first_half',
+              display_name: '前期',
+              sort_key: 10,
               start_date: '2026-04-01',
               end_date: '2026-08-01',
             },
@@ -166,6 +168,7 @@ describe('MePage', () => {
         user_id: 'user-1',
         display_name: '更新後ユーザー',
         avatar_url: 'https://example.com/avatars/new-avatar.png',
+        bio: '更新後の自己紹介',
         faculty: '理工学部',
         department: null,
         university_id: 'uni-2',
@@ -186,6 +189,7 @@ describe('MePage', () => {
                   user_id: 'user-1',
                   display_name: 'テストユーザー',
                   avatar_url: null,
+                  bio: '初期自己紹介',
                   faculty: '経済学部',
                   department: '経済学科',
                   university_id: 'uni-1',
@@ -301,7 +305,7 @@ describe('MePage', () => {
     expect(screen.getAllByText('保存対象ノート')).toHaveLength(1);
   });
 
-  it('uploads avatar through backend and includes faculty in profiles upsert payload', async () => {
+  it('uploads avatar through backend and includes bio in profiles upsert payload', async () => {
     const user = userEvent.setup();
     const avatarFile = new File(['avatar'], 'avatar.png', { type: 'image/png' });
 
@@ -318,6 +322,8 @@ describe('MePage', () => {
     await user.selectOptions(screen.getByLabelText('学年'), '3');
     await user.clear(screen.getByLabelText('学部（任意）'));
     await user.type(screen.getByLabelText('学部（任意）'), '理工学部');
+    await user.clear(screen.getByLabelText('自己紹介（任意）'));
+    await user.type(screen.getByLabelText('自己紹介（任意）'), '更新後の自己紹介');
     await user.upload(screen.getByLabelText('アバター画像（任意）'), avatarFile);
     await user.click(screen.getByRole('button', { name: '保存' }));
 
@@ -332,6 +338,7 @@ describe('MePage', () => {
           university_id: 'uni-2',
           grade_year: 3,
           faculty: '理工学部',
+          bio: '更新後の自己紹介',
           avatar_url: 'https://example.com/avatars/new-avatar.png',
         },
         { onConflict: 'user_id' },

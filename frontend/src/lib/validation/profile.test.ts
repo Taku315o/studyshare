@@ -52,6 +52,7 @@ describe('profile validation schemas', () => {
       universityId: 'uni-1',
       gradeYear: 2,
       faculty: '',
+      bio: '',
     });
 
     expect(result.success).toBe(true);
@@ -59,6 +60,7 @@ describe('profile validation schemas', () => {
       throw new Error('Expected validation success');
     }
     expect(result.data.faculty).toBe('');
+    expect(result.data.bio).toBe('');
   });
 
   it('rejects too long faculty name', () => {
@@ -74,5 +76,20 @@ describe('profile validation schemas', () => {
       throw new Error('Expected validation failure');
     }
     expect(getValidationErrorMessage(result.error)).toBe('学部は80文字以内で入力してください。');
+  });
+
+  it('rejects too long bio', () => {
+    const result = profileEditSchema.safeParse({
+      displayName: 'テストユーザー',
+      universityId: 'uni-1',
+      gradeYear: 2,
+      bio: 'a'.repeat(301),
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected validation failure');
+    }
+    expect(getValidationErrorMessage(result.error)).toBe('自己紹介は300文字以内で入力してください。');
   });
 });

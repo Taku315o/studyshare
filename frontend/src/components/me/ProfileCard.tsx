@@ -20,6 +20,7 @@ type ProfileCardProps = {
     universityId: string;
     gradeYear: number;
     faculty: string;
+    bio: string;
     avatarFile: File | null;
   }) => Promise<void>;
 };
@@ -36,6 +37,7 @@ export default function ProfileCard({
   const [selectedUniversityId, setSelectedUniversityId] = useState('');
   const [gradeYearInput, setGradeYearInput] = useState('');
   const [facultyInput, setFacultyInput] = useState('');
+  const [bioInput, setBioInput] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarInputKey, setAvatarInputKey] = useState(0);
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
@@ -50,10 +52,11 @@ export default function ProfileCard({
     setSelectedUniversityId(profile?.universityId ?? '');
     setGradeYearInput(profile?.gradeYear ? String(profile.gradeYear) : '');
     setFacultyInput(profile?.faculty ?? '');
+    setBioInput(profile?.bio ?? '');
     setAvatarFile(null);
     setAvatarInputKey((prev) => prev + 1);
     setSubmitErrorMessage(null);
-  }, [isModalOpen, profile?.displayName, profile?.faculty, profile?.gradeYear, profile?.universityId]);
+  }, [isModalOpen, profile?.bio, profile?.displayName, profile?.faculty, profile?.gradeYear, profile?.universityId]);
 
   const isSubmitLocked = isSaving || isLoading || isSubmitting;
 
@@ -79,6 +82,7 @@ export default function ProfileCard({
       universityId: selectedUniversityId,
       gradeYear: gradeYearInput,
       faculty: facultyInput,
+      bio: bioInput,
     });
     if (!validation.success) {
       setSubmitErrorMessage(getValidationErrorMessage(validation.error));
@@ -133,6 +137,9 @@ export default function ProfileCard({
                   {profile?.universityName ? `${profile.universityName}${profile.gradeYear ? ` / ${profile.gradeYear}年` : ''}` : '大学・学年が未設定です'}
                 </p>
                 <p className="text-sm text-slate-600">{profile?.faculty || '学部未設定'}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
+                  {profile?.bio?.trim() ? profile.bio : '自己紹介はまだ設定されていません。'}
+                </p>
               </>
             )}
           </div>
@@ -181,7 +188,7 @@ export default function ProfileCard({
                 onClick={(event) => event.stopPropagation()}
               >
                 <h3 className="text-lg font-semibold text-slate-900">プロフィール編集</h3>
-                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年・学部・アバター画像を更新できます。</p>
+                <p className="mt-1 text-sm text-slate-600">表示名・所属大学・学年・学部・自己紹介・アバター画像を更新できます。</p>
 
                 <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
                   <label className="block">
@@ -243,6 +250,21 @@ export default function ProfileCard({
                       disabled={isSubmitLocked}
                       placeholder="例: 経済学部"
                     />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">自己紹介（任意）</span>
+                    <textarea
+                      aria-label="自己紹介（任意）"
+                      name="bio"
+                      value={bioInput}
+                      onChange={(event) => setBioInput(event.target.value)}
+                      className="mt-1 min-h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                      disabled={isSubmitLocked}
+                      placeholder="興味のある授業や話したいことを書いてください"
+                      maxLength={300}
+                    />
+                    <p className="mt-1 text-right text-xs text-slate-500">{bioInput.trim().length}/300</p>
                   </label>
 
                   <label className="block">
