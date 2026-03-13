@@ -31,6 +31,9 @@ declare
   _default_visibility public.enrollment_visibility := 'match_only';
   _previous_status public.enrollment_status;
   _existing_visibility public.enrollment_visibility;
+  _result_offering_id uuid;
+  _result_status public.enrollment_status;
+  _result_visibility public.enrollment_visibility;
 begin
   if _uid is null then
     raise exception using errcode = 'P0001', message = 'authentication_required';
@@ -55,8 +58,7 @@ begin
   where e.user_id = _uid
     and e.offering_id = _offering_id;
 
-  return query
-  insert into public.enrollments as e (
+  insert into public.enrollments as enrollment_row (
     user_id,
     offering_id,
     status,
@@ -68,13 +70,23 @@ begin
     coalesce(_status, 'enrolled'),
     coalesce(_existing_visibility, _default_visibility, 'match_only')
   )
-  on conflict (user_id, offering_id) do update
+  on conflict on constraint enrollments_pkey do update
     set status = excluded.status
   returning
-    e.offering_id,
+    enrollment_row.offering_id,
+    enrollment_row.status,
+    enrollment_row.visibility
+  into
+    _result_offering_id,
+    _result_status,
+    _result_visibility;
+
+  return query
+  select
+    _result_offering_id,
     _previous_status,
-    e.status,
-    e.visibility,
+    _result_status,
+    _result_visibility,
     _previous_status is null;
 end;
 $$;

@@ -1,8 +1,9 @@
--- MVP DM policy changes:
+-- Messaging refinements:
 -- - Remove shared_offering/connections scope from DM gating (profile DM allowed)
--- - Exempt first-year students from messaging unlock gate
+-- - Exempt first-year students from the messaging unlock gate
 -- - Allow replies in an existing direct conversation even if sender is not unlocked
--- このユーザーは、自分から能動的にメッセージを送る資格を持っているか？
+-- - Replace recursive conversation-membership policy checks with helper functions
+
 create or replace function public.can_send_message(_uid uuid)
 returns boolean
 language sql
@@ -11,12 +12,11 @@ security definer
 set search_path = public
 as $$
   select
-    coalesce((select p.grade_year from public.profiles p where p.user_id = _uid), 0) = 1 -- allow first-year students to DM without unlocking
-    or coalesce((select us.contributions_count from public.user_stats us where us.user_id = _uid), 0) >= 2 -- allow users with 2 or more contributions to DM without unlocking
-    or public.has_active_entitlement(_uid, 'messaging'); --特別な権利(課金など)を持っているユーザーはDMが可能
+    coalesce((select p.grade_year from public.profiles p where p.user_id = _uid), 0) = 1
+    or coalesce((select us.contributions_count from public.user_stats us where us.user_id = _uid), 0) >= 2
+    or public.has_active_entitlement(_uid, 'messaging');
 $$;
 
--- 新規メッセージを送る資格があるか？返信なら誰でもOKだが、新規メッセージは上のcan_dmルールを適用する
 create or replace function public.can_dm(_sender uuid, _recipient uuid)
 returns boolean
 language sql
@@ -38,7 +38,6 @@ as $$
     and coalesce((select allow_dm from r), true) = true;
 $$;
 
---この会話ルームの中で、メッセージを書き込んでもいいか？つまり、返信なら誰でも送れるようにするが、新規メッセージは上のcan_dmルールを適用する
 create or replace function public.can_send_message_in_conversation(_uid uuid, _conversation_id uuid)
 returns boolean
 language sql
@@ -67,15 +66,74 @@ as $$
     );
 $$;
 
+create or replace function public.is_conversation_member(_uid uuid, _conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.conversation_members m
+    where m.conversation_id = _conversation_id
+      and m.user_id = _uid
+  );
+$$;
+
+create or replace function public.is_current_conversation_member(_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    auth.uid() is not null
+    and _conversation_id is not null
+    and exists (
+      select 1
+      from public.conversation_members m
+      where m.conversation_id = _conversation_id
+        and m.user_id = auth.uid()
+    );
+$$;
+
+revoke all on function public.is_conversation_member(uuid, uuid) from public;
+revoke all on function public.is_conversation_member(uuid, uuid) from anon;
+revoke all on function public.is_conversation_member(uuid, uuid) from authenticated;
+
+revoke all on function public.is_current_conversation_member(uuid) from public;
+revoke all on function public.is_current_conversation_member(uuid) from anon;
+revoke all on function public.is_current_conversation_member(uuid) from authenticated;
+grant execute on function public.is_current_conversation_member(uuid) to authenticated;
+
+drop policy if exists conversations_select_member on public.conversations;
+create policy conversations_select_member on public.conversations
+for select to authenticated
+using (
+  public.is_current_conversation_member(conversations.id)
+);
+
+drop policy if exists conversation_members_select_member on public.conversation_members;
+create policy conversation_members_select_member on public.conversation_members
+for select to authenticated
+using (
+  public.is_current_conversation_member(conversation_members.conversation_id)
+);
+
+drop policy if exists messages_select_member on public.messages;
+create policy messages_select_member on public.messages
+for select to authenticated
+using (
+  public.is_current_conversation_member(messages.conversation_id)
+);
+
 drop policy if exists messages_insert_sender on public.messages;
 create policy messages_insert_sender on public.messages
 for insert to authenticated
 with check (
   sender_id = auth.uid()
-  and exists (
-    select 1 from public.conversation_members m
-    where m.conversation_id = messages.conversation_id
-      and m.user_id = auth.uid()
-  )
+  and public.is_current_conversation_member(messages.conversation_id)
   and public.can_send_message_in_conversation(auth.uid(), messages.conversation_id)
 );

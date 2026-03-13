@@ -218,6 +218,26 @@ supabase/seeds/
 8. `db reset` で必要なのは「アプリが起動する最低限の参照マスタと設定データ」までに留める。
 9. 本番運用データの投入と schema 変更を同じ PR / 同じ migration に混ぜない。
 
+## Pre-release Cleanup Rule
+
+個人開発かつリリース前の段階では、active migration chain を定期的に掃除してよい。  
+ただし、やってよいのは **fix-only migration を先行する feature migration に吸収する rebaseline** までに限る。
+
+条件:
+- 共有環境の正式リリース前である
+- どの migration をどこへ吸収したかを repo 内に記録する
+- 既存 DB は、編集後の migration chain と整合するように reset / rebaseline する前提で扱う
+
+禁止:
+- 共有済み production 相当環境に対して、履歴だけを勝手に書き換えること
+- schema と seed 的データ移行をまとめて曖昧に潰すこと
+- 何を消したか分からないまま migration を削除すること
+
+推奨単位:
+- 1つの機能追加 migration
+- その機能に対する直後の fix migration 数本
+- 吸収後も responsibility が読める粒度を保つ
+
 ## 現状からの移行プラン
 
 ### Phase 1: ルール固定
