@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { buildTermLabel } from '@/lib/timetable/terms';
 import type { TimetableTermOption } from '@/types/timetable';
 
 type TermSelectorModalProps = {

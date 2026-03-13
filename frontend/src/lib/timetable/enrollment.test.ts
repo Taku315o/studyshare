@@ -11,7 +11,7 @@ describe('upsertEnrollment', () => {
     },
     rpc: mockRpc,
     from: mockFrom,
-  } as Parameters<typeof upsertEnrollment>[0];
+  } as unknown as Parameters<typeof upsertEnrollment>[0];
 
   beforeEach(() => {
     jest.clearAllMocks();
