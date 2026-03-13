@@ -351,3 +351,4 @@ backend or SQL RPCに寄せるべきもの:
 - セキュリティ: @docs/security.md 
 - db schema: @docs/db_schema.md
 - Supabase運用: @docs/supabase_operations.md
+- Seed運用: @docs/supabase_seeds.md

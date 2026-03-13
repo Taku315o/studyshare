@@ -5,6 +5,8 @@
 このドキュメントは、`studyshare` における `migration / seed / snippet / 管理ジョブ` の責務分離を固定するための運用規約です。  
 結論から言うと、**schema を作るものと、運用データを入れるものを分離する**。これを今後の原則にします。
 
+seed の投入手順、CSV 正本、関連 scripts の使い方は `docs/supabase_seeds.md` を参照。
+
 ## 結論
 
 ### 1. データ分類
