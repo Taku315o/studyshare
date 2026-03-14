@@ -650,6 +650,71 @@ export type Database = {
           },
         ]
       }
+      offering_catalog_coverages: {
+        Row: {
+          coverage_kind: string
+          created_at: string
+          id: string
+          import_source_id: string
+          latest_run_id: string | null
+          source_scope_labels: string[]
+          term_id: string
+          university_id: string
+          updated_at: string
+        }
+        Insert: {
+          coverage_kind: string
+          created_at?: string
+          id?: string
+          import_source_id: string
+          latest_run_id?: string | null
+          source_scope_labels?: string[]
+          term_id: string
+          university_id: string
+          updated_at?: string
+        }
+        Update: {
+          coverage_kind?: string
+          created_at?: string
+          id?: string
+          import_source_id?: string
+          latest_run_id?: string | null
+          source_scope_labels?: string[]
+          term_id?: string
+          university_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offering_catalog_coverages_import_source_id_fkey"
+            columns: ["import_source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_latest_run_id_fkey"
+            columns: ["latest_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_timetable_settings: {
         Row: {
           periods: Json

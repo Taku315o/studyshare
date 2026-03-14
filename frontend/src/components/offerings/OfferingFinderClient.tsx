@@ -14,6 +14,7 @@ import { mapSearchResultRow } from '@/lib/timetable/search';
 import { buildTermLabel, parseDateOnly, resolveDefaultTerm, sortTermsForSelector } from '@/lib/timetable/terms';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import type {
+  OfferingCatalogCoverage,
   TimetableConfig,
   TimetableSearchResult,
   TimetableStatus,
@@ -55,6 +56,11 @@ type SearchRpcRow = {
   created_at: string;
 };
 
+type CoverageRow = {
+  coverage_kind: 'partial' | 'full';
+  source_scope_labels: string[] | null;
+};
+
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -72,6 +78,13 @@ function toTermOption(row: TermRow): TimetableTermOption {
   };
 }
 
+function formatCoverageScopePreview(labels: string[]) {
+  if (labels.length === 0) return null;
+  const previewLabels = labels.slice(0, 3);
+  const remainingCount = labels.length - previewLabels.length;
+  return remainingCount > 0 ? `${previewLabels.join('、')} ほか${remainingCount}件` : previewLabels.join('、');
+}
+
 export default function OfferingFinderClient({ mode, initialContext }: OfferingFinderClientProps) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseClient(), []);
@@ -86,6 +99,7 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
   const [termOptions, setTermOptions] = useState<TimetableTermOption[]>([]);
   const [timetableConfig, setTimetableConfig] = useState<TimetableConfig>(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
   const [universityName, setUniversityName] = useState<string | null>(null);
+  const [catalogCoverage, setCatalogCoverage] = useState<OfferingCatalogCoverage | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [submittingOfferingId, setSubmittingOfferingId] = useState<string | null>(null);
 
@@ -185,6 +199,79 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
       cancelled = true;
     };
   }, [initialContext, mode, router, supabase, typedSupabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCoverage = async () => {
+      if (!context.termId) {
+        setCatalogCoverage(null);
+        return;
+      }
+
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          throw userError;
+        }
+
+        if (!user) {
+          if (!cancelled) {
+            setCatalogCoverage(null);
+          }
+          return;
+        }
+
+        const coverageClient = supabase as unknown as {
+          from: (table: 'offering_catalog_coverages') => {
+            select: (
+              columns: 'coverage_kind, source_scope_labels',
+            ) => {
+              eq: (column: 'term_id', value: string) => {
+                maybeSingle: () => Promise<{ data: CoverageRow | null; error: { message?: string } | null }>;
+              };
+            };
+          };
+        };
+
+        const { data, error } = await coverageClient
+          .from('offering_catalog_coverages')
+          .select('coverage_kind, source_scope_labels')
+          .eq('term_id', context.termId)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        if (!cancelled) {
+          setCatalogCoverage(
+            data
+              ? {
+                  coverageKind: data.coverage_kind,
+                  sourceScopeLabels: data.source_scope_labels ?? [],
+                }
+              : null,
+          );
+        }
+      } catch (error) {
+        console.error('[OfferingFinderClient] 収録範囲の取得に失敗しました:', error);
+        if (!cancelled) {
+          setCatalogCoverage(null);
+        }
+      }
+    };
+
+    void fetchCoverage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context.termId, supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -352,6 +439,13 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
   const browseTermNotice = !context.termId && mode === 'browse';
   const timetableMissingTerm = !context.termId && mode === 'timetable-add';
   const detailBaseHref = '/offerings';
+  const isPartialCoverage = catalogCoverage?.coverageKind === 'partial';
+  const coverageScopePreview = formatCoverageScopePreview(catalogCoverage?.sourceScopeLabels ?? []);
+  const emptyStateMessage = isPartialCoverage
+    ? `条件に一致する授業が見つかりません。${mode === 'browse' ? '' : '新規作成を使って登録できます。 '}この学期の授業データは一部区分のみ収録中のため、未収録の可能性があります。`
+    : mode === 'browse'
+      ? '条件に一致する授業が見つかりません。'
+      : '条件に一致する授業が見つかりません。新規作成を使って登録できます。';
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
@@ -454,6 +548,13 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
             </div>
           ) : null}
 
+          {isPartialCoverage ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p className="font-semibold">この学期の授業データは一部区分のみ収録中です。見つからない授業は未収録の可能性があります。</p>
+              {coverageScopePreview ? <p className="mt-1 text-xs text-amber-900">収録中の区分: {coverageScopePreview}</p> : null}
+            </div>
+          ) : null}
+
           {browseTermNotice ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
               学期を選択すると授業を検索できます。
@@ -474,9 +575,7 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
 
               {!isResultsLoading && results.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
-                  {mode === 'browse'
-                    ? '条件に一致する授業が見つかりません。'
-                    : '条件に一致する授業が見つかりません。新規作成を使って登録できます。'}
+                  {emptyStateMessage}
                 </div>
               ) : null}
 
@@ -508,6 +607,7 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
           initialTermId={context.termId}
           initialDayOfWeek={context.dayOfWeek}
           initialPeriod={context.period}
+          catalogCoverage={catalogCoverage}
           onClose={() => setIsCreateModalOpen(false)}
           onComplete={(value) => {
             setIsCreateModalOpen(false);

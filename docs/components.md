@@ -45,7 +45,7 @@
 - `src/components/timetable/TimetableCell.tsx`: セル単位の表示責務（授業カード/空セルUI/追加導線/取消/再登録）
 - `src/components/timetable/TimetableEnrollmentConfirmModal.tsx`: 時間割から外す/戻す確認モーダル
 - `src/components/timetable/TimetableAddPage.tsx`: 文脈付き検索、既存 offering 登録、戻り同期を扱う Client Component
-- `src/components/timetable/CreateOfferingModal.tsx`: 重複候補付きの新規講義作成モーダル
+- `src/components/timetable/CreateOfferingModal.tsx`: 重複候補付きの新規講義作成モーダル（partial import term では警告表示）
 - `src/components/timetable/TimetableSettingsModal.tsx`: 時間・曜日設定を編集する共有モーダル
 - `src/components/timetable/TimetableConfigPreview.tsx`: 時間割設定のプレビュー表示
 - `src/lib/timetable/add.ts`: 追加ページ用URL/context/sessionStorage utility
@@ -61,6 +61,7 @@
 - 時間割の描画ソースは `enrollments + offering_slots` とし、空セルタップ/授業カードの補助ボタンは `/timetable/add?day=...&period=...&termId=...` へ遷移する
 - 時間割ページからの削除は `enrollments.status = 'dropped'` 更新として扱い、履歴を残したまま `取消を表示` と再登録導線で扱う
 - `/timetable/add` の初期一覧は `search_timetable_offerings` を一次ソースとし、同大学・同学期・同曜日限を優先表示する
+- `/offerings` と `/timetable/add` は `offering_catalog_coverages` を読み、partial import term では「一部区分のみ収録中」バナーを表示する
 - 履修登録は `upsert_enrollment` で統一し、`dropped` 再登録も同じ mutation で扱う
 - 新規作成は `CreateOfferingModal` から `create_offering_and_enroll` を呼び、事前に `suggest_offering_duplicates` を表示して `exact/strong` 候補を blocking 扱いにする
 - 設定外スロットに授業が存在する場合は警告表示し、設定見直しを促す

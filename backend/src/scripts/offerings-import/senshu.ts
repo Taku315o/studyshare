@@ -23,6 +23,40 @@ type ParsedSenshuDetail = {
   rawPayload: Record<string, unknown>;
 };
 
+export function selectDepartmentLabels(availableDepartments: string[], requestedDepartments?: string[]) {
+  if (!requestedDepartments || requestedDepartments.length === 0) {
+    return availableDepartments;
+  }
+
+  const availableByNormalized = new Map(
+    availableDepartments.map((department) => [normalizeText(department), department] as const),
+  );
+  const selected: string[] = [];
+  const seen = new Set<string>();
+  const unknown: string[] = [];
+
+  for (const requestedDepartment of requestedDepartments) {
+    const normalizedDepartment = normalizeText(requestedDepartment);
+    const matchedDepartment = availableByNormalized.get(normalizedDepartment);
+
+    if (!matchedDepartment) {
+      unknown.push(requestedDepartment);
+      continue;
+    }
+
+    if (!seen.has(matchedDepartment)) {
+      selected.push(matchedDepartment);
+      seen.add(matchedDepartment);
+    }
+  }
+
+  if (unknown.length > 0) {
+    throw new Error(`unknown departments: ${unknown.join(', ')}`);
+  }
+
+  return selected;
+}
+
 function normalizeText(value: string | null | undefined) {
   return (value ?? '').replace(/\u00a0/g, ' ').replace(/\r/g, '').trim();
 }
@@ -436,10 +470,11 @@ export class SenshuSyllabusImporter {
 
     try {
       const { departments } = await this.discover(scope);
+      const selectedDepartments = selectDepartmentLabels(departments, scope.departmentLabels);
       const termCodes = scope.term === 'all' ? [...TERM_CODES] : [scope.term];
       const detailLinks = new Set<string>();
 
-      for (const department of departments) {
+      for (const department of selectedDepartments) {
         for (const termCode of termCodes) {
           const searchPage = await browser.newPage();
           console.log(`[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`);

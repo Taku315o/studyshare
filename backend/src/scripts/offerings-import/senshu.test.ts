@@ -1,5 +1,5 @@
-import { selectRetiredOfferingIds, stableJsonHash } from './db';
-import { buildSenshuExternalId, parseSenshuDetailText, parseSenshuSlots, parseTermCode } from './senshu';
+import { resolveCatalogCoverage, selectRetiredOfferingIds, stableJsonHash } from './db';
+import { buildSenshuExternalId, parseSenshuDetailText, parseSenshuSlots, parseTermCode, selectDepartmentLabels } from './senshu';
 
 describe('Senshu importer helpers', () => {
   it('builds a stable external id from detail url params', () => {
@@ -38,6 +38,17 @@ describe('Senshu importer helpers', () => {
         rawText: '集中講義',
       },
     ]);
+  });
+
+  it('selects requested departments and rejects unknown labels', () => {
+    expect(selectDepartmentLabels(['経済学部', '経営学部'], ['経営学部', '経済学部'])).toEqual([
+      '経営学部',
+      '経済学部',
+    ]);
+
+    expect(() => selectDepartmentLabels(['経済学部', '経営学部'], ['法学部'])).toThrow(
+      'unknown departments: 法学部',
+    );
   });
 
   it('parses a detail text payload into canonical fields', () => {
@@ -127,5 +138,43 @@ ICT101
         seenExternalIds: ['2025:100:1'],
       }),
     ).toEqual(['offering-2']);
+  });
+
+  it('resolves catalog coverage for full and partial runs', () => {
+    expect(
+      resolveCatalogCoverage({
+        existing: null,
+        departmentLabels: [],
+      }),
+    ).toEqual({
+      coverageKind: 'full',
+      sourceScopeLabels: [],
+    });
+
+    expect(
+      resolveCatalogCoverage({
+        existing: {
+          coverage_kind: 'partial',
+          source_scope_labels: ['経済学部'],
+        },
+        departmentLabels: ['経営学部', '経済学部'],
+      }),
+    ).toEqual({
+      coverageKind: 'partial',
+      sourceScopeLabels: ['経営学部', '経済学部'],
+    });
+
+    expect(
+      resolveCatalogCoverage({
+        existing: {
+          coverage_kind: 'full',
+          source_scope_labels: [],
+        },
+        departmentLabels: ['経済学部'],
+      }),
+    ).toEqual({
+      coverageKind: 'full',
+      sourceScopeLabels: [],
+    });
   });
 });

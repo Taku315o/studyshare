@@ -8,9 +8,10 @@ import {
   type ImportScope,
 } from './offerings-import/types';
 
-function parseArgs(argv: string[]): ImportScope {
+export function parseArgs(argv: string[]): ImportScope {
   let academicYear: number | null = null;
   let term: CanonicalTermCode | 'all' = 'all';
+  const departmentLabels: string[] = [];
   let dryRun = false;
   let retireMissing = false;
 
@@ -30,6 +31,15 @@ function parseArgs(argv: string[]): ImportScope {
       index += 1;
       continue;
     }
+    if (arg === '--department') {
+      const value = argv[index + 1]?.trim();
+      if (!value) {
+        throw new Error('--department requires a value');
+      }
+      departmentLabels.push(value);
+      index += 1;
+      continue;
+    }
     if (arg === '--dry-run') {
       dryRun = true;
       continue;
@@ -44,9 +54,14 @@ function parseArgs(argv: string[]): ImportScope {
     throw new Error('--academic-year is required');
   }
 
+  if (departmentLabels.length > 0 && retireMissing) {
+    throw new Error('--retire-missing is only allowed for full imports');
+  }
+
   return {
     academicYear,
     term,
+    departmentLabels: Array.from(new Set(departmentLabels)),
     dryRun,
     retireMissing,
   };
@@ -65,6 +80,7 @@ async function importCanonicalItems(args: {
   importSourceId: string;
   universityId: string;
   items: CanonicalOfferingImportItem[];
+  termIdsByCode: Map<CanonicalTermCode, string>;
 }) {
   const stats = { ...EMPTY_STATS };
   const seenExternalIds: string[] = [];
@@ -91,7 +107,7 @@ async function importCanonicalItems(args: {
         item,
       });
 
-      const termId = await args.repo.ensureTerm(args.universityId, item.academicYear, item.termCode);
+      const termId = args.termIdsByCode.get(item.termCode) ?? (await args.repo.ensureTerm(args.universityId, item.academicYear, item.termCode));
       const courseResult = await args.repo.resolveOrCreateCourse({
         universityId: args.universityId,
         title: item.courseTitle,
@@ -163,8 +179,15 @@ async function main() {
   const universityId = await repo.getSenshuUniversityId();
   const importSource = await repo.ensureImportSource(universityId);
   const run = await repo.startRun(importSource.id, scope);
+  const requestedTermCodes = scope.term === 'all' ? [...TERM_CODES] : [scope.term];
+  const termIdsByCode = new Map<CanonicalTermCode, string>();
 
   try {
+    for (const termCode of requestedTermCodes) {
+      const termId = await repo.ensureTerm(universityId, scope.academicYear, termCode);
+      termIdsByCode.set(termCode, termId);
+    }
+
     const items = await importer.fetch(scope);
     const result = await importCanonicalItems({
       scope,
@@ -173,13 +196,31 @@ async function main() {
       importSourceId: importSource.id,
       universityId,
       items,
+      termIdsByCode,
     });
+
+    if (!scope.dryRun) {
+      for (const termCode of requestedTermCodes) {
+        const termId = termIdsByCode.get(termCode);
+        if (!termId) continue;
+
+        await repo.upsertCatalogCoverage({
+          universityId,
+          termId,
+          importSourceId: importSource.id,
+          latestRunId: run.id,
+          departmentLabels: scope.departmentLabels ?? [],
+        });
+      }
+    }
 
     await repo.finishRun(run.id, scope.dryRun ? 'dry_run' : 'succeeded', result.stats as unknown as Record<string, unknown>, result.errors);
 
     console.log(JSON.stringify({
       scope,
       fetchedItems: items.length,
+      selectedDepartmentCount: scope.departmentLabels?.length ?? 0,
+      selectedDepartments: scope.departmentLabels ?? [],
       stats: result.stats,
       errors: result.errors,
     }, null, 2));
@@ -193,4 +234,6 @@ async function main() {
   }
 }
 
-void main();
+if (require.main === module) {
+  void main();
+}

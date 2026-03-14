@@ -13,6 +13,7 @@ export type MappingType = 'primary' | 'derived' | 'manual';
 export type ImportScope = {
   academicYear: number;
   term: CanonicalTermCode | 'all';
+  departmentLabels?: string[];
   dryRun: boolean;
   retireMissing: boolean;
 };

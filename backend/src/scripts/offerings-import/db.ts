@@ -63,6 +63,11 @@ type ImportRunRow = {
   id: string;
 };
 
+type OfferingCatalogCoverageRow = {
+  coverage_kind: 'partial' | 'full';
+  source_scope_labels: string[] | null;
+};
+
 type ExistingSlotMapping = {
   id: string;
   external_id: string;
@@ -123,6 +128,32 @@ function sortJsonValue(value: unknown): unknown {
 export function stableJsonHash(value: unknown) {
   const payload = JSON.stringify(sortJsonValue(value));
   return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
+export function resolveCatalogCoverage(args: {
+  existing: OfferingCatalogCoverageRow | null;
+  departmentLabels: string[];
+}) {
+  if (args.departmentLabels.length === 0) {
+    return {
+      coverageKind: 'full' as const,
+      sourceScopeLabels: [] as string[],
+    };
+  }
+
+  if (args.existing?.coverage_kind === 'full') {
+    return {
+      coverageKind: 'full' as const,
+      sourceScopeLabels: [] as string[],
+    };
+  }
+
+  return {
+    coverageKind: 'partial' as const,
+    sourceScopeLabels: Array.from(
+      new Set([...(args.existing?.source_scope_labels ?? []), ...args.departmentLabels]),
+    ).sort((left, right) => left.localeCompare(right, 'ja')),
+  };
 }
 
 export function selectRetiredOfferingIds(args: {
@@ -244,6 +275,7 @@ export class OfferingImportRepository {
         scope_json: {
           academicYear: scope.academicYear,
           term: scope.term,
+          departmentLabels: scope.departmentLabels ?? [],
           retireMissing: scope.retireMissing,
         },
         status: scope.dryRun ? 'dry_run' : 'running',
@@ -797,6 +829,48 @@ export class OfferingImportRepository {
     });
 
     return mapping;
+  }
+
+  async upsertCatalogCoverage(args: {
+    universityId: string;
+    termId: string;
+    importSourceId: string;
+    latestRunId: string;
+    departmentLabels: string[];
+  }) {
+    const { data: existingData, error: existingError } = await this.supabase
+      .from('offering_catalog_coverages')
+      .select('coverage_kind, source_scope_labels')
+      .eq('term_id', args.termId)
+      .eq('import_source_id', args.importSourceId)
+      .maybeSingle();
+
+    if (existingError) {
+      throw existingError;
+    }
+
+    const nextCoverage = resolveCatalogCoverage({
+      existing: (existingData ?? null) as OfferingCatalogCoverageRow | null,
+      departmentLabels: args.departmentLabels,
+    });
+
+    const { error } = await this.supabase
+      .from('offering_catalog_coverages')
+      .upsert(
+        {
+          university_id: args.universityId,
+          term_id: args.termId,
+          import_source_id: args.importSourceId,
+          coverage_kind: nextCoverage.coverageKind,
+          source_scope_labels: nextCoverage.sourceScopeLabels,
+          latest_run_id: args.latestRunId,
+        },
+        { onConflict: 'term_id,import_source_id' },
+      );
+
+    if (error) {
+      throw error;
+    }
   }
 
   async deleteMapping(args: {

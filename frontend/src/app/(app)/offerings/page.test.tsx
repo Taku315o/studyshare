@@ -30,6 +30,7 @@ describe('OfferingsPage', () => {
   const mockGetUser = jest.fn();
   const mockProfilesMaybeSingle = jest.fn();
   const mockTermsEq = jest.fn();
+  const mockCoverageMaybeSingle = jest.fn();
   const mockRpc = jest.fn();
 
   beforeEach(() => {
@@ -81,6 +82,10 @@ describe('OfferingsPage', () => {
       ],
       error: null,
     });
+    mockCoverageMaybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
     mockRpc.mockResolvedValue({
       data: [
         {
@@ -120,6 +125,14 @@ describe('OfferingsPage', () => {
           };
         }
 
+        if (table === 'offering_catalog_coverages') {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({ maybeSingle: mockCoverageMaybeSingle })),
+            })),
+          };
+        }
+
         throw new Error(`Unexpected table: ${table}`);
       }),
     });
@@ -155,5 +168,34 @@ describe('OfferingsPage', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/offerings?termId=term-current&q=%E3%83%9E%E3%83%BC%E3%82%B1');
     });
+  });
+
+  it('shows a partial import banner and empty-state note when coverage is partial', async () => {
+    mockCoverageMaybeSingle.mockResolvedValue({
+      data: {
+        coverage_kind: 'partial',
+        source_scope_labels: ['経済学部', '経営学部', '商学部', '法学部'],
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const view = await OfferingsPage({
+      searchParams: Promise.resolve({
+        termId: 'term-current',
+        q: '法学',
+      }),
+    });
+
+    render(view);
+
+    expect(
+      await screen.findByText('この学期の授業データは一部区分のみ収録中です。見つからない授業は未収録の可能性があります。'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('収録中の区分: 経済学部、経営学部、商学部 ほか1件')).toBeInTheDocument();
+    expect(screen.getByText('条件に一致する授業が見つかりません。この学期の授業データは一部区分のみ収録中のため、未収録の可能性があります。')).toBeInTheDocument();
   });
 });

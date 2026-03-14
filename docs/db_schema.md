@@ -46,6 +46,7 @@
 - `import_runs`: import 実行単位の記録
 - `raw_catalog_items`: upstream の最新 snapshot
 - `source_mappings`: upstream external id と canonical entity の対応
+- `offering_catalog_coverages`: term ごとの収録範囲（`coverage_kind=partial|full`, `source_scope_labels`）
 - canonical truth は既存の `terms / courses / course_offerings / offering_slots` で、`normalized_*` 系の別テーブルは持たない
 
 ### E. Enrollment（ユーザーの時間割）
@@ -138,6 +139,7 @@
 - `search_timetable_offerings(term_id, day_of_week, period, query, limit, offset)`
 	- 同大学・指定学期の offering を返す。
 	- `course_offerings.is_active = true` のみ返す。
+	- `slot_agg` / `enrollment_counts` は対象 term の offering に絞って集計する。
 	- `slot_match` / `enrollment_count` / `my_status` を含み、`/timetable/add` の一次ソースになる。
 - `list_my_timetable(term_id, include_dropped)`
 	- 指定 term の自分の時間割だけを返す。
@@ -218,6 +220,10 @@
 ### マスタ系（universities / terms / courses / offerings / slots / timetable_presets）
 - `SELECT`: 全員可
 - `INSERT`: direct DML は admin のみ。ユーザー発の講義追加は `create_offering_and_enroll()` などの RPC 経由に限定する
+
+### import metadata 系（import_sources / import_runs / raw_catalog_items / source_mappings / offering_catalog_coverages）
+- `SELECT`: `offering_catalog_coverages` のみ同大学ユーザーに公開し、部分収録バナーの判定に使う
+- `INSERT/UPDATE/DELETE`: admin のみ
 - `UPDATE / DELETE`: adminのみ（`is_admin`）
 - `timetable_presets` は `insert/update/delete` も admin のみ
 
