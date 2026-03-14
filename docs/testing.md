@@ -60,12 +60,19 @@
 - follow insert/delete と block insert 後に `user_stats.followers_count/following_count` が一致する
 - follow insert で `notifications(type='follow')` が1件だけ作成される
 - `search_timetable_offerings` が `slot_match` / `enrollment_count` / `my_status` を返す
+- `search_timetable_offerings` が `course_offerings.is_active = false` を返さない
 - `list_my_timetable` が selected term の enrollments だけ返し、slot なし offering を `is_unslotted=true` で返す
 - `suggest_offering_duplicates` が same title / instructor / slot / term の候補理由を返す
+- `suggest_offering_duplicates` が `course_offerings.is_active = false` を返さない
 - `upsert_enrollment` が active 重複追加を吸収し、`dropped` を `enrolled` へ戻せる
 - `upsert_enrollment(status='dropped')` で時間割ページから取消できる
 - `create_offering_and_enroll` が transaction 一括成功し、blocking 候補時は reject する
 - `courses` / `course_offerings` / `offering_slots` の直接 insert が client 前提になっていないこと
+- importer unit
+- Senshu detail parser が `term / course_code / slot_kind / raw_text` を抽出できる
+- 同じ external id の再実行で `course_offerings` / `offering_slots` が増殖しない
+- manual mapping が再実行で維持される
+- `--retire-missing` ありの successful slice run で missing offering が inactive になる
 - backend unit
 - `middleware/auth` 認証・権限判定
 - `middleware/validate` 入力検証

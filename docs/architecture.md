@@ -24,6 +24,10 @@
 - 時間割上の削除/再登録は frontend(Client Component) → Supabase RPC（`upsert_enrollment`）で `status='dropped'/'enrolled'` を更新する
 - 時間割追加（`/timetable/add`）
 - frontend(Client Component) → Supabase RPC（`search_timetable_offerings` / `suggest_offering_duplicates` / `upsert_enrollment` / `create_offering_and_enroll`）
+- importer（専修大学 v1）
+- backend 管理ジョブ (`backend/src/scripts/importSenshuOfferings.ts`) → Playwright → 専修大学公開シラバス → Supabase service role
+- canonical 保存先は `terms / courses / course_offerings / offering_slots`
+- raw/import metadata は `import_sources / import_runs / raw_catalog_items / source_mappings`
 - `/timetable` は `day` / `period` / `termId` / `returnTo` をクエリで渡し、追加成功後は `sessionStorage` の one-shot payload で scroll 復元とハイライトを行う
 - コミュニティ表示（`/community`）
 - frontend(Client Component) → Supabase RPC/SELECT（`find_match_candidates` / `conversation_members` / `messages` / `profiles`）
