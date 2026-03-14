@@ -287,7 +287,7 @@ async function runSearch(page: Page, academicYear: number, department: string, t
   };
   page.once('dialog', dialogHandler);
 
-  await page.getByRole('button', { name: '検索する' }).click();
+  await page.getByRole('button', { name: '検索する' }).click({ noWaitAfter: true, timeout: 60000 });
   await waitForSearchResults(page);
 
   if (noResults) {
@@ -298,7 +298,7 @@ async function runSearch(page: Page, academicYear: number, department: string, t
 }
 
 async function waitForSearchResults(page: Page) {
-  const detailLinks = page.locator('a[href*="slbssbdr.do"]');
+  const detailLinks = page.locator('a[href*="slspsbdr.do"]');
   const nextLink = page.locator('a').filter({ hasText: '次' }).first();
   const noResultsText = page.getByText('該当する講義はありません');
 
@@ -311,17 +311,34 @@ async function waitForSearchResults(page: Page) {
   ]);
 }
 
+async function readDetailLinks(page: Page) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await page.locator('a[href*="slspsbdr.do"]').evaluateAll((anchors) =>
+        anchors
+          .map((anchor) => (anchor as HTMLAnchorElement).href)
+          .filter((href) => href && href.includes('slspsbdr.do')),
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null);
+        await page.waitForTimeout(attempt * 500);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 async function collectDetailLinks(page: Page) {
   const results = new Set<string>();
   const visitedPages = new Set<string>();
 
   while (true) {
     await waitForSearchResults(page);
-    const detailLinks = await page.locator('a[href*="slbssbdr.do"]').evaluateAll((anchors) =>
-      anchors
-        .map((anchor) => (anchor as HTMLAnchorElement).href)
-        .filter((href) => href && href.includes('slbssbdr.do')),
-    );
+    const detailLinks = await readDetailLinks(page);
 
     detailLinks.forEach((href) => results.add(href));
     const signature = `${page.url()}::${detailLinks.length}`;
@@ -340,7 +357,7 @@ async function collectDetailLinks(page: Page) {
       break;
     }
 
-    await nextLink.click();
+    await nextLink.click({ noWaitAfter: true, timeout: 60000 });
     await waitForSearchResults(page);
   }
 
@@ -428,13 +445,21 @@ export class SenshuSyllabusImporter {
           console.log(`[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`);
           const links = await runSearch(searchPage, scope.academicYear, department, termCode);
           links.forEach((link) => detailLinks.add(link));
+          console.log(
+            `[SenshuImporter] found ${links.length} links for ${department} (${termCode}), total unique ${detailLinks.size}`,
+          );
           await searchPage.close();
         }
       }
 
       const items: CanonicalOfferingImportItem[] = [];
+      let index = 0;
       for (const detailLink of detailLinks) {
+        index += 1;
         const fallbackTerm = scope.term === 'all' ? 'first_half' : scope.term;
+        if (index === 1 || index % 25 === 0 || index === detailLinks.size) {
+          console.log(`[SenshuImporter] detail ${index}/${detailLinks.size}`);
+        }
         const item = await fetchDetail(detailPage, detailLink, fallbackTerm);
         if (item) {
           items.push(item);
