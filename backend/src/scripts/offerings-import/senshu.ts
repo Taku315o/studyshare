@@ -229,13 +229,53 @@ async function readDepartmentOptions(page: Page) {
   return options.filter((option) => option.length > 0 && !option.startsWith('【'));
 }
 
-async function runSearch(page: Page, academicYear: number, department: string, termCode: CanonicalTermCode) {
-  await gotoSearch(page);
-  await page.locator('select[name="value(nendo)"]').selectOption({ label: `${academicYear}年度` });
-  await page.locator('select[name="value(crclm)"]').selectOption({ label: department });
+async function waitForSearchForm(page: Page) {
+  await page.waitForSelector('select[name="value(nendo)"]', { timeout: 60000 });
+  await page.waitForSelector('select[name="value(crclm)"]', { timeout: 60000 });
+  await page.waitForSelector('select[name="value(kaikoCd)"]', { timeout: 60000 });
+}
 
+async function selectSearchOption(page: Page, selector: string, option: { label: string }) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await waitForSearchForm(page);
+      await page.locator(selector).selectOption(option, { timeout: 60000 });
+      await page.waitForTimeout(300);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForTimeout(attempt * 500);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+async function runSearch(page: Page, academicYear: number, department: string, termCode: CanonicalTermCode) {
   const termLabel = termCode === 'first_half' ? '前期' : termCode === 'second_half' ? '後期' : '通年';
-  await page.locator('select[name="value(kaikoCd)"]').selectOption({ label: termLabel });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await gotoSearch(page);
+      await selectSearchOption(page, 'select[name="value(nendo)"]', { label: `${academicYear}年度` });
+      await selectSearchOption(page, 'select[name="value(crclm)"]', { label: department });
+      await selectSearchOption(page, 'select[name="value(kaikoCd)"]', { label: termLabel });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForTimeout(attempt * 1000);
+      }
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
 
   let noResults = false;
   const dialogHandler = async (dialog: { accept: () => Promise<void>; message: () => string }) => {
