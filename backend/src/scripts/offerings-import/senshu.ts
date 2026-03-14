@@ -196,8 +196,21 @@ export function parseSenshuDetailText(detailText: string, detailUrl: string, fal
 }
 
 async function gotoSearch(page: Page) {
-  await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForSelector('select[name="value(nendo)"]', { timeout: 30000 });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.waitForSelector('select[name="value(nendo)"]', { timeout: 60000 });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForTimeout(attempt * 1000);
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function readAcademicYears(page: Page) {
@@ -234,10 +247,8 @@ async function runSearch(page: Page, academicYear: number, department: string, t
   };
   page.once('dialog', dialogHandler);
 
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    page.getByRole('button', { name: '検索する' }).click(),
-  ]);
+  await page.getByRole('button', { name: '検索する' }).click();
+  await waitForSearchResults(page);
 
   if (noResults) {
     return [];
@@ -246,12 +257,26 @@ async function runSearch(page: Page, academicYear: number, department: string, t
   return collectDetailLinks(page);
 }
 
+async function waitForSearchResults(page: Page) {
+  const detailLinks = page.locator('a[href*="slbssbdr.do"]');
+  const nextLink = page.locator('a').filter({ hasText: '次' }).first();
+  const noResultsText = page.getByText('該当する講義はありません');
+
+  await Promise.race([
+    detailLinks.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    nextLink.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    noResultsText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null),
+    page.waitForTimeout(1500),
+  ]);
+}
+
 async function collectDetailLinks(page: Page) {
   const results = new Set<string>();
   const visitedPages = new Set<string>();
 
   while (true) {
-    await page.waitForLoadState('domcontentloaded');
+    await waitForSearchResults(page);
     const detailLinks = await page.locator('a[href*="slbssbdr.do"]').evaluateAll((anchors) =>
       anchors
         .map((anchor) => (anchor as HTMLAnchorElement).href)
@@ -275,17 +300,32 @@ async function collectDetailLinks(page: Page) {
       break;
     }
 
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded'),
-      nextLink.click(),
-    ]);
+    await nextLink.click();
+    await waitForSearchResults(page);
   }
 
   return Array.from(results);
 }
 
 async function fetchDetail(page: Page, detailUrl: string, fallbackTerm: CanonicalTermCode) {
-  await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForTimeout(attempt * 1000);
+      }
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
   const detailText = await page.locator('body').innerText();
   const parsed = parseSenshuDetailText(detailText, page.url(), fallbackTerm);
   if (!parsed) return null;
@@ -335,7 +375,6 @@ export class SenshuSyllabusImporter {
 
   async fetch(scope: ImportScope): Promise<CanonicalOfferingImportItem[]> {
     const browser = await this.openBrowser();
-    const searchPage = await browser.newPage();
     const detailPage = await browser.newPage();
 
     try {
@@ -345,8 +384,11 @@ export class SenshuSyllabusImporter {
 
       for (const department of departments) {
         for (const termCode of termCodes) {
+          const searchPage = await browser.newPage();
+          console.log(`[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`);
           const links = await runSearch(searchPage, scope.academicYear, department, termCode);
           links.forEach((link) => detailLinks.add(link));
+          await searchPage.close();
         }
       }
 
@@ -361,7 +403,7 @@ export class SenshuSyllabusImporter {
 
       return items;
     } finally {
-      await Promise.all([searchPage.close(), detailPage.close()]);
+      await detailPage.close();
     }
   }
 
