@@ -595,7 +595,8 @@ export class SenshuSyllabusImporter {
 
   async discover(scope: ImportScope) {
     const browser = await this.openBrowser();
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
     try {
       await gotoSearch(page);
@@ -610,13 +611,14 @@ export class SenshuSyllabusImporter {
       const departments = await readDepartmentOptions(page);
       return { academicYears, departments };
     } finally {
-      await page.close();
+      await context.close();
     }
   }
 
   async fetch(scope: ImportScope): Promise<CanonicalOfferingImportItem[]> {
     const browser = await this.openBrowser();
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
     try {
       const { departments } = await this.discover(scope);
@@ -667,7 +669,7 @@ export class SenshuSyllabusImporter {
 
       return allItems;
     } finally {
-      await page.close();
+      await context.close();
     }
   }
 
