@@ -25,28 +25,37 @@ type ParsedSenshuDetail = {
 
 export function selectDepartmentLabels(availableDepartments: string[], requestedDepartments?: string[]) {
   if (!requestedDepartments || requestedDepartments.length === 0) {
-    return availableDepartments;
+    return availableDepartments.filter((d) => !d.startsWith('【'));
   }
 
-  const availableByNormalized = new Map(
-    availableDepartments.map((department) => [normalizeText(department), department] as const),
-  );
   const selected: string[] = [];
-  const seen = new Set<string>();
   const unknown: string[] = [];
 
-  for (const requestedDepartment of requestedDepartments) {
-    const normalizedDepartment = normalizeText(requestedDepartment);
-    const matchedDepartment = availableByNormalized.get(normalizedDepartment);
+  for (const requested of requestedDepartments) {
+    const normalizedReq = normalizeText(requested).replace(/[【】]/g, '');
 
-    if (!matchedDepartment) {
-      unknown.push(requestedDepartment);
-      continue;
+    let found = false;
+    for (let i = 0; i < availableDepartments.length; i++) {
+      const current = availableDepartments[i];
+      const normalizedCurrent = normalizeText(current).replace(/[【】]/g, '');
+
+      if (normalizedReq === normalizedCurrent) {
+        if (current.startsWith('【')) {
+          found = true;
+          for (let j = i + 1; j < availableDepartments.length; j++) {
+            if (availableDepartments[j].startsWith('【')) break;
+            selected.push(availableDepartments[j]);
+          }
+        } else {
+          found = true;
+          selected.push(current);
+        }
+        break;
+      }
     }
 
-    if (!seen.has(matchedDepartment)) {
-      selected.push(matchedDepartment);
-      seen.add(matchedDepartment);
+    if (!found) {
+      unknown.push(requested);
     }
   }
 
@@ -54,7 +63,7 @@ export function selectDepartmentLabels(availableDepartments: string[], requested
     throw new Error(`unknown departments: ${unknown.join(', ')}`);
   }
 
-  return selected;
+  return Array.from(new Set(selected)).filter((d) => !d.startsWith('【'));
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -260,7 +269,7 @@ async function readDepartmentOptions(page: Page) {
   const options = await page.locator('select[name="value(crclm)"] option').evaluateAll((items) =>
     items.map((item) => item.textContent?.trim() ?? ''),
   );
-  return options.filter((option) => option.length > 0 && !option.startsWith('【'));
+  return options.filter((option) => option.length > 0);
 }
 
 async function waitForSearchForm(page: Page) {
@@ -489,6 +498,10 @@ export class SenshuSyllabusImporter {
 
       const items: CanonicalOfferingImportItem[] = [];
       let index = 0;
+
+      // Initialize session on detailPage
+      await gotoSearch(detailPage);
+
       for (const detailLink of detailLinks) {
         index += 1;
         const fallbackTerm = scope.term === 'all' ? 'first_half' : scope.term;
