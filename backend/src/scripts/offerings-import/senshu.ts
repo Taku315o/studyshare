@@ -8,7 +8,8 @@ import {
   type OfferingSlotKind,
 } from './types';
 
-const SEARCH_URL = 'https://syllabus.acc.senshu-u.ac.jp/syllsenshu/slspskgr.do?clearAccessData=true&contenam=slspskgr&kjnmnNo=8';
+const SEARCH_URL =
+  'https://syllabus.acc.senshu-u.ac.jp/syllsenshu/slspskgr.do?clearAccessData=true&contenam=slspskgr&kjnmnNo=8';
 
 type ParsedSenshuDetail = {
   externalId: string;
@@ -23,7 +24,10 @@ type ParsedSenshuDetail = {
   rawPayload: Record<string, unknown>;
 };
 
-export function selectDepartmentLabels(availableDepartments: string[], requestedDepartments?: string[]) {
+export function selectDepartmentLabels(
+  availableDepartments: string[],
+  requestedDepartments?: string[],
+) {
   if (!requestedDepartments || requestedDepartments.length === 0) {
     return availableDepartments.filter((d) => !d.startsWith('【'));
   }
@@ -35,14 +39,14 @@ export function selectDepartmentLabels(availableDepartments: string[], requested
     const normalizedReq = normalizeText(requested).replace(/[【】]/g, '');
 
     let found = false;
-    for (let i = 0; i < availableDepartments.length; i++) {
+    for (let i = 0; i < availableDepartments.length; i += 1) {
       const current = availableDepartments[i];
       const normalizedCurrent = normalizeText(current).replace(/[【】]/g, '');
 
       if (normalizedReq === normalizedCurrent) {
         if (current.startsWith('【')) {
           found = true;
-          for (let j = i + 1; j < availableDepartments.length; j++) {
+          for (let j = i + 1; j < availableDepartments.length; j += 1) {
             if (availableDepartments[j].startsWith('【')) break;
             selected.push(availableDepartments[j]);
           }
@@ -94,9 +98,13 @@ function extractSection(text: string, label: string, nextLabels: string[]) {
 
 export function buildSenshuExternalId(detailUrl: string) {
   const url = new URL(detailUrl);
-  const risyunen = url.searchParams.get('value(risyunen)') ?? url.searchParams.get('risyunen');
-  const kougicd = url.searchParams.get('value(kougicd)') ?? url.searchParams.get('kougicd');
-  const semekikn = url.searchParams.get('value(semekikn)') ?? url.searchParams.get('semekikn');
+  const risyunen =
+    url.searchParams.get('value(risyunen)') ?? url.searchParams.get('risyunen');
+  const kougicd =
+    url.searchParams.get('value(kougicd)') ?? url.searchParams.get('kougicd');
+  const semekikn =
+    url.searchParams.get('value(semekikn)') ?? url.searchParams.get('semekikn');
+
   if (!risyunen || !kougicd) return null;
   return semekikn ? `${risyunen}:${kougicd}:${semekikn}` : `${risyunen}:${kougicd}`;
 }
@@ -126,7 +134,10 @@ function weekdayToNumber(value: string) {
   return null;
 }
 
-export function parseTermCode(periodText: string, fallbackTerm: CanonicalTermCode): CanonicalTermCode {
+export function parseTermCode(
+  periodText: string,
+  fallbackTerm: CanonicalTermCode,
+): CanonicalTermCode {
   if (periodText.includes('前期')) return 'first_half';
   if (periodText.includes('後期')) return 'second_half';
   if (periodText.includes('通年')) return 'full_year';
@@ -139,7 +150,10 @@ function inferNonStructuredSlotKind(periodText: string): OfferingSlotKind {
   return 'unscheduled';
 }
 
-export function parseSenshuSlots(externalId: string, periodText: string): CanonicalSlotInput[] {
+export function parseSenshuSlots(
+  externalId: string,
+  periodText: string,
+): CanonicalSlotInput[] {
   const lines = periodText
     .split('\n')
     .map((line) => normalizeText(line))
@@ -190,23 +204,56 @@ export function parseSenshuSlots(externalId: string, periodText: string): Canoni
   return slots;
 }
 
-export function parseSenshuDetailText(detailText: string, detailUrl: string, fallbackTerm: CanonicalTermCode): ParsedSenshuDetail | null {
+export function parseSenshuDetailText(
+  detailText: string,
+  detailUrl: string,
+  fallbackTerm: CanonicalTermCode,
+): ParsedSenshuDetail | null {
   const externalId = buildSenshuExternalId(detailUrl);
   if (!externalId) return null;
 
   const normalized = normalizeBlock(detailText);
   const academicYearText = extractSection(normalized, '開講年度', ['科目名']);
-  const courseTitle = extractSection(normalized, '科目名', ['職名／担当教員', '職名/担当教員']);
-  const instructor = extractSection(normalized, '職名／担当教員', ['期間／曜日／時限', '期間/曜日/時限'])
-    ?? extractSection(normalized, '職名/担当教員', ['期間／曜日／時限', '期間/曜日/時限']);
-  const periodText = extractSection(normalized, '期間／曜日／時限', ['開講区分／校舎', '開講区分/校舎'])
-    ?? extractSection(normalized, '期間/曜日/時限', ['開講区分／校舎', '開講区分/校舎']);
-  const creditsText = extractSection(normalized, '単 位', ['コースコード'])
-    ?? extractSection(normalized, '単　位', ['コースコード']);
-  const courseCode = extractSection(normalized, 'コースコード', ['授業形態', '卒業認定・学位授与の方針との関連', 'DPとの関連', '学修到達目標']);
-  const updatedText = extractSection(normalized, '更新日付', ['Copyright', '専修大学Web講義要項']);
+  const courseTitle = extractSection(normalized, '科目名', [
+    '職名／担当教員',
+    '職名/担当教員',
+  ]);
+  const instructor =
+    extractSection(normalized, '職名／担当教員', [
+      '期間／曜日／時限',
+      '期間/曜日/時限',
+    ]) ??
+    extractSection(normalized, '職名/担当教員', [
+      '期間／曜日／時限',
+      '期間/曜日/時限',
+    ]);
+  const periodText =
+    extractSection(normalized, '期間／曜日／時限', [
+      '開講区分／校舎',
+      '開講区分/校舎',
+    ]) ??
+    extractSection(normalized, '期間/曜日/時限', [
+      '開講区分／校舎',
+      '開講区分/校舎',
+    ]);
+  const creditsText =
+    extractSection(normalized, '単 位', ['コースコード']) ??
+    extractSection(normalized, '単　位', ['コースコード']);
+  const courseCode = extractSection(normalized, 'コースコード', [
+    '授業形態',
+    '卒業認定・学位授与の方針との関連',
+    'DPとの関連',
+    '学修到達目標',
+  ]);
+  const updatedText = extractSection(normalized, '更新日付', [
+    'Copyright',
+    '専修大学Web講義要項',
+  ]);
 
-  const academicYear = academicYearText ? Number((academicYearText.match(/\d{4}/) ?? [])[0]) : NaN;
+  const academicYear = academicYearText
+    ? Number((academicYearText.match(/\d{4}/) ?? [])[0])
+    : NaN;
+
   if (!courseTitle || !periodText || !Number.isInteger(academicYear)) {
     return null;
   }
@@ -240,10 +287,16 @@ export function parseSenshuDetailText(detailText: string, detailUrl: string, fal
 
 async function gotoSearch(page: Page) {
   let lastError: unknown;
+
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForSelector('select[name="value(nendo)"]', { timeout: 60000 });
+      await page.goto(SEARCH_URL, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000,
+      });
+      await page.waitForSelector('select[name="value(nendo)"]', {
+        timeout: 60000,
+      });
       return;
     } catch (error) {
       lastError = error;
@@ -266,9 +319,10 @@ async function readAcademicYears(page: Page) {
 }
 
 async function readDepartmentOptions(page: Page) {
-  const options = await page.locator('select[name="value(crclm)"] option').evaluateAll((items) =>
-    items.map((item) => item.textContent?.trim() ?? ''),
-  );
+  const options = await page
+    .locator('select[name="value(crclm)"] option')
+    .evaluateAll((items) => items.map((item) => item.textContent?.trim() ?? ''));
+
   return options.filter((option) => option.length > 0);
 }
 
@@ -278,8 +332,13 @@ async function waitForSearchForm(page: Page) {
   await page.waitForSelector('select[name="value(kaikoCd)"]', { timeout: 60000 });
 }
 
-async function selectSearchOption(page: Page, selector: string, option: { label: string }) {
+async function selectSearchOption(
+  page: Page,
+  selector: string,
+  option: { label: string },
+) {
   let lastError: unknown;
+
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       await waitForSearchForm(page);
@@ -297,15 +356,45 @@ async function selectSearchOption(page: Page, selector: string, option: { label:
   throw lastError;
 }
 
-async function runSearch(page: Page, academicYear: number, department: string, termCode: CanonicalTermCode) {
-  const termLabel = termCode === 'first_half' ? '前期' : termCode === 'second_half' ? '後期' : '通年';
+async function readSearchResultCount(page: Page): Promise<number | null> {
+  const countText = await page
+    .locator('h5')
+    .filter({ hasText: '検索結果' })
+    .first()
+    .textContent()
+    .catch(() => null);
+
+  const normalized = normalizeText(countText);
+  const match = normalized.match(/検索結果\s*(\d+)\s*件/);
+  return match ? Number(match[1]) : null;
+}
+
+async function runSearch(
+  page: Page,
+  academicYear: number,
+  department: string,
+  termCode: CanonicalTermCode,
+) {
+  const termLabel =
+    termCode === 'first_half'
+      ? '前期'
+      : termCode === 'second_half'
+        ? '後期'
+        : '通年';
+
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       await gotoSearch(page);
-      await selectSearchOption(page, 'select[name="value(nendo)"]', { label: `${academicYear}年度` });
-      await selectSearchOption(page, 'select[name="value(crclm)"]', { label: department });
-      await selectSearchOption(page, 'select[name="value(kaikoCd)"]', { label: termLabel });
+      await selectSearchOption(page, 'select[name="value(nendo)"]', {
+        label: `${academicYear}年度`,
+      });
+      await selectSearchOption(page, 'select[name="value(crclm)"]', {
+        label: department,
+      });
+      await selectSearchOption(page, 'select[name="value(kaikoCd)"]', {
+        label: termLabel,
+      });
       lastError = null;
       break;
     } catch (error) {
@@ -321,7 +410,10 @@ async function runSearch(page: Page, academicYear: number, department: string, t
   }
 
   let noResults = false;
-  const dialogHandler = async (dialog: { accept: () => Promise<void>; message: () => string }) => {
+  const dialogHandler = async (dialog: {
+    accept: () => Promise<void>;
+    message: () => string;
+  }) => {
     const message = dialog.message();
     if (message.includes('該当する講義はありません')) {
       noResults = true;
@@ -330,25 +422,39 @@ async function runSearch(page: Page, academicYear: number, department: string, t
   };
   page.once('dialog', dialogHandler);
 
-  await page.getByRole('button', { name: '検索する' }).click({ noWaitAfter: true, timeout: 60000 });
+  await page.getByRole('button', { name: '検索する' }).click({
+    noWaitAfter: true,
+    timeout: 60000,
+  });
+
   await waitForSearchResults(page);
 
   if (noResults) {
-    return [];
+    return { resultCount: 0, detailLinks: [] as string[] };
   }
 
-  return collectDetailLinks(page);
+  const resultCount = await readSearchResultCount(page);
+  const detailLinks = await collectDetailLinks(page, resultCount);
+
+  return {
+    resultCount,
+    detailLinks,
+  };
 }
 
 async function waitForSearchResults(page: Page) {
   const detailLinks = page.locator('a[href*="slspsbdr.do"]');
-  const nextLink = page.locator('a').filter({ hasText: '次' }).first();
+  const loadMoreButton = page.locator(
+    'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]',
+  );
   const noResultsText = page.getByText('該当する講義はありません');
+  const resultHeader = page.locator('h5').filter({ hasText: '検索結果' }).first();
 
   await Promise.race([
     detailLinks.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
-    nextLink.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    loadMoreButton.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
     noResultsText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    resultHeader.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
     page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null),
     page.waitForTimeout(1500),
   ]);
@@ -356,6 +462,7 @@ async function waitForSearchResults(page: Page) {
 
 async function readDetailLinks(page: Page) {
   let lastError: unknown;
+
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       return await page.locator('a[href*="slspsbdr.do"]').evaluateAll((anchors) =>
@@ -366,7 +473,9 @@ async function readDetailLinks(page: Page) {
     } catch (error) {
       lastError = error;
       if (attempt < 3) {
-        await page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null);
+        await page
+          .waitForLoadState('domcontentloaded', { timeout: 60000 })
+          .catch(() => null);
         await page.waitForTimeout(attempt * 500);
       }
     }
@@ -375,43 +484,100 @@ async function readDetailLinks(page: Page) {
   throw lastError;
 }
 
-async function collectDetailLinks(page: Page) {
+async function clickLoadMore(page: Page) {
+  const button = page.locator(
+    'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]',
+  ).first();
+
+  if ((await button.count()) === 0) {
+    return false;
+  }
+
+  const value = normalizeText(await button.getAttribute('value'));
+  if (!value.includes('次の5件') && !value.includes('読み込む')) {
+    return false;
+  }
+
+  await button.scrollIntoViewIfNeeded().catch(() => null);
+
+  await Promise.all([
+    button.click({ noWaitAfter: true, timeout: 60000 }).catch(() => null),
+    page.waitForTimeout(300),
+  ]);
+
+  return true;
+}
+
+async function waitForLinksToIncrease(page: Page, previousCount: number) {
+  try {
+    await page.waitForFunction(
+      (prev) => document.querySelectorAll('a[href*="slspsbdr.do"]').length > prev,
+      previousCount,
+      { timeout: 10000 },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function collectDetailLinks(page: Page, expectedCount: number | null = null) {
   const results = new Set<string>();
-  const visitedPages = new Set<string>();
+  let stagnantRounds = 0;
 
   while (true) {
     await waitForSearchResults(page);
-    const detailLinks = await readDetailLinks(page);
 
-    detailLinks.forEach((href) => results.add(href));
-    const signature = `${page.url()}::${detailLinks.length}`;
-    if (visitedPages.has(signature)) {
-      break;
-    }
-    visitedPages.add(signature);
+    const visibleLinks = await readDetailLinks(page);
+    visibleLinks.forEach((href) => results.add(href));
 
-    const nextLink = page.locator('a').filter({ hasText: '次' }).first();
-    if ((await nextLink.count()) === 0) {
+    if (expectedCount && results.size >= expectedCount) {
       break;
     }
 
-    const label = normalizeText(await nextLink.textContent());
-    if (!label.includes('次')) {
+    const previousVisibleCount = visibleLinks.length;
+    const previousUniqueCount = results.size;
+
+    const clicked = await clickLoadMore(page);
+    if (!clicked) {
       break;
     }
 
-    await nextLink.click({ noWaitAfter: true, timeout: 60000 });
-    await waitForSearchResults(page);
+    const increased = await waitForLinksToIncrease(page, previousVisibleCount);
+    if (!increased) {
+      await waitForSearchResults(page);
+    }
+
+    const linksAfter = await readDetailLinks(page);
+    linksAfter.forEach((href) => results.add(href));
+
+    if (results.size === previousUniqueCount) {
+      stagnantRounds += 1;
+    } else {
+      stagnantRounds = 0;
+    }
+
+    if (stagnantRounds >= 2) {
+      break;
+    }
   }
 
   return Array.from(results);
 }
 
-async function fetchDetail(page: Page, detailUrl: string, fallbackTerm: CanonicalTermCode) {
+async function fetchDetail(
+  page: Page,
+  detailUrl: string,
+  fallbackTerm: CanonicalTermCode,
+) {
   let lastError: unknown;
+
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.goto(detailUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000,
+      });
       lastError = null;
       break;
     } catch (error) {
@@ -460,12 +626,17 @@ export class SenshuSyllabusImporter {
   async discover(scope: ImportScope) {
     const browser = await this.openBrowser();
     const page = await browser.newPage();
+
     try {
       await gotoSearch(page);
       const academicYears = await readAcademicYears(page);
+
       if (!academicYears.includes(scope.academicYear)) {
-        throw new Error(`academic year ${scope.academicYear} is not available on Senshu syllabus`);
+        throw new Error(
+          `academic year ${scope.academicYear} is not available on Senshu syllabus`,
+        );
       }
+
       const departments = await readDepartmentOptions(page);
       return { academicYears, departments };
     } finally {
@@ -479,40 +650,66 @@ export class SenshuSyllabusImporter {
 
     try {
       const { departments } = await this.discover(scope);
-      const selectedDepartments = selectDepartmentLabels(departments, scope.departmentLabels);
+      const selectedDepartments = selectDepartmentLabels(
+        departments,
+        scope.departmentLabels,
+      );
       const termCodes = scope.term === 'all' ? [...TERM_CODES] : [scope.term];
       const detailLinks = new Set<string>();
+
+      console.log(
+        `[SenshuImporter] selected departments (${selectedDepartments.length}): ${selectedDepartments.join(', ')}`,
+      );
 
       for (const department of selectedDepartments) {
         for (const termCode of termCodes) {
           const searchPage = await browser.newPage();
-          console.log(`[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`);
-          const links = await runSearch(searchPage, scope.academicYear, department, termCode);
-          links.forEach((link) => detailLinks.add(link));
-          console.log(
-            `[SenshuImporter] found ${links.length} links for ${department} (${termCode}), total unique ${detailLinks.size}`,
-          );
-          await searchPage.close();
+
+          try {
+            console.log(
+              `[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`,
+            );
+
+            const { resultCount, detailLinks: links } = await runSearch(
+              searchPage,
+              scope.academicYear,
+              department,
+              termCode,
+            );
+
+            links.forEach((link) => detailLinks.add(link));
+
+            console.log(
+              `[SenshuImporter] found visible=${links.length} expected=${resultCount ?? 'unknown'} for ${department} (${termCode}), total unique ${detailLinks.size}`,
+            );
+          } finally {
+            await searchPage.close();
+          }
         }
       }
 
       const items: CanonicalOfferingImportItem[] = [];
       let index = 0;
 
-      // Initialize session on detailPage
       await gotoSearch(detailPage);
 
       for (const detailLink of detailLinks) {
         index += 1;
         const fallbackTerm = scope.term === 'all' ? 'first_half' : scope.term;
+
         if (index === 1 || index % 25 === 0 || index === detailLinks.size) {
           console.log(`[SenshuImporter] detail ${index}/${detailLinks.size}`);
         }
+
         const item = await fetchDetail(detailPage, detailLink, fallbackTerm);
         if (item) {
           items.push(item);
         }
       }
+
+      console.log(
+        `[SenshuImporter] fetched detail items=${items.length} from uniqueLinks=${detailLinks.size}`,
+      );
 
       return items;
     } finally {
