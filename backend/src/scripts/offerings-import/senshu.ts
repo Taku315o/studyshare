@@ -455,71 +455,77 @@ async function executeSearch(page: Page, args: {
   return { noResults };
 }
 
-async function clickLoadMore(page: Page) {
-  const button = page.locator(LOAD_MORE_SELECTOR).first();
-
-  if ((await button.count()) === 0) {
-    return false;
-  }
-
-  const value = normalizeText(await button.getAttribute('value'));
-  if (!value.includes('次の5件') && !value.includes('読み込む')) {
-    return false;
-  }
-
-  const beforeCount = await page.locator(DETAIL_LINK_SELECTOR).count();
-
-  await button.scrollIntoViewIfNeeded().catch(() => null);
-  await button.click({ noWaitAfter: true, timeout: 60000 }).catch(() => null);
-
-  try {
-    await page.waitForFunction(
-      ({ selector, prev }) => document.querySelectorAll(selector).length > prev,
-      { selector: DETAIL_LINK_SELECTOR, prev: beforeCount },
-      { timeout: 10000 },
-    );
-  } catch {
-    await page.waitForTimeout(1200);
-  }
-
-  return true;
-}
-
 async function clickNextResultBatch(page: Page): Promise<boolean> {
-  const button = page.locator(LOAD_MORE_SELECTOR).first();
+  const buttons = page.locator(LOAD_MORE_SELECTOR);
+  const count = await buttons.count();
 
-  if ((await button.count()) === 0) {
+  if (count === 0) {
+    console.warn('[SenshuImporter] next-batch button not found');
     return false;
   }
 
-  const value = normalizeText(await button.getAttribute('value'));
-  if (!value.includes('次の5件') && !value.includes('読み込む')) {
+  let button: ReturnType<typeof buttons.nth> | null = null;
+
+  for (let i = 0; i < count; i += 1) {
+    const candidate = buttons.nth(i);
+    const visible = await candidate.isVisible().catch(() => false);
+    const disabled = await candidate.isDisabled().catch(() => true);
+    const value = normalizeText(await candidate.getAttribute('value'));
+
+    if (
+      visible &&
+      !disabled &&
+      (value.includes('次の5件') || value.includes('読み込む'))
+    ) {
+      button = candidate;
+      break;
+    }
+  }
+
+  if (!button) {
+    console.warn('[SenshuImporter] visible next-batch button not found');
     return false;
   }
 
   const before = await listCurrentDetailUrls(page);
   const beforeSignature = before.join('\n');
 
-  await button.scrollIntoViewIfNeeded().catch(() => null);
-  await button.click({ noWaitAfter: true, timeout: 60000 }).catch(() => null);
+  console.log(
+    `[SenshuImporter] before next batch: urls=${before.length}, first=${before[0] ?? 'none'}`,
+  );
 
-  try {
-    await page.waitForFunction(
-      ({ selector, prev }) => {
-        const hrefs = Array.from(document.querySelectorAll(selector))
-          .map((el) => el.getAttribute('href') ?? '')
-          .filter((href) => href.includes('slspsbdr.do'));
-        return hrefs.join('\n') !== prev;
-      },
-      { selector: DETAIL_LINK_SELECTOR, prev: beforeSignature },
-      { timeout: 10000 },
-    );
-  } catch {
-    await page.waitForTimeout(1500);
-  }
+  await button.scrollIntoViewIfNeeded().catch(() => null);
+
+  const navigationPromise = page
+    .waitForNavigation({
+      waitUntil: 'domcontentloaded',
+      timeout: 15000,
+    })
+    .catch(() => null);
+
+  await button.click({
+    timeout: 60000,
+  });
+
+  await navigationPromise;
+  await waitForSearchResults(page);
 
   const after = await listCurrentDetailUrls(page);
-  return after.join('\n') !== beforeSignature;
+  const afterSignature = after.join('\n');
+
+  console.log(
+    `[SenshuImporter] after next batch: urls=${after.length}, first=${after[0] ?? 'none'}`,
+  );
+
+  const moved = afterSignature !== beforeSignature;
+
+  if (!moved) {
+    console.warn(
+      `[SenshuImporter] next batch did not change result set on ${page.url()}`,
+    );
+  }
+
+  return moved;
 }
 
 async function waitForDetailPage(page: Page) {
@@ -668,6 +674,9 @@ async function runSearchAndExtractItems(
 
       const moved = await clickNextResultBatch(page);
       if (!moved) {
+        console.warn(
+          `[SenshuImporter] stop pagination for ${department} (${termCode}) at seen=${seenDetailUrls.size}/${resultCount ?? '?'}`,
+        );
         break;
       }
 
