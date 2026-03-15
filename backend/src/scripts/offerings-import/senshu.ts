@@ -440,42 +440,98 @@ async function ensureResultsLoadedToIndex(page: Page, targetIndex: number) {
   }
 }
 
-async function extractDetailFromHref(
+async function waitForDetailPage(page: Page) {
+  await Promise.race([
+    page.waitForURL(/slspsbdr\.do/, { timeout: 60000 }),
+    page.waitForSelector('body', { timeout: 60000 }),
+  ]);
+
+  await Promise.race([
+    page.waitForFunction(
+      () => document.body?.innerText?.includes('開講年度') ?? false,
+      undefined,
+      { timeout: 10000 },
+    ).catch(() => null),
+    page.waitForTimeout(1500),
+  ]);
+}
+
+async function returnToResults(page: Page) {
+  try {
+    await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  } catch {
+    await page.goto(SEARCH_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    }).catch(() => null);
+  }
+
+  await waitForSearchResults(page).catch(() => null);
+}
+
+async function extractDetailFromIndex(
   page: Page,
-  href: string,
+  index: number,
   fallbackTerm: CanonicalTermCode,
 ) {
-  const context = page.context();
-  const detailPage = await context.newPage();
+  let lastError: unknown;
 
-  try {
-    await detailPage.goto(href, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const detailText = await detailPage.locator('body').innerText();
-    const parsed = parseSenshuDetailText(detailText, detailPage.url(), fallbackTerm);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await ensureResultsLoadedToIndex(page, index);
 
-    if (!parsed) return null;
+      const link = page.locator(DETAIL_LINK_SELECTOR).nth(index);
+      await link.scrollIntoViewIfNeeded().catch(() => null);
 
-    const item: CanonicalOfferingImportItem = {
-      externalId: parsed.externalId,
-      academicYear: parsed.academicYear,
-      termCode: parsed.termCode,
-      courseTitle: parsed.courseTitle,
-      courseCode: parsed.courseCode,
-      instructor: parsed.instructor,
-      credits: parsed.credits,
-      canonicalUrl: detailPage.url(),
-      sourceUpdatedAt: parsed.sourceUpdatedAt,
-      rawPayload: parsed.rawPayload,
-      slots: parsed.slots,
-    };
+      const href = await link.getAttribute('href');
+      if (!href || !href.includes('slspsbdr.do')) {
+        return null;
+      }
 
-    return item;
-  } catch (e) {
-    console.error(`[SenshuImporter] failed to fetch detail: ${href}`, e);
-    return null;
-  } finally {
-    await detailPage.close();
+      await Promise.all([
+        waitForDetailPage(page),
+        link.click({ timeout: 60000 }),
+      ]);
+
+      const detailText = await page.locator('body').innerText();
+      const parsed = parseSenshuDetailText(detailText, page.url(), fallbackTerm);
+
+      if (!parsed) {
+        return null;
+      }
+
+      const item: CanonicalOfferingImportItem = {
+        externalId: parsed.externalId,
+        academicYear: parsed.academicYear,
+        termCode: parsed.termCode,
+        courseTitle: parsed.courseTitle,
+        courseCode: parsed.courseCode,
+        instructor: parsed.instructor,
+        credits: parsed.credits,
+        canonicalUrl: page.url(),
+        sourceUpdatedAt: parsed.sourceUpdatedAt,
+        rawPayload: parsed.rawPayload,
+        slots: parsed.slots,
+      };
+
+      return item;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await page.waitForTimeout(attempt * 1000);
+      }
+    } finally {
+      if (page.url().includes('slspsbdr.do')) {
+        await returnToResults(page);
+      }
+    }
   }
+
+  console.error(
+    `[SenshuImporter] failed to fetch detail at index=${index + 1}`,
+    lastError,
+  );
+  return null;
 }
 
 async function runSearchAndExtractItems(
@@ -562,16 +618,7 @@ async function runSearchAndExtractItems(
       );
     }
 
-    const link = page.locator(DETAIL_LINK_SELECTOR).nth(index);
-    await link.scrollIntoViewIfNeeded().catch(() => null);
-
-    const href = await link.getAttribute('href');
-    if (!href || !href.includes('slspsbdr.do')) {
-      continue;
-    }
-
-    const absoluteHref = new URL(href, page.url()).href;
-    const item = await extractDetailFromHref(page, absoluteHref, fallbackTerm);
+    const item = await extractDetailFromIndex(page, index, fallbackTerm);
     if (item && !seenExternalIds.has(item.externalId)) {
       seenExternalIds.add(item.externalId);
       items.push(item);
