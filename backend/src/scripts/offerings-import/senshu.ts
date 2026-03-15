@@ -11,6 +11,10 @@ import {
 const SEARCH_URL =
   'https://syllabus.acc.senshu-u.ac.jp/syllsenshu/slspskgr.do?clearAccessData=true&contenam=slspskgr&kjnmnNo=8';
 
+const DETAIL_LINK_SELECTOR = 'a[href*="slspsbdr.do"]';
+const LOAD_MORE_SELECTOR =
+  'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]';
+
 type ParsedSenshuDetail = {
   externalId: string;
   academicYear: number;
@@ -369,12 +373,141 @@ async function readSearchResultCount(page: Page): Promise<number | null> {
   return match ? Number(match[1]) : null;
 }
 
-async function runSearch(
+async function waitForSearchResults(page: Page) {
+  const detailLinks = page.locator(DETAIL_LINK_SELECTOR);
+  const loadMoreButton = page.locator(LOAD_MORE_SELECTOR);
+  const noResultsText = page.getByText('該当する講義はありません');
+  const resultHeader = page.locator('h5').filter({ hasText: '検索結果' }).first();
+
+  await Promise.race([
+    detailLinks.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    loadMoreButton.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    noResultsText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    resultHeader.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
+    page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null),
+    page.waitForTimeout(1500),
+  ]);
+}
+
+async function clickLoadMore(page: Page) {
+  const button = page.locator(LOAD_MORE_SELECTOR).first();
+
+  if ((await button.count()) === 0) {
+    return false;
+  }
+
+  const value = normalizeText(await button.getAttribute('value'));
+  if (!value.includes('次の5件') && !value.includes('読み込む')) {
+    return false;
+  }
+
+  const beforeCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+
+  await button.scrollIntoViewIfNeeded().catch(() => null);
+  await button.click({ noWaitAfter: true, timeout: 60000 }).catch(() => null);
+
+  try {
+    await page.waitForFunction(
+      ({ selector, prev }) => document.querySelectorAll(selector).length > prev,
+      { selector: DETAIL_LINK_SELECTOR, prev: beforeCount },
+      { timeout: 10000 },
+    );
+  } catch {
+    await page.waitForTimeout(1200);
+  }
+
+  return true;
+}
+
+async function ensureResultsLoadedToIndex(page: Page, targetIndex: number) {
+  let stagnantRounds = 0;
+
+  while (true) {
+    const count = await page.locator(DETAIL_LINK_SELECTOR).count();
+    if (count > targetIndex) return;
+
+    const clicked = await clickLoadMore(page);
+    if (!clicked) return;
+
+    const nextCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+    if (nextCount > count) {
+      stagnantRounds = 0;
+    } else {
+      stagnantRounds += 1;
+    }
+
+    if (stagnantRounds >= 2) return;
+  }
+}
+
+async function ensureOnResultsPage(page: Page) {
+  if (page.url().includes('slspskgr.do')) {
+    await waitForSearchResults(page);
+    return;
+  }
+
+  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => null);
+  await waitForSearchResults(page);
+}
+
+async function openDetailFromResults(page: Page, index: number) {
+  await ensureResultsLoadedToIndex(page, index);
+
+  const links = page.locator(DETAIL_LINK_SELECTOR);
+  const count = await links.count();
+  if (count <= index) {
+    return false;
+  }
+
+  const link = links.nth(index);
+  await link.scrollIntoViewIfNeeded().catch(() => null);
+
+  const href = await link.getAttribute('href');
+  if (!href || !href.includes('slspsbdr.do')) {
+    return false;
+  }
+
+  await Promise.all([
+    page.waitForURL(/slspsbdr\.do/, { timeout: 60000 }).catch(() => null),
+    link.click({ timeout: 60000 }),
+  ]);
+
+  await page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null);
+
+  return page.url().includes('slspsbdr.do');
+}
+
+async function extractDetailItemFromCurrentPage(
+  page: Page,
+  fallbackTerm: CanonicalTermCode,
+) {
+  const detailText = await page.locator('body').innerText();
+  const parsed = parseSenshuDetailText(detailText, page.url(), fallbackTerm);
+  if (!parsed) return null;
+
+  const item: CanonicalOfferingImportItem = {
+    externalId: parsed.externalId,
+    academicYear: parsed.academicYear,
+    termCode: parsed.termCode,
+    courseTitle: parsed.courseTitle,
+    courseCode: parsed.courseCode,
+    instructor: parsed.instructor,
+    credits: parsed.credits,
+    canonicalUrl: page.url(),
+    sourceUpdatedAt: parsed.sourceUpdatedAt,
+    rawPayload: parsed.rawPayload,
+    slots: parsed.slots,
+  };
+
+  return item;
+}
+
+async function runSearchAndExtractItems(
   page: Page,
   academicYear: number,
   department: string,
   termCode: CanonicalTermCode,
-) {
+): Promise<{ resultCount: number | null; items: CanonicalOfferingImportItem[] }> {
   const termLabel =
     termCode === 'first_half'
       ? '前期'
@@ -430,187 +563,47 @@ async function runSearch(
   await waitForSearchResults(page);
 
   if (noResults) {
-    return { resultCount: 0, detailLinks: [] as string[] };
+    return { resultCount: 0, items: [] };
   }
 
   const resultCount = await readSearchResultCount(page);
-  const detailLinks = await collectDetailLinks(page, resultCount);
+  const fallbackTerm = termCode;
+  const items: CanonicalOfferingImportItem[] = [];
+  const seenExternalIds = new Set<string>();
 
-  return {
-    resultCount,
-    detailLinks,
-  };
-}
+  const maxIterations = resultCount ?? 10000;
+  for (let index = 0; index < maxIterations; index += 1) {
+    await ensureOnResultsPage(page);
+    await ensureResultsLoadedToIndex(page, index);
 
-async function waitForSearchResults(page: Page) {
-  const detailLinks = page.locator('a[href*="slspsbdr.do"]');
-  const loadMoreButton = page.locator(
-    'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]',
-  );
-  const noResultsText = page.getByText('該当する講義はありません');
-  const resultHeader = page.locator('h5').filter({ hasText: '検索結果' }).first();
+    const visibleCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+    if (visibleCount <= index) {
+      break;
+    }
 
-  await Promise.race([
-    detailLinks.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
-    loadMoreButton.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
-    noResultsText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
-    resultHeader.waitFor({ state: 'visible', timeout: 60000 }).catch(() => null),
-    page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null),
-    page.waitForTimeout(1500),
-  ]);
-}
-
-async function readDetailLinks(page: Page) {
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      return await page.locator('a[href*="slspsbdr.do"]').evaluateAll((anchors) =>
-        anchors
-          .map((anchor) => (anchor as HTMLAnchorElement).href)
-          .filter((href) => href && href.includes('slspsbdr.do')),
+    if (index === 0 || (index + 1) % 25 === 0 || (resultCount && index + 1 === resultCount)) {
+      console.log(
+        `[SenshuImporter] visiting detail ${index + 1}/${resultCount ?? '?' } for ${department} (${termCode})`,
       );
-    } catch (error) {
-      lastError = error;
-      if (attempt < 3) {
-        await page
-          .waitForLoadState('domcontentloaded', { timeout: 60000 })
-          .catch(() => null);
-        await page.waitForTimeout(attempt * 500);
-      }
     }
-  }
 
-  throw lastError;
-}
-
-async function clickLoadMore(page: Page) {
-  const button = page.locator(
-    'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]',
-  ).first();
-
-  if ((await button.count()) === 0) {
-    return false;
-  }
-
-  const value = normalizeText(await button.getAttribute('value'));
-  if (!value.includes('次の5件') && !value.includes('読み込む')) {
-    return false;
-  }
-
-  await button.scrollIntoViewIfNeeded().catch(() => null);
-
-  await Promise.all([
-    button.click({ noWaitAfter: true, timeout: 60000 }).catch(() => null),
-    page.waitForTimeout(300),
-  ]);
-
-  return true;
-}
-
-async function waitForLinksToIncrease(page: Page, previousCount: number) {
-  try {
-    await page.waitForFunction(
-      (prev) => document.querySelectorAll('a[href*="slspsbdr.do"]').length > prev,
-      previousCount,
-      { timeout: 10000 },
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function collectDetailLinks(page: Page, expectedCount: number | null = null) {
-  const results = new Set<string>();
-  let stagnantRounds = 0;
-
-  while (true) {
-    await waitForSearchResults(page);
-
-    const visibleLinks = await readDetailLinks(page);
-    visibleLinks.forEach((href) => results.add(href));
-
-    if (expectedCount && results.size >= expectedCount) {
+    const opened = await openDetailFromResults(page, index);
+    if (!opened) {
       break;
     }
 
-    const previousVisibleCount = visibleLinks.length;
-    const previousUniqueCount = results.size;
-
-    const clicked = await clickLoadMore(page);
-    if (!clicked) {
-      break;
+    const item = await extractDetailItemFromCurrentPage(page, fallbackTerm);
+    if (item && !seenExternalIds.has(item.externalId)) {
+      seenExternalIds.add(item.externalId);
+      items.push(item);
     }
 
-    const increased = await waitForLinksToIncrease(page, previousVisibleCount);
-    if (!increased) {
-      await waitForSearchResults(page);
-    }
-
-    const linksAfter = await readDetailLinks(page);
-    linksAfter.forEach((href) => results.add(href));
-
-    if (results.size === previousUniqueCount) {
-      stagnantRounds += 1;
-    } else {
-      stagnantRounds = 0;
-    }
-
-    if (stagnantRounds >= 2) {
-      break;
-    }
+    await page.waitForTimeout(300);
+    await ensureOnResultsPage(page);
+    await page.waitForTimeout(200);
   }
 
-  return Array.from(results);
-}
-
-async function fetchDetail(
-  page: Page,
-  detailUrl: string,
-  fallbackTerm: CanonicalTermCode,
-) {
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      await page.goto(detailUrl, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000,
-      });
-      lastError = null;
-      break;
-    } catch (error) {
-      lastError = error;
-      if (attempt < 3) {
-        await page.waitForTimeout(attempt * 1000);
-      }
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-
-  const detailText = await page.locator('body').innerText();
-  const parsed = parseSenshuDetailText(detailText, page.url(), fallbackTerm);
-  if (!parsed) return null;
-
-  const item: CanonicalOfferingImportItem = {
-    externalId: parsed.externalId,
-    academicYear: parsed.academicYear,
-    termCode: parsed.termCode,
-    courseTitle: parsed.courseTitle,
-    courseCode: parsed.courseCode,
-    instructor: parsed.instructor,
-    credits: parsed.credits,
-    canonicalUrl: page.url(),
-    sourceUpdatedAt: parsed.sourceUpdatedAt,
-    rawPayload: parsed.rawPayload,
-    slots: parsed.slots,
-  };
-
-  return item;
+  return { resultCount, items };
 }
 
 export class SenshuSyllabusImporter {
@@ -646,7 +639,7 @@ export class SenshuSyllabusImporter {
 
   async fetch(scope: ImportScope): Promise<CanonicalOfferingImportItem[]> {
     const browser = await this.openBrowser();
-    const detailPage = await browser.newPage();
+    const page = await browser.newPage();
 
     try {
       const { departments } = await this.discover(scope);
@@ -655,65 +648,49 @@ export class SenshuSyllabusImporter {
         scope.departmentLabels,
       );
       const termCodes = scope.term === 'all' ? [...TERM_CODES] : [scope.term];
-      const detailLinks = new Set<string>();
 
       console.log(
         `[SenshuImporter] selected departments (${selectedDepartments.length}): ${selectedDepartments.join(', ')}`,
       );
 
+      const allItems: CanonicalOfferingImportItem[] = [];
+      const seenExternalIds = new Set<string>();
+
       for (const department of selectedDepartments) {
         for (const termCode of termCodes) {
-          const searchPage = await browser.newPage();
+          console.log(
+            `[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`,
+          );
 
-          try {
-            console.log(
-              `[SenshuImporter] search ${scope.academicYear} ${termCode} ${department}`,
-            );
+          const { resultCount, items } = await runSearchAndExtractItems(
+            page,
+            scope.academicYear,
+            department,
+            termCode,
+          );
 
-            const { resultCount, detailLinks: links } = await runSearch(
-              searchPage,
-              scope.academicYear,
-              department,
-              termCode,
-            );
-
-            links.forEach((link) => detailLinks.add(link));
-
-            console.log(
-              `[SenshuImporter] found visible=${links.length} expected=${resultCount ?? 'unknown'} for ${department} (${termCode}), total unique ${detailLinks.size}`,
-            );
-          } finally {
-            await searchPage.close();
+          for (const item of items) {
+            if (!seenExternalIds.has(item.externalId)) {
+              seenExternalIds.add(item.externalId);
+              allItems.push(item);
+            }
           }
-        }
-      }
 
-      const items: CanonicalOfferingImportItem[] = [];
-      let index = 0;
+          console.log(
+            `[SenshuImporter] extracted items=${items.length} expected=${resultCount ?? 'unknown'} for ${department} (${termCode}), total unique ${allItems.length}`,
+          );
 
-      await gotoSearch(detailPage);
-
-      for (const detailLink of detailLinks) {
-        index += 1;
-        const fallbackTerm = scope.term === 'all' ? 'first_half' : scope.term;
-
-        if (index === 1 || index % 25 === 0 || index === detailLinks.size) {
-          console.log(`[SenshuImporter] detail ${index}/${detailLinks.size}`);
-        }
-
-        const item = await fetchDetail(detailPage, detailLink, fallbackTerm);
-        if (item) {
-          items.push(item);
+          await page.waitForTimeout(500);
         }
       }
 
       console.log(
-        `[SenshuImporter] fetched detail items=${items.length} from uniqueLinks=${detailLinks.size}`,
+        `[SenshuImporter] fetched total items=${allItems.length}`,
       );
 
-      return items;
+      return allItems;
     } finally {
-      await detailPage.close();
+      await page.close();
     }
   }
 
