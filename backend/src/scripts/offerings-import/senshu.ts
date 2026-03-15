@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import {
   TERM_CODES,
   type CanonicalOfferingImportItem,
@@ -87,6 +87,15 @@ function normalizeBlock(value: string) {
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
 }
 
 function extractSection(text: string, label: string, nextLabels: string[]) {
@@ -441,6 +450,15 @@ async function debugPageSnapshot(page: Page, label: string) {
   );
 }
 
+function parseDetailUrlsFromHtml(html: string) {
+  const matches = html.matchAll(/href="([^"]*slspsbdr\.do[^"]*)"/g);
+  return Array.from(
+    new Set(
+      Array.from(matches, (match) => toAbsoluteDetailUrl(decodeHtmlEntities(match[1]))),
+    ),
+  );
+}
+
 async function listCurrentDetailUrls(page: Page): Promise<string[]> {
   const hrefs = await page.locator(DETAIL_LINK_SELECTOR).evaluateAll((links) =>
     links
@@ -449,6 +467,50 @@ async function listCurrentDetailUrls(page: Page): Promise<string[]> {
   );
 
   return hrefs.map(toAbsoluteDetailUrl);
+}
+
+function parseTimestampFromHtml(html: string) {
+  const match = html.match(/name="timestamp"\s+value="([^"]+)"/);
+  return match ? decodeHtmlEntities(match[1]) : null;
+}
+
+async function buildCookieHeader(page: Page) {
+  const cookies = await page.context().cookies();
+  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+}
+
+async function postNextResultBatchHtml(args: {
+  page: Page;
+  currentHtml: string;
+}) {
+  const timestamp = parseTimestampFromHtml(args.currentHtml);
+  if (!timestamp) {
+    throw new Error('timestamp not found in result HTML');
+  }
+
+  const cookieHeader = await buildCookieHeader(args.page);
+  const formData = new URLSearchParams();
+  formData.set('buttonName', '');
+  formData.set('timestamp', timestamp);
+  formData.set('navigateKougiList', '次の5件を読み込む');
+
+  const response = await fetch(new URL('/syllsenshu/slspskgr.do', args.page.url()), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      cookie: cookieHeader,
+      referer: args.page.url(),
+      origin: 'https://syllabus.acc.senshu-u.ac.jp',
+      'user-agent': 'Mozilla/5.0',
+    },
+    body: formData.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`next batch request failed: ${response.status}`);
+  }
+
+  return response.text();
 }
 
 async function waitForDetailUrlsToChange(
@@ -513,80 +575,33 @@ async function executeSearch(page: Page, args: {
   return { noResults };
 }
 
-async function clickNextResultBatch(page: Page): Promise<boolean> {
-  const buttons = page.locator(LOAD_MORE_SELECTOR);
-  const count = await buttons.count();
-
-  if (count === 0) {
-    console.warn('[SenshuImporter] next-batch button not found');
-    return false;
-  }
-
-  let button: ReturnType<typeof buttons.nth> | null = null;
-
-  for (let i = 0; i < count; i += 1) {
-    const candidate = buttons.nth(i);
-    const visible = await candidate.isVisible().catch(() => false);
-    const disabled = await candidate.isDisabled().catch(() => true);
-    const value = normalizeText(await candidate.getAttribute('value'));
-
-    if (
-      visible &&
-      !disabled &&
-      (value.includes('次の5件') || value.includes('読み込む'))
-    ) {
-      button = candidate;
-      break;
-    }
-  }
-
-  if (!button) {
-    console.warn('[SenshuImporter] visible next-batch button not found');
-    return false;
-  }
-
-  const before = await listCurrentDetailUrls(page);
+async function clickNextResultBatch(page: Page, currentHtml: string) {
+  const before = parseDetailUrlsFromHtml(currentHtml);
   const beforeSignature = before.join('\n');
 
   console.log(
     `[SenshuImporter] before next batch: urls=${before.length}, first=${before[0] ?? 'none'}`,
   );
 
-  await button.scrollIntoViewIfNeeded().catch(() => null);
-
-  await button.click({ timeout: 60000 }).catch(async (error) => {
-    console.warn('[SenshuImporter] click next batch failed, fallback to evaluate-click', error);
-    await button!.evaluate((el) => {
-      (el as HTMLInputElement).click();
-    });
-  });
-
-  const { changed, urls } = await waitForDetailUrlsToChange(page, beforeSignature, 30000);
+  const nextHtml = await postNextResultBatchHtml({ page, currentHtml });
+  const after = parseDetailUrlsFromHtml(nextHtml);
+  const afterSignature = after.join('\n');
 
   console.log(
-    `[SenshuImporter] after next batch: urls=${urls.length}, first=${urls[0] ?? 'none'}`,
+    `[SenshuImporter] after next batch: urls=${after.length}, first=${after[0] ?? 'none'}`,
   );
 
-  if (changed) {
-    return true;
+  if (after.length > 0 && afterSignature !== beforeSignature) {
+    return { moved: true, nextHtml };
   }
 
-  await debugPageSnapshot(page, 'next batch did not change result set');
-  return false;
-}
-
-async function waitForDetailPage(page: Page) {
-  await page.waitForURL(/slspsbdr\.do/, { timeout: 60000 }).catch(() => null);
-  await page.waitForSelector('body', { timeout: 60000 });
-
-  await Promise.race([
-    page.waitForFunction(
-      () => document.body?.innerText?.includes('開講年度') ?? false,
-      undefined,
-      { timeout: 10000 },
-    ).catch(() => null),
-    page.waitForTimeout(1500),
-  ]);
+  const snippet = normalizeText(nextHtml).slice(0, 500);
+  console.warn(
+    `[SenshuImporter] next batch did not change result set\n` +
+      `url=${page.url()}\n` +
+      `body=${snippet}`,
+  );
+  return { moved: false, nextHtml };
 }
 
 function isSenshuUnexpectedErrorPage(text: string) {
@@ -596,23 +611,6 @@ function isSenshuUnexpectedErrorPage(text: string) {
   );
 }
 
-async function createClonedDetailContext(searchPage: Page): Promise<{
-  detailContext: BrowserContext;
-  detailPage: Page;
-}> {
-  const browser = searchPage.context().browser();
-  if (!browser) {
-    throw new Error('browser is not available for detail extraction');
-  }
-
-  const storageState = await searchPage.context().storageState();
-  const detailContext = await browser.newContext({
-    storageState,
-  });
-  const detailPage = await detailContext.newPage();
-  return { detailContext, detailPage };
-}
-
 type DetailExtractionResult =
   | { kind: 'ok'; item: CanonicalOfferingImportItem }
   | { kind: 'error_page' }
@@ -620,24 +618,38 @@ type DetailExtractionResult =
   | { kind: 'open_failed' };
 
 async function extractDetailFromUrl(
-  detailPage: Page,
   detailUrl: string,
   fallbackTerm: CanonicalTermCode,
   referer: string,
+  cookieHeader: string,
 ): Promise<DetailExtractionResult> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      await detailPage.goto(detailUrl, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000,
-        referer,
+      const response = await fetch(detailUrl, {
+        method: 'GET',
+        headers: {
+          cookie: cookieHeader,
+          referer,
+          origin: 'https://syllabus.acc.senshu-u.ac.jp',
+          'user-agent': 'Mozilla/5.0',
+        },
       });
 
-      await waitForDetailPage(detailPage);
+      if (!response.ok) {
+        throw new Error(`detail request failed: ${response.status}`);
+      }
 
-      const detailText = await detailPage.locator('body').innerText();
+      const detailHtml = await response.text();
+      const detailText = normalizeText(
+        decodeHtmlEntities(
+          detailHtml
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<[^>]+>/g, ' '),
+        ),
+      );
       if (isSenshuUnexpectedErrorPage(detailText)) {
         console.warn(
           `[SenshuImporter] detail returned error page for detail=${detailUrl}\n${detailText.slice(0, 400)}`,
@@ -645,7 +657,7 @@ async function extractDetailFromUrl(
         return { kind: 'error_page' };
       }
 
-      const parsed = parseSenshuDetailText(detailText, detailPage.url(), fallbackTerm);
+      const parsed = parseSenshuDetailText(detailText, detailUrl, fallbackTerm);
 
       if (!parsed) {
         console.warn(
@@ -664,7 +676,7 @@ async function extractDetailFromUrl(
           courseCode: parsed.courseCode,
           instructor: parsed.instructor,
           credits: parsed.credits,
-          canonicalUrl: detailPage.url(),
+          canonicalUrl: detailUrl,
           sourceUpdatedAt: parsed.sourceUpdatedAt,
           rawPayload: parsed.rawPayload,
           slots: parsed.slots,
@@ -673,7 +685,7 @@ async function extractDetailFromUrl(
     } catch (error) {
       lastError = error;
       if (attempt < 2) {
-        await detailPage.waitForTimeout(1000);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
   }
@@ -725,88 +737,83 @@ async function runSearchAndExtractItems(
   const seenExternalIds = new Set<string>();
   const seenDetailUrls = new Set<string>();
   const allDetailUrls: string[] = [];
+  const referer = page.url();
+  const cookieHeader = await buildCookieHeader(page);
+  let currentHtml = await page.content();
+  let roundsWithoutNewUrls = 0;
 
-  try {
-    let roundsWithoutNewUrls = 0;
+  while (true) {
+    const currentUrls = parseDetailUrlsFromHtml(currentHtml);
+    const pendingUrls = currentUrls.filter((url) => !seenDetailUrls.has(url));
 
-    while (true) {
-      const currentUrls = await listCurrentDetailUrls(page);
-      const pendingUrls = currentUrls.filter((url) => !seenDetailUrls.has(url));
-
-      if (pendingUrls.length === 0) {
-        roundsWithoutNewUrls += 1;
-      } else {
-        roundsWithoutNewUrls = 0;
-      }
-
-      for (const detailUrl of pendingUrls) {
-        console.log(
-          `[SenshuImporter] queued detail ${seenDetailUrls.size + 1}/${resultCount ?? '?'} for ${department} (${termCode})`,
-        );
-
-        seenDetailUrls.add(detailUrl);
-        allDetailUrls.push(detailUrl);
-      }
-
-      if (resultCount !== null && allDetailUrls.length >= resultCount) {
-        break;
-      }
-
-      const moved = await clickNextResultBatch(page);
-      if (!moved) {
-        console.warn(
-          `[SenshuImporter] stop pagination for ${department} (${termCode}) at seen=${seenDetailUrls.size}/${resultCount ?? '?'}, currentUrl=${page.url()}`,
-        );
-        break;
-      }
-
-      if (roundsWithoutNewUrls >= 2) {
-        break;
-      }
-
-      await page.waitForTimeout(500);
+    if (pendingUrls.length === 0) {
+      roundsWithoutNewUrls += 1;
+    } else {
+      roundsWithoutNewUrls = 0;
     }
-    const referer = page.url();
-    const cloned = await createClonedDetailContext(page);
 
-    try {
-      for (const [index, detailUrl] of allDetailUrls.entries()) {
-        console.log(
-          `[SenshuImporter] visiting detail ${index + 1}/${allDetailUrls.length} for ${department} (${termCode})`,
-        );
+    for (const detailUrl of pendingUrls) {
+      console.log(
+        `[SenshuImporter] queued detail ${seenDetailUrls.size + 1}/${resultCount ?? '?'} for ${department} (${termCode})`,
+      );
 
-        const result = await extractDetailFromUrl(
-          cloned.detailPage,
-          detailUrl,
-          termCode,
-          referer,
-        );
-
-        if (result.kind === 'error_page') {
-          const retried = await extractDetailFromUrl(
-            cloned.detailPage,
-            detailUrl,
-            termCode,
-            referer,
-          );
-
-          if (retried.kind === 'ok' && !seenExternalIds.has(retried.item.externalId)) {
-            seenExternalIds.add(retried.item.externalId);
-            items.push(retried.item);
-          }
-        } else if (result.kind === 'ok' && !seenExternalIds.has(result.item.externalId)) {
-          seenExternalIds.add(result.item.externalId);
-          items.push(result.item);
-        }
-
-        if ((index + 1) % 5 === 0) {
-          await cloned.detailPage.waitForTimeout(300);
-        }
-      }
-    } finally {
-      await cloned.detailContext.close().catch(() => null);
+      seenDetailUrls.add(detailUrl);
+      allDetailUrls.push(detailUrl);
     }
-  } finally {}
+
+    if (resultCount !== null && allDetailUrls.length >= resultCount) {
+      break;
+    }
+
+    const { moved, nextHtml } = await clickNextResultBatch(page, currentHtml);
+    currentHtml = nextHtml;
+    if (!moved) {
+      console.warn(
+        `[SenshuImporter] stop pagination for ${department} (${termCode}) at seen=${seenDetailUrls.size}/${resultCount ?? '?'}, currentUrl=${page.url()}`,
+      );
+      break;
+    }
+
+    if (roundsWithoutNewUrls >= 2) {
+      break;
+    }
+
+    await page.waitForTimeout(300);
+  }
+
+  for (const [index, detailUrl] of allDetailUrls.entries()) {
+    console.log(
+      `[SenshuImporter] visiting detail ${index + 1}/${allDetailUrls.length} for ${department} (${termCode})`,
+    );
+
+    const result = await extractDetailFromUrl(
+      detailUrl,
+      termCode,
+      referer,
+      cookieHeader,
+    );
+
+    if (result.kind === 'error_page') {
+      const retried = await extractDetailFromUrl(
+        detailUrl,
+        termCode,
+        referer,
+        cookieHeader,
+      );
+
+      if (retried.kind === 'ok' && !seenExternalIds.has(retried.item.externalId)) {
+        seenExternalIds.add(retried.item.externalId);
+        items.push(retried.item);
+      }
+    } else if (result.kind === 'ok' && !seenExternalIds.has(result.item.externalId)) {
+      seenExternalIds.add(result.item.externalId);
+      items.push(result.item);
+    }
+
+    if ((index + 1) % 5 === 0) {
+      await page.waitForTimeout(300);
+    }
+  }
 
   return { resultCount, items };
 }
