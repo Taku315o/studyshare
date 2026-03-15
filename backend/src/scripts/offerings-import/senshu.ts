@@ -556,7 +556,6 @@ async function clickNextResultBatch(page: Page): Promise<boolean> {
 
   const navigationPromise = page
     .waitForNavigation({
-      waitUntil: 'domcontentloaded',
       timeout: 10000,
     })
     .catch(() => null);
@@ -568,10 +567,10 @@ async function clickNextResultBatch(page: Page): Promise<boolean> {
     });
   });
 
-  await navigationPromise;
-  await page.waitForTimeout(1000);
 
-  const { changed, urls } = await waitForDetailUrlsToChange(page, beforeSignature, 20000);
+
+
+  const { changed, urls } = await waitForDetailUrlsToChange(page, beforeSignature, 30000);
 
   console.log(
     `[SenshuImporter] after next batch: urls=${urls.length}, first=${urls[0] ?? 'none'}`,
