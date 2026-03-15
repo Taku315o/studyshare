@@ -554,21 +554,12 @@ async function clickNextResultBatch(page: Page): Promise<boolean> {
 
   await button.scrollIntoViewIfNeeded().catch(() => null);
 
-  const navigationPromise = page
-    .waitForNavigation({
-      timeout: 10000,
-    })
-    .catch(() => null);
-
   await button.click({ timeout: 60000 }).catch(async (error) => {
     console.warn('[SenshuImporter] click next batch failed, fallback to evaluate-click', error);
     await button!.evaluate((el) => {
       (el as HTMLInputElement).click();
     });
   });
-
-
-
 
   const { changed, urls } = await waitForDetailUrlsToChange(page, beforeSignature, 30000);
 
@@ -733,19 +724,10 @@ async function runSearchAndExtractItems(
   const items: CanonicalOfferingImportItem[] = [];
   const seenExternalIds = new Set<string>();
   const seenDetailUrls = new Set<string>();
-  let detailContext: BrowserContext | null = null;
-  let detailPage: Page | null = null;
-
-  const refreshDetailContext = async () => {
-    await detailContext?.close().catch(() => null);
-    const cloned = await createClonedDetailContext(page);
-    detailContext = cloned.detailContext;
-    detailPage = cloned.detailPage;
-  };
+  const allDetailUrls: string[] = [];
 
   try {
     let roundsWithoutNewUrls = 0;
-    await refreshDetailContext();
 
     while (true) {
       const currentUrls = await listCurrentDetailUrls(page);
@@ -757,48 +739,16 @@ async function runSearchAndExtractItems(
         roundsWithoutNewUrls = 0;
       }
 
-      for (const [i, detailUrl] of pendingUrls.entries()) {
+      for (const detailUrl of pendingUrls) {
         console.log(
-          `[SenshuImporter] visiting detail ${seenDetailUrls.size + 1}/${resultCount ?? '?'} for ${department} (${termCode})`,
+          `[SenshuImporter] queued detail ${seenDetailUrls.size + 1}/${resultCount ?? '?'} for ${department} (${termCode})`,
         );
 
         seenDetailUrls.add(detailUrl);
-
-        if (!detailPage) {
-          await refreshDetailContext();
-        }
-
-        const result = await extractDetailFromUrl(
-          detailPage!,
-          detailUrl,
-          termCode,
-          page.url(),
-        );
-
-        if (result.kind === 'error_page') {
-          await refreshDetailContext();
-          const retried = await extractDetailFromUrl(
-            detailPage!,
-            detailUrl,
-            termCode,
-            page.url(),
-          );
-
-          if (retried.kind === 'ok' && !seenExternalIds.has(retried.item.externalId)) {
-            seenExternalIds.add(retried.item.externalId);
-            items.push(retried.item);
-          }
-        } else if (result.kind === 'ok' && !seenExternalIds.has(result.item.externalId)) {
-          seenExternalIds.add(result.item.externalId);
-          items.push(result.item);
-        }
-
-        if ((i + 1) % 5 === 0) {
-          await page.waitForTimeout(300);
-        }
+        allDetailUrls.push(detailUrl);
       }
 
-      if (resultCount !== null && seenDetailUrls.size >= resultCount) {
+      if (resultCount !== null && allDetailUrls.length >= resultCount) {
         break;
       }
 
@@ -810,20 +760,53 @@ async function runSearchAndExtractItems(
         break;
       }
 
-      await refreshDetailContext();
-
       if (roundsWithoutNewUrls >= 2) {
         break;
       }
 
       await page.waitForTimeout(500);
     }
-  } finally {
-    const contextToClose = detailContext as { close: () => Promise<void> } | null;
-    if (contextToClose) {
-      await contextToClose.close().catch(() => null);
+    const referer = page.url();
+    const cloned = await createClonedDetailContext(page);
+
+    try {
+      for (const [index, detailUrl] of allDetailUrls.entries()) {
+        console.log(
+          `[SenshuImporter] visiting detail ${index + 1}/${allDetailUrls.length} for ${department} (${termCode})`,
+        );
+
+        const result = await extractDetailFromUrl(
+          cloned.detailPage,
+          detailUrl,
+          termCode,
+          referer,
+        );
+
+        if (result.kind === 'error_page') {
+          const retried = await extractDetailFromUrl(
+            cloned.detailPage,
+            detailUrl,
+            termCode,
+            referer,
+          );
+
+          if (retried.kind === 'ok' && !seenExternalIds.has(retried.item.externalId)) {
+            seenExternalIds.add(retried.item.externalId);
+            items.push(retried.item);
+          }
+        } else if (result.kind === 'ok' && !seenExternalIds.has(result.item.externalId)) {
+          seenExternalIds.add(result.item.externalId);
+          items.push(result.item);
+        }
+
+        if ((index + 1) % 5 === 0) {
+          await cloned.detailPage.waitForTimeout(300);
+        }
+      }
+    } finally {
+      await cloned.detailContext.close().catch(() => null);
     }
-  }
+  } finally {}
 
   return { resultCount, items };
 }
