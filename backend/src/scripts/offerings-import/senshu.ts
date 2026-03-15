@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import {
   TERM_CODES,
   type CanonicalOfferingImportItem,
@@ -350,8 +350,10 @@ async function selectSearchOption(
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       await waitForSearchForm(page);
-      await page.locator(selector).selectOption(option, { timeout: 60000 });
-      await page.waitForTimeout(300);
+      const locator = page.locator(selector);
+      await locator.selectOption(option, { timeout: 60000 });
+      await locator.dispatchEvent('change').catch(() => null);
+      await page.waitForTimeout(500);
       return;
     } catch (error) {
       lastError = error;
@@ -403,6 +405,25 @@ async function waitForSearchResults(page: Page) {
       loadMoreSelector: LOAD_MORE_SELECTOR,
     },
     { timeout: 60000 },
+  );
+}
+
+async function logCurrentSearchSelection(page: Page) {
+  const nendo = await page
+    .locator('select[name="value(nendo)"]')
+    .inputValue()
+    .catch(() => '');
+  const crclm = await page
+    .locator('select[name="value(crclm)"]')
+    .inputValue()
+    .catch(() => '');
+  const kaikoCd = await page
+    .locator('select[name="value(kaikoCd)"]')
+    .inputValue()
+    .catch(() => '');
+
+  console.log(
+    `[SenshuImporter] current selection: nendo=${nendo}, crclm=${crclm}, kaikoCd=${kaikoCd}`,
   );
 }
 
@@ -483,6 +504,7 @@ async function executeSearch(page: Page, args: {
     label: args.termLabel,
   });
 
+  await logCurrentSearchSelection(page);
   await page.getByRole('button', { name: '検索する' }).click({
     timeout: 60000,
   });
@@ -577,55 +599,97 @@ async function waitForDetailPage(page: Page) {
   ]);
 }
 
+function isSenshuUnexpectedErrorPage(text: string) {
+  return (
+    text.includes('予期せぬエラーが発生しました') ||
+    text.includes('操作をやり直してください')
+  );
+}
+
+async function createClonedDetailContext(searchPage: Page): Promise<{
+  detailContext: BrowserContext;
+  detailPage: Page;
+}> {
+  const browser = searchPage.context().browser();
+  if (!browser) {
+    throw new Error('browser is not available for detail extraction');
+  }
+
+  const storageState = await searchPage.context().storageState();
+  const detailContext = await browser.newContext({
+    storageState,
+  });
+  const detailPage = await detailContext.newPage();
+  return { detailContext, detailPage };
+}
+
+type DetailExtractionResult =
+  | { kind: 'ok'; item: CanonicalOfferingImportItem }
+  | { kind: 'error_page' }
+  | { kind: 'parse_failed' }
+  | { kind: 'open_failed' };
+
 async function extractDetailFromUrl(
   detailPage: Page,
   detailUrl: string,
   fallbackTerm: CanonicalTermCode,
-) {
+  referer: string,
+): Promise<DetailExtractionResult> {
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
       await detailPage.goto(detailUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
+        referer,
       });
 
       await waitForDetailPage(detailPage);
 
       const detailText = await detailPage.locator('body').innerText();
+      if (isSenshuUnexpectedErrorPage(detailText)) {
+        console.warn(
+          `[SenshuImporter] detail returned error page for detail=${detailUrl}\n${detailText.slice(0, 400)}`,
+        );
+        return { kind: 'error_page' };
+      }
+
       const parsed = parseSenshuDetailText(detailText, detailPage.url(), fallbackTerm);
 
       if (!parsed) {
         console.warn(
           `[SenshuImporter] parse failed for detail=${detailUrl}\n${detailText.slice(0, 400)}`,
         );
-        return null;
+        return { kind: 'parse_failed' };
       }
 
       return {
-        externalId: parsed.externalId,
-        academicYear: parsed.academicYear,
-        termCode: parsed.termCode,
-        courseTitle: parsed.courseTitle,
-        courseCode: parsed.courseCode,
-        instructor: parsed.instructor,
-        credits: parsed.credits,
-        canonicalUrl: detailPage.url(),
-        sourceUpdatedAt: parsed.sourceUpdatedAt,
-        rawPayload: parsed.rawPayload,
-        slots: parsed.slots,
+        kind: 'ok',
+        item: {
+          externalId: parsed.externalId,
+          academicYear: parsed.academicYear,
+          termCode: parsed.termCode,
+          courseTitle: parsed.courseTitle,
+          courseCode: parsed.courseCode,
+          instructor: parsed.instructor,
+          credits: parsed.credits,
+          canonicalUrl: detailPage.url(),
+          sourceUpdatedAt: parsed.sourceUpdatedAt,
+          rawPayload: parsed.rawPayload,
+          slots: parsed.slots,
+        },
       };
     } catch (error) {
       lastError = error;
-      if (attempt < 3) {
-        await detailPage.waitForTimeout(attempt * 1000);
+      if (attempt < 2) {
+        await detailPage.waitForTimeout(1000);
       }
     }
   }
 
   console.error(`[SenshuImporter] failed to open detail=${detailUrl}`, lastError);
-  return null;
+  return { kind: 'open_failed' };
 }
 
 async function runSearchAndExtractItems(
@@ -670,16 +734,19 @@ async function runSearchAndExtractItems(
   const items: CanonicalOfferingImportItem[] = [];
   const seenExternalIds = new Set<string>();
   const seenDetailUrls = new Set<string>();
-  const browser = page.context().browser();
-  if (!browser) {
-    throw new Error('browser is not available for detail extraction');
-  }
+  let detailContext: BrowserContext | null = null;
+  let detailPage: Page | null = null;
 
-  const detailContext = await browser.newContext();
-  const detailPage = await detailContext.newPage();
+  const refreshDetailContext = async () => {
+    await detailContext?.close().catch(() => null);
+    const cloned = await createClonedDetailContext(page);
+    detailContext = cloned.detailContext;
+    detailPage = cloned.detailPage;
+  };
 
   try {
     let roundsWithoutNewUrls = 0;
+    await refreshDetailContext();
 
     while (true) {
       const currentUrls = await listCurrentDetailUrls(page);
@@ -698,10 +765,33 @@ async function runSearchAndExtractItems(
 
         seenDetailUrls.add(detailUrl);
 
-        const item = await extractDetailFromUrl(detailPage, detailUrl, termCode);
-        if (item && !seenExternalIds.has(item.externalId)) {
-          seenExternalIds.add(item.externalId);
-          items.push(item);
+        if (!detailPage) {
+          await refreshDetailContext();
+        }
+
+        const result = await extractDetailFromUrl(
+          detailPage!,
+          detailUrl,
+          termCode,
+          page.url(),
+        );
+
+        if (result.kind === 'error_page') {
+          await refreshDetailContext();
+          const retried = await extractDetailFromUrl(
+            detailPage!,
+            detailUrl,
+            termCode,
+            page.url(),
+          );
+
+          if (retried.kind === 'ok' && !seenExternalIds.has(retried.item.externalId)) {
+            seenExternalIds.add(retried.item.externalId);
+            items.push(retried.item);
+          }
+        } else if (result.kind === 'ok' && !seenExternalIds.has(result.item.externalId)) {
+          seenExternalIds.add(result.item.externalId);
+          items.push(result.item);
         }
 
         if ((i + 1) % 5 === 0) {
@@ -721,6 +811,8 @@ async function runSearchAndExtractItems(
         break;
       }
 
+      await refreshDetailContext();
+
       if (roundsWithoutNewUrls >= 2) {
         break;
       }
@@ -728,7 +820,10 @@ async function runSearchAndExtractItems(
       await page.waitForTimeout(500);
     }
   } finally {
-    await detailContext.close();
+    const contextToClose = detailContext as { close: () => Promise<void> } | null;
+    if (contextToClose) {
+      await contextToClose.close().catch(() => null);
+    }
   }
 
   return { resultCount, items };
