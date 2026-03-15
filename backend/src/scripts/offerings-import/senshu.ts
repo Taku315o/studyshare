@@ -389,6 +389,63 @@ async function waitForSearchResults(page: Page) {
   ]);
 }
 
+async function executeSearch(page: Page, args: {
+  academicYear: number;
+  department: string;
+  termLabel: string;
+}) {
+  let noResults = false;
+  const dialogHandler = async (dialog: {
+    accept: () => Promise<void>;
+    message: () => string;
+  }) => {
+    const message = dialog.message();
+    if (message.includes('該当する講義はありません')) {
+      noResults = true;
+    }
+    await dialog.accept();
+  };
+
+  page.once('dialog', dialogHandler);
+
+  await gotoSearch(page);
+  await selectSearchOption(page, 'select[name="value(nendo)"]', {
+    label: `${args.academicYear}年度`,
+  });
+  await selectSearchOption(page, 'select[name="value(crclm)"]', {
+    label: args.department,
+  });
+  await selectSearchOption(page, 'select[name="value(kaikoCd)"]', {
+    label: args.termLabel,
+  });
+
+  await page.getByRole('button', { name: '検索する' }).click({
+    noWaitAfter: true,
+    timeout: 60000,
+  });
+
+  await waitForSearchResults(page);
+  return { noResults };
+}
+
+async function ensureSearchResultsContext(page: Page, args: {
+  academicYear: number;
+  department: string;
+  termLabel: string;
+}) {
+  const detailCount = await page.locator(DETAIL_LINK_SELECTOR).count().catch(() => 0);
+  if (detailCount > 0) {
+    return { noResults: false };
+  }
+
+  const resultCount = await readSearchResultCount(page).catch(() => null);
+  if (resultCount !== null) {
+    return { noResults: false };
+  }
+
+  return executeSearch(page, args);
+}
+
 async function clickLoadMore(page: Page) {
   const button = page.locator(LOAD_MORE_SELECTOR).first();
 
@@ -473,12 +530,28 @@ async function extractDetailFromIndex(
   page: Page,
   index: number,
   fallbackTerm: CanonicalTermCode,
+  searchArgs: {
+    academicYear: number;
+    department: string;
+    termLabel: string;
+  },
 ) {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
+      const { noResults } = await ensureSearchResultsContext(page, searchArgs);
+      if (noResults) {
+        return null;
+      }
+
       await ensureResultsLoadedToIndex(page, index);
+
+      const visibleCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+      if (visibleCount <= index) {
+        await executeSearch(page, searchArgs);
+        await ensureResultsLoadedToIndex(page, index);
+      }
 
       const link = page.locator(DETAIL_LINK_SELECTOR).nth(index);
       await link.scrollIntoViewIfNeeded().catch(() => null);
@@ -550,16 +623,14 @@ async function runSearchAndExtractItems(
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      await gotoSearch(page);
-      await selectSearchOption(page, 'select[name="value(nendo)"]', {
-        label: `${academicYear}年度`,
+      const { noResults } = await executeSearch(page, {
+        academicYear,
+        department,
+        termLabel,
       });
-      await selectSearchOption(page, 'select[name="value(crclm)"]', {
-        label: department,
-      });
-      await selectSearchOption(page, 'select[name="value(kaikoCd)"]', {
-        label: termLabel,
-      });
+      if (noResults) {
+        return { resultCount: 0, items: [] };
+      }
       lastError = null;
       break;
     } catch (error) {
@@ -574,30 +645,6 @@ async function runSearchAndExtractItems(
     throw lastError;
   }
 
-  let noResults = false;
-  const dialogHandler = async (dialog: {
-    accept: () => Promise<void>;
-    message: () => string;
-  }) => {
-    const message = dialog.message();
-    if (message.includes('該当する講義はありません')) {
-      noResults = true;
-    }
-    await dialog.accept();
-  };
-  page.once('dialog', dialogHandler);
-
-  await page.getByRole('button', { name: '検索する' }).click({
-    noWaitAfter: true,
-    timeout: 60000,
-  });
-
-  await waitForSearchResults(page);
-
-  if (noResults) {
-    return { resultCount: 0, items: [] };
-  }
-
   const resultCount = await readSearchResultCount(page);
   const fallbackTerm = termCode;
   const items: CanonicalOfferingImportItem[] = [];
@@ -605,9 +652,32 @@ async function runSearchAndExtractItems(
 
   const maxIterations = resultCount ?? 10000;
   for (let index = 0; index < maxIterations; index += 1) {
+    const { noResults } = await ensureSearchResultsContext(page, {
+      academicYear,
+      department,
+      termLabel,
+    });
+    if (noResults) {
+      break;
+    }
+
     await ensureResultsLoadedToIndex(page, index);
 
-    const visibleCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+    let visibleCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+    if (visibleCount <= index) {
+      const restored = await executeSearch(page, {
+        academicYear,
+        department,
+        termLabel,
+      });
+      if (restored.noResults) {
+        break;
+      }
+
+      await ensureResultsLoadedToIndex(page, index);
+      visibleCount = await page.locator(DETAIL_LINK_SELECTOR).count();
+    }
+
     if (visibleCount <= index) {
       break;
     }
@@ -618,7 +688,11 @@ async function runSearchAndExtractItems(
       );
     }
 
-    const item = await extractDetailFromIndex(page, index, fallbackTerm);
+    const item = await extractDetailFromIndex(page, index, fallbackTerm, {
+      academicYear,
+      department,
+      termLabel,
+    });
     if (item && !seenExternalIds.has(item.externalId)) {
       seenExternalIds.add(item.externalId);
       items.push(item);
