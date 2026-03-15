@@ -38,8 +38,8 @@
 - `ProfileFollowPanel` のフォロー作成/解除の optimistic update・二重送信防止・失敗時 rollback
 - `FollowListModal` の初回20件表示 / `もっと見る` によるページング
 - `me/page` のプロフィール保存で avatar upload 成功時に `avatar_url` と `bio` を含めて upsert し、upload失敗時は保存を中断する
-- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線
-- `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存）
+- `onboarding/page` の大学・学年入力（必須）+ 学部入力（任意）+ 大学標準時間割プレビュー/編集モーダル/保存導線（`7限` 表示含む）
+- `SettingsPanel` の時間割設定モーダル（`modal=timetable-settings` 初期表示・保存・`7限` 入力欄表示）
 - `src/lib/validation/profile.ts` の `zod` schema境界値テスト（学年 `0/1/6/7`、自己紹介文字数上限）
 - `MyAssetsTabs` のタブ切替（ノート/口コミ/保存）と保存件数表示
 - `MySavedNotesList` の空状態/バッジ表示（いいね・ブックマーク）/重複統合表示
@@ -107,6 +107,7 @@
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- 既存ユーザーの `5限` 設定を読み込んだ場合でも、`6限` / `7限` が補完されて `/onboarding`・`/me`・`/timetable` に表示される
 - `/timetable?termId=...` で表示 term が切り替わり、別 term に切り替えても過去 term の履修が消えない
 - 設定外スロットの授業がある場合に警告表示される
 - slot 未設定の授業が「集中・日時未定」セクションに出る

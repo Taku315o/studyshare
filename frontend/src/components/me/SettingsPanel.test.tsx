@@ -30,6 +30,11 @@ jest.mock('@/lib/timetable/config', () => ({
     periods: [
       { period: 1, label: '1限', startTime: '09:00', endTime: '10:40' },
       { period: 2, label: '2限', startTime: '10:45', endTime: '12:25' },
+      { period: 3, label: '3限', startTime: '13:10', endTime: '14:50' },
+      { period: 4, label: '4限', startTime: '14:55', endTime: '16:35' },
+      { period: 5, label: '5限', startTime: '16:40', endTime: '18:20' },
+      { period: 6, label: '6限', startTime: '18:25', endTime: '20:05' },
+      { period: 7, label: '7限', startTime: '20:10', endTime: '21:50' },
     ],
   },
   timetableConfigSchema: {
@@ -158,6 +163,7 @@ describe('SettingsPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: '時間割の時間・曜日を編集' })).toBeInTheDocument();
     });
+    expect(screen.getByLabelText('7限の表示名')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '時間割設定を保存' }));
 
