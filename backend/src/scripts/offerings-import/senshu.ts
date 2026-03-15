@@ -406,6 +406,20 @@ async function waitForSearchResults(page: Page) {
   );
 }
 
+async function debugPageSnapshot(page: Page, label: string) {
+  const url = page.url();
+  const title = await page.title().catch(() => '');
+  const bodyText = await page.locator('body').innerText().catch(() => '');
+  const bodySnippet = normalizeText(bodyText).slice(0, 500);
+
+  console.warn(
+    `[SenshuImporter] ${label}\n` +
+      `url=${url}\n` +
+      `title=${title}\n` +
+      `body=${bodySnippet}`,
+  );
+}
+
 async function listCurrentDetailUrls(page: Page): Promise<string[]> {
   const hrefs = await page.locator(DETAIL_LINK_SELECTOR).evaluateAll((links) =>
     links
@@ -414,6 +428,29 @@ async function listCurrentDetailUrls(page: Page): Promise<string[]> {
   );
 
   return hrefs.map(toAbsoluteDetailUrl);
+}
+
+async function waitForDetailUrlsToChange(
+  page: Page,
+  beforeSignature: string,
+  timeoutMs = 20000,
+) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const urls = await listCurrentDetailUrls(page).catch(() => []);
+    const signature = urls.join('\n');
+
+    if (urls.length > 0 && signature !== beforeSignature) {
+      return { changed: true, urls };
+    }
+
+    await page.waitForLoadState('domcontentloaded', { timeout: 2000 }).catch(() => null);
+    await page.waitForTimeout(500);
+  }
+
+  const urls = await listCurrentDetailUrls(page).catch(() => []);
+  return { changed: false, urls };
 }
 
 async function executeSearch(page: Page, args: {
@@ -447,7 +484,6 @@ async function executeSearch(page: Page, args: {
   });
 
   await page.getByRole('button', { name: '検索する' }).click({
-    noWaitAfter: true,
     timeout: 60000,
   });
 
@@ -499,33 +535,32 @@ async function clickNextResultBatch(page: Page): Promise<boolean> {
   const navigationPromise = page
     .waitForNavigation({
       waitUntil: 'domcontentloaded',
-      timeout: 15000,
+      timeout: 10000,
     })
     .catch(() => null);
 
-  await button.click({
-    timeout: 60000,
+  await button.click({ timeout: 60000 }).catch(async (error) => {
+    console.warn('[SenshuImporter] click next batch failed, fallback to evaluate-click', error);
+    await button!.evaluate((el) => {
+      (el as HTMLInputElement).click();
+    });
   });
 
   await navigationPromise;
-  await waitForSearchResults(page);
+  await page.waitForTimeout(1000);
 
-  const after = await listCurrentDetailUrls(page);
-  const afterSignature = after.join('\n');
+  const { changed, urls } = await waitForDetailUrlsToChange(page, beforeSignature, 20000);
 
   console.log(
-    `[SenshuImporter] after next batch: urls=${after.length}, first=${after[0] ?? 'none'}`,
+    `[SenshuImporter] after next batch: urls=${urls.length}, first=${urls[0] ?? 'none'}`,
   );
 
-  const moved = afterSignature !== beforeSignature;
-
-  if (!moved) {
-    console.warn(
-      `[SenshuImporter] next batch did not change result set on ${page.url()}`,
-    );
+  if (changed) {
+    return true;
   }
 
-  return moved;
+  await debugPageSnapshot(page, 'next batch did not change result set');
+  return false;
 }
 
 async function waitForDetailPage(page: Page) {
@@ -635,7 +670,13 @@ async function runSearchAndExtractItems(
   const items: CanonicalOfferingImportItem[] = [];
   const seenExternalIds = new Set<string>();
   const seenDetailUrls = new Set<string>();
-  const detailPage = await page.context().newPage();
+  const browser = page.context().browser();
+  if (!browser) {
+    throw new Error('browser is not available for detail extraction');
+  }
+
+  const detailContext = await browser.newContext();
+  const detailPage = await detailContext.newPage();
 
   try {
     let roundsWithoutNewUrls = 0;
@@ -675,7 +716,7 @@ async function runSearchAndExtractItems(
       const moved = await clickNextResultBatch(page);
       if (!moved) {
         console.warn(
-          `[SenshuImporter] stop pagination for ${department} (${termCode}) at seen=${seenDetailUrls.size}/${resultCount ?? '?'}`,
+          `[SenshuImporter] stop pagination for ${department} (${termCode}) at seen=${seenDetailUrls.size}/${resultCount ?? '?'}, currentUrl=${page.url()}`,
         );
         break;
       }
@@ -687,7 +728,7 @@ async function runSearchAndExtractItems(
       await page.waitForTimeout(500);
     }
   } finally {
-    await detailPage.close();
+    await detailContext.close();
   }
 
   return { resultCount, items };
