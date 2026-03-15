@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-08
+最終更新: 2026-03-15
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -15,11 +15,11 @@
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
 - 質問詳細 (`/offerings/[offeringId]/questions/[questionId]`) で回答/返信（無制限ツリー）
-- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画し、セル押下で `/timetable/add` へ遷移して検索/新規作成/登録まで行え、時間割上から取消/再登録もできる
+- 時間割 (`/timetable`) ※表示は実データ。曜日/時限はユーザー設定に応じて動的描画し、現行標準は `1..7限`。セル押下で `/timetable/add` へ遷移して検索/新規作成/登録まで行え、時間割上から取消/再登録もできる
 - コミュニティ (`/community`) ※候補表示/DMあり（DM制約時は警告表示、ローカル会話フォールバックなし）
 - 他ユーザープロフィール (`/profile/[userId]`) ※DM + 片方向フォロー、フォロワー/フォロー中一覧モーダル
 - マイページ (`/me`) ※プロフィール編集（表示名/大学/学年/学部/アバター）・投稿一覧・設定・フォロー数表示
-- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意。大学標準時間割の自動適用/プレビュー/編集モーダル対応
+- オンボーディング (`/onboarding`) ※大学/学年の初期設定必須、学部は任意。大学標準時間割（現行標準は `1..7限`）の自動適用/プレビュー/編集モーダル対応
 
 ### 互換/移行中の機能（legacy）
 - 旧 `assignments` UI は `frontend/src/legacy/assignments/` に退避済み
@@ -152,6 +152,7 @@ bucket未作成時:
 - `/timetable/add` で文脈付き講義検索、既存 offering 登録、重複候補付き新規作成、登録成功後の戻りハイライトに対応
 - `/timetable` で授業カード/重複コマ一覧から `enrollments.status='dropped'` による取消、取消済みカードからの再登録に対応
 - `/onboarding` で大学選択時に標準時間割を自動適用し、プレビュー表示と同ページ編集モーダルに対応
+- `timetable_presets` / `profile_timetable_settings` の標準時限を `7限` まで拡張済み（旧 `5限` データは読み込み時補完 + migrationで追随）
 - DM scope緩和用のmigrationあり（MVPでは `allow_dm` 優先 / `dm_scope` は将来用保持）
 - `conversation_members` policy再帰エラー対策migrationあり
 - DM既読機能あり（`conversation_members.last_read_at` ベース、`/community` で未読件数/既読表示/Realtime追従）
