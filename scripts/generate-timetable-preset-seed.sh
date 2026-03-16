@@ -56,7 +56,7 @@ generate_sql() {
       print "  null,"
       print "  '\''default'\'',"
       print "  array[1,2,3,4,5]::smallint[],"
-      print "  '\''[{\"period\":1,\"label\":\"1限\",\"start_time\":\"09:00\",\"end_time\":\"10:40\"},{\"period\":2,\"label\":\"2限\",\"start_time\":\"10:45\",\"end_time\":\"12:25\"},{\"period\":3,\"label\":\"3限\",\"start_time\":\"13:10\",\"end_time\":\"14:50\"},{\"period\":4,\"label\":\"4限\",\"start_time\":\"14:55\",\"end_time\":\"16:35\"},{\"period\":5,\"label\":\"5限\",\"start_time\":\"16:40\",\"end_time\":\"18:20\"}]'\''::jsonb,"
+      print "  '\''[{\"period\":1,\"label\":\"1限\",\"start_time\":\"09:00\",\"end_time\":\"10:40\"},{\"period\":2,\"label\":\"2限\",\"start_time\":\"10:45\",\"end_time\":\"12:25\"},{\"period\":3,\"label\":\"3限\",\"start_time\":\"13:10\",\"end_time\":\"14:50\"},{\"period\":4,\"label\":\"4限\",\"start_time\":\"14:55\",\"end_time\":\"16:35\"},{\"period\":5,\"label\":\"5限\",\"start_time\":\"16:40\",\"end_time\":\"18:20\"},{\"period\":6,\"label\":\"6限\",\"start_time\":\"18:25\",\"end_time\":\"20:05\"},{\"period\":7,\"label\":\"7限\",\"start_time\":\"20:10\",\"end_time\":\"21:50\"}]'\''::jsonb,"
       print "  true"
       print ")"
       print "on conflict (name) where university_id is null"

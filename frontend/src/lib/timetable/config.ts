@@ -47,15 +47,19 @@ export const WEEKDAY_LABELS: Record<TimetableWeekday, string> = {
   7: '日',
 };
 
+export const DEFAULT_TIMETABLE_PERIODS: TimetablePeriodConfig[] = [
+  { period: 1, label: '1限', startTime: '09:00', endTime: '10:40' },
+  { period: 2, label: '2限', startTime: '10:45', endTime: '12:25' },
+  { period: 3, label: '3限', startTime: '13:10', endTime: '14:50' },
+  { period: 4, label: '4限', startTime: '14:55', endTime: '16:35' },
+  { period: 5, label: '5限', startTime: '16:40', endTime: '18:20' },
+  { period: 6, label: '6限', startTime: '18:25', endTime: '20:05' },
+  { period: 7, label: '7限', startTime: '20:10', endTime: '21:50' },
+];
+
 export const DEFAULT_GLOBAL_TIMETABLE_CONFIG: TimetableConfig = {
   weekdays: [1, 2, 3, 4, 5],
-  periods: [
-    { period: 1, label: '1限', startTime: '09:00', endTime: '10:40' },
-    { period: 2, label: '2限', startTime: '10:45', endTime: '12:25' },
-    { period: 3, label: '3限', startTime: '13:10', endTime: '14:50' },
-    { period: 4, label: '4限', startTime: '14:55', endTime: '16:35' },
-    { period: 5, label: '5限', startTime: '16:40', endTime: '18:20' },
-  ],
+  periods: DEFAULT_TIMETABLE_PERIODS,
 };
 
 type PresetRow = Pick<
@@ -87,6 +91,70 @@ function sortPeriods(values: TimetablePeriodConfig[]): TimetablePeriodConfig[] {
   return Array.from(unique.values()).sort((left, right) => left.period - right.period);
 }
 
+function toMinutes(value: string): number {
+  const [hour, minute] = value.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function toTimeString(totalMinutes: number): string {
+  const normalizedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function normalizePeriods(values: TimetablePeriodConfig[]): TimetablePeriodConfig[] {
+  const sorted = sortPeriods(values);
+  const byPeriod = new Map(sorted.map((period) => [period.period, period] as const));
+  const lastExistingPeriod = sorted.at(-1);
+
+  const durationMinutes =
+    lastExistingPeriod
+      ? Math.max(1, toMinutes(lastExistingPeriod.endTime) - toMinutes(lastExistingPeriod.startTime))
+      : Math.max(1, toMinutes(DEFAULT_TIMETABLE_PERIODS[0].endTime) - toMinutes(DEFAULT_TIMETABLE_PERIODS[0].startTime));
+
+  const consecutiveGapMinutes = (() => {
+    for (let index = sorted.length - 1; index > 0; index -= 1) {
+      const current = sorted[index];
+      const previous = sorted[index - 1];
+      if (current.period - previous.period === 1) {
+        return Math.max(0, toMinutes(current.startTime) - toMinutes(previous.endTime));
+      }
+    }
+    return 5;
+  })();
+
+  const resolvedDefaults: TimetablePeriodConfig[] = [];
+  DEFAULT_TIMETABLE_PERIODS.forEach((defaultPeriod, index) => {
+    const existing = byPeriod.get(defaultPeriod.period);
+    if (existing) {
+      resolvedDefaults.push(existing);
+      return;
+    }
+
+    if (index === 0) {
+      resolvedDefaults.push(defaultPeriod);
+      return;
+    }
+
+    const previous = resolvedDefaults[index - 1];
+    const startTime = toTimeString(toMinutes(previous.endTime) + consecutiveGapMinutes);
+    const endTime = toTimeString(toMinutes(startTime) + durationMinutes);
+
+    resolvedDefaults.push({
+      period: defaultPeriod.period,
+      label: defaultPeriod.label,
+      startTime,
+      endTime,
+    });
+  });
+
+  return sortPeriods([
+    ...resolvedDefaults,
+    ...sorted.filter((period) => period.period > DEFAULT_TIMETABLE_PERIODS.length),
+  ]);
+}
+
 function fromDbRow(weekdays: number[] | null, periods: unknown): TimetableConfig {
   const parsed = CONFIG_SCHEMA.safeParse({
     weekdays: weekdays ?? [],
@@ -99,7 +167,7 @@ function fromDbRow(weekdays: number[] | null, periods: unknown): TimetableConfig
 
   return {
     weekdays: sortUniqueWeekdays(parsed.data.weekdays),
-    periods: sortPeriods(
+    periods: normalizePeriods(
       parsed.data.periods.map((period) => ({
         period: period.period,
         label: period.label,
@@ -224,7 +292,7 @@ export async function upsertUserTimetableSettings(
 
   const normalizedConfig: TimetableConfig = {
     weekdays: sortUniqueWeekdays(validation.data.weekdays),
-    periods: sortPeriods(validation.data.periods),
+    periods: normalizePeriods(validation.data.periods),
   };
 
   const writer = supabase as unknown as SupabaseClient<Database>;

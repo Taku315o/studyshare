@@ -35,8 +35,19 @@
 ### D. Offering（その学期の授業実体）
 - `course_offerings`: `course_id + term_id` に紐づく「その学期のクラス」
 - `section` / `instructor` / `syllabus_url` を保持
-- `offering_slots`: 曜日・時限・教室などの時間割スロット（`intensive` は `null` 許容）
+- import metadata として `canonical_url` / `source_updated_at` / `last_seen_at` / `is_active` を保持
+- `offering_slots`: 曜日・時限・教室などの時間割スロット
+- `slot_kind`: `weekly_structured | intensive | on_demand | unscheduled`
+- `raw_text`: upstream の曜日時限表現を保持
 - `offering_slots` は時間割グリッド描画と `/timetable/add` の slot match 判定の一次ソース
+
+### F. Import Metadata（管理ジョブ専用）
+- `import_sources`: university ごとの importer source 定義
+- `import_runs`: import 実行単位の記録
+- `raw_catalog_items`: upstream の最新 snapshot
+- `source_mappings`: upstream external id と canonical entity の対応
+- `offering_catalog_coverages`: term ごとの収録範囲（`coverage_kind=partial|full`, `source_scope_labels`）
+- canonical truth は既存の `terms / courses / course_offerings / offering_slots` で、`normalized_*` 系の別テーブルは持たない
 
 ### E. Enrollment（ユーザーの時間割）
 - `enrollments`: `(user_id, offering_id)` 複合PK
@@ -127,12 +138,15 @@
 	- `avg_rating` / `review_count` / `rating_1..5_count` を返す。
 - `search_timetable_offerings(term_id, day_of_week, period, query, limit, offset)`
 	- 同大学・指定学期の offering を返す。
+	- `course_offerings.is_active = true` のみ返す。
+	- `slot_agg` / `enrollment_counts` は対象 term の offering に絞って集計する。
 	- `slot_match` / `enrollment_count` / `my_status` を含み、`/timetable/add` の一次ソースになる。
 - `list_my_timetable(term_id, include_dropped)`
 	- 指定 term の自分の時間割だけを返す。
 	- `course_offerings.term_id = term_id` で絞り込み、slot が無い offering も `is_unslotted=true` で 1 行返す。
 - `suggest_offering_duplicates(term_id, course_title, instructor, day_of_week, period, limit)`
 	- 同名または類似名、同一教員、同一曜日限、同一学期の候補を返す。
+	- `course_offerings.is_active = true` のみ返す。
 	- UI は `candidate_kind = exact|strong|related` をもとに作成可否を制御する。
 - `upsert_enrollment(offering_id, status)`
 	- `enrollments` を upsert し、既存 `dropped` の再登録も同じ入口で扱う。
@@ -206,6 +220,10 @@
 ### マスタ系（universities / terms / courses / offerings / slots / timetable_presets）
 - `SELECT`: 全員可
 - `INSERT`: direct DML は admin のみ。ユーザー発の講義追加は `create_offering_and_enroll()` などの RPC 経由に限定する
+
+### import metadata 系（import_sources / import_runs / raw_catalog_items / source_mappings / offering_catalog_coverages）
+- `SELECT`: `offering_catalog_coverages` のみ同大学ユーザーに公開し、部分収録バナーの判定に使う
+- `INSERT/UPDATE/DELETE`: admin のみ
 - `UPDATE / DELETE`: adminのみ（`is_admin`）
 - `timetable_presets` は `insert/update/delete` も admin のみ
 

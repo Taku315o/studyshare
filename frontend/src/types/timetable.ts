@@ -84,6 +84,11 @@ export type TimetableSearchResult = {
   createdAt: string;
 };
 
+export type OfferingCatalogCoverage = {
+  coverageKind: 'partial' | 'full';
+  sourceScopeLabels: string[];
+};
+
 export type TimetableDuplicateCandidateKind = 'exact' | 'strong' | 'related';
 
 export type TimetableDuplicateCandidate = {

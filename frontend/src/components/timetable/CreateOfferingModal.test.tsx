@@ -57,6 +57,7 @@ describe('CreateOfferingModal', () => {
         initialTermId="term-1"
         initialDayOfWeek={1}
         initialPeriod={1}
+        catalogCoverage={null}
         onClose={jest.fn()}
         onComplete={jest.fn()}
       />,
@@ -111,6 +112,7 @@ describe('CreateOfferingModal', () => {
         initialTermId="term-1"
         initialDayOfWeek={1}
         initialPeriod={1}
+        catalogCoverage={null}
         onClose={jest.fn()}
         onComplete={jest.fn()}
       />,
@@ -135,5 +137,38 @@ describe('CreateOfferingModal', () => {
     fireEvent.click(screen.getByLabelText('候補とは別授業として作成する'));
 
     expect(screen.getByRole('button', { name: '作成して登録' })).toBeEnabled();
+  });
+
+  it('shows a partial coverage warning when the term is only partially imported', () => {
+    render(
+      <CreateOfferingModal
+        isOpen
+        universityName="専修大学"
+        periodOptions={[{ period: 1, label: '1限' }]}
+        termOptions={[
+          {
+            id: 'term-1',
+            academicYear: 2026,
+            code: 'first_half',
+            displayName: '前期',
+            sortKey: 10,
+            startDate: null,
+            endDate: null,
+          },
+        ]}
+        initialTermId="term-1"
+        initialDayOfWeek={1}
+        initialPeriod={1}
+        catalogCoverage={{
+          coverageKind: 'partial',
+          sourceScopeLabels: ['経済学部', '経営学部'],
+        }}
+        onClose={jest.fn()}
+        onComplete={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('この学期は一部区分のみ収録中です。')).toBeInTheDocument();
+    expect(screen.getByText('現在の収録区分: 経済学部、経営学部')).toBeInTheDocument();
   });
 });

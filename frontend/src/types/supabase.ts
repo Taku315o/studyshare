@@ -109,40 +109,52 @@ export type Database = {
       }
       course_offerings: {
         Row: {
+          canonical_url: string | null
           course_id: string
           created_at: string
           created_by: string | null
           id: string
           instructor: string | null
+          is_active: boolean
           language: string | null
+          last_seen_at: string | null
           note: string | null
           section: string | null
+          source_updated_at: string | null
           syllabus_url: string | null
           term_id: string
           updated_at: string
         }
         Insert: {
+          canonical_url?: string | null
           course_id: string
           created_at?: string
           created_by?: string | null
           id?: string
           instructor?: string | null
+          is_active?: boolean
           language?: string | null
+          last_seen_at?: string | null
           note?: string | null
           section?: string | null
+          source_updated_at?: string | null
           syllabus_url?: string | null
           term_id: string
           updated_at?: string
         }
         Update: {
+          canonical_url?: string | null
           course_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
           instructor?: string | null
+          is_active?: boolean
           language?: string | null
+          last_seen_at?: string | null
           note?: string | null
           section?: string | null
+          source_updated_at?: string | null
           syllabus_url?: string | null
           term_id?: string
           updated_at?: string
@@ -272,6 +284,91 @@ export type Database = {
           following_user_id?: string
         }
         Relationships: []
+      }
+      import_runs: {
+        Row: {
+          created_at: string
+          error_summary: Json
+          finished_at: string | null
+          id: string
+          import_source_id: string
+          scope_json: Json
+          started_at: string
+          stats_json: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_summary?: Json
+          finished_at?: string | null
+          id?: string
+          import_source_id: string
+          scope_json?: Json
+          started_at?: string
+          stats_json?: Json
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_summary?: Json
+          finished_at?: string | null
+          id?: string
+          import_source_id?: string
+          scope_json?: Json
+          started_at?: string
+          stats_json?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_runs_import_source_id_fkey"
+            columns: ["import_source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_sources: {
+        Row: {
+          base_url: string
+          created_at: string
+          id: string
+          is_active: boolean
+          source_code: string
+          university_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          source_code: string
+          university_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          source_code?: string
+          university_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_sources_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -512,7 +609,9 @@ export type Database = {
           id: string
           offering_id: string
           period: number | null
+          raw_text: string | null
           room: string | null
+          slot_kind: string
           start_time: string | null
         }
         Insert: {
@@ -523,7 +622,9 @@ export type Database = {
           id?: string
           offering_id: string
           period?: number | null
+          raw_text?: string | null
           room?: string | null
+          slot_kind?: string
           start_time?: string | null
         }
         Update: {
@@ -534,7 +635,9 @@ export type Database = {
           id?: string
           offering_id?: string
           period?: number | null
+          raw_text?: string | null
           room?: string | null
+          slot_kind?: string
           start_time?: string | null
         }
         Relationships: [
@@ -543,6 +646,71 @@ export type Database = {
             columns: ["offering_id"]
             isOneToOne: false
             referencedRelation: "course_offerings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offering_catalog_coverages: {
+        Row: {
+          coverage_kind: string
+          created_at: string
+          id: string
+          import_source_id: string
+          latest_run_id: string | null
+          source_scope_labels: string[]
+          term_id: string
+          university_id: string
+          updated_at: string
+        }
+        Insert: {
+          coverage_kind: string
+          created_at?: string
+          id?: string
+          import_source_id: string
+          latest_run_id?: string | null
+          source_scope_labels?: string[]
+          term_id: string
+          university_id: string
+          updated_at?: string
+        }
+        Update: {
+          coverage_kind?: string
+          created_at?: string
+          id?: string
+          import_source_id?: string
+          latest_run_id?: string | null
+          source_scope_labels?: string[]
+          term_id?: string
+          university_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offering_catalog_coverages_import_source_id_fkey"
+            columns: ["import_source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_latest_run_id_fkey"
+            columns: ["latest_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offering_catalog_coverages_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
             referencedColumns: ["id"]
           },
         ]
@@ -748,6 +916,69 @@ export type Database = {
           },
         ]
       }
+      raw_catalog_items: {
+        Row: {
+          academic_year: number
+          content_hash: string
+          created_at: string
+          external_id: string
+          first_seen_at: string
+          id: string
+          import_source_id: string
+          last_seen_at: string
+          latest_run_id: string | null
+          payload_json: Json
+          source_updated_at: string | null
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          academic_year: number
+          content_hash: string
+          created_at?: string
+          external_id: string
+          first_seen_at?: string
+          id?: string
+          import_source_id: string
+          last_seen_at?: string
+          latest_run_id?: string | null
+          payload_json: Json
+          source_updated_at?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number
+          content_hash?: string
+          created_at?: string
+          external_id?: string
+          first_seen_at?: string
+          id?: string
+          import_source_id?: string
+          last_seen_at?: string
+          latest_run_id?: string | null
+          payload_json?: Json
+          source_updated_at?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_catalog_items_import_source_id_fkey"
+            columns: ["import_source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raw_catalog_items_latest_run_id_fkey"
+            columns: ["latest_run_id"]
+            isOneToOne: false
+            referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -857,6 +1088,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      source_mappings: {
+        Row: {
+          confidence: number
+          created_at: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          external_source: string
+          id: string
+          mapping_type: string
+          raw_item_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          external_source: string
+          id?: string
+          mapping_type?: string
+          raw_item_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          external_id?: string
+          external_source?: string
+          id?: string
+          mapping_type?: string
+          raw_item_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_mappings_raw_item_id_fkey"
+            columns: ["raw_item_id"]
+            isOneToOne: false
+            referencedRelation: "raw_catalog_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       terms: {
         Row: {

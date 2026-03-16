@@ -6,8 +6,15 @@ import WeeklyTimetable from '@/components/home/WeeklyTimetable';
 import { homeMockData } from '@/lib/mock/homeMock';
 
 export default function HomePage() {
-  const { courses, timetableItems, reviews, hotPosts, miniBoardPosts, recentlyViewedCourseIds, popularCourseIds } =
-    homeMockData;
+  const courses = Array.isArray(homeMockData.courses) ? homeMockData.courses : [];
+  const timetableItems = Array.isArray(homeMockData.timetableItems) ? homeMockData.timetableItems : [];
+  const reviews = Array.isArray(homeMockData.reviews) ? homeMockData.reviews : [];
+  const hotPosts = Array.isArray(homeMockData.hotPosts) ? homeMockData.hotPosts : [];
+  const miniBoardPosts = Array.isArray(homeMockData.miniBoardPosts) ? homeMockData.miniBoardPosts : [];
+  const recentlyViewedCourseIds = Array.isArray(homeMockData.recentlyViewedCourseIds)
+    ? homeMockData.recentlyViewedCourseIds
+    : [];
+  const popularCourseIds = Array.isArray(homeMockData.popularCourseIds) ? homeMockData.popularCourseIds : [];
 
   const courseMap = new Map(courses.map((course) => [course.id, course]));
   const recentlyViewedCourses = recentlyViewedCourseIds

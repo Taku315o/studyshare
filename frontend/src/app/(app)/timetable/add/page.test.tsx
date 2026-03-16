@@ -38,6 +38,7 @@ describe('TimetableAddRoute', () => {
   const mockGetUser = jest.fn();
   const mockProfilesMaybeSingle = jest.fn();
   const mockTermsEq = jest.fn();
+  const mockCoverageEq = jest.fn();
   const mockRpc = jest.fn();
 
   beforeAll(() => {
@@ -98,6 +99,10 @@ describe('TimetableAddRoute', () => {
       ],
       error: null,
     });
+    mockCoverageEq.mockResolvedValue({
+      data: [],
+      error: null,
+    });
     mockRpc.mockImplementation((fn: string) => {
       if (fn === 'search_timetable_offerings') {
         return Promise.resolve({
@@ -156,6 +161,14 @@ describe('TimetableAddRoute', () => {
           };
         }
 
+        if (table === 'offering_catalog_coverages') {
+          return {
+            select: jest.fn(() => ({
+              eq: mockCoverageEq,
+            })),
+          };
+        }
+
         throw new Error(`Unexpected table: ${table}`);
       }),
     });
@@ -208,5 +221,34 @@ describe('TimetableAddRoute', () => {
     expect(mockReplace).toHaveBeenCalledWith(
       '/timetable/add?termId=term-old&q=%E3%83%9E%E3%83%BC%E3%82%B1&day=mon&period=1&returnTo=%2Ftimetable',
     );
+  });
+
+  it('shows a partial import banner for timetable add mode', async () => {
+    mockCoverageEq.mockResolvedValue({
+      data: [
+        {
+          coverage_kind: 'partial',
+          source_scope_labels: ['経済学部', '経営学部'],
+        },
+      ],
+      error: null,
+    });
+
+    const view = await TimetableAddRoute({
+      searchParams: Promise.resolve({
+        day: 'mon',
+        period: '1',
+        termId: 'term-current',
+        q: 'マーケ',
+        returnTo: '/timetable',
+      }),
+    });
+
+    render(view);
+
+    expect(
+      await screen.findByText('この学期の授業データは一部区分のみ収録中です。見つからない授業は未収録の可能性があります。'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/経済学部、経営学部/)).toBeInTheDocument();
   });
 });

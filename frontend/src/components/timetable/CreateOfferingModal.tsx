@@ -10,6 +10,7 @@ import { buildTermLabel } from '@/lib/timetable/terms';
 import { createOfferingSchema, getOfferingValidationErrorMessage } from '@/lib/validation/offering';
 import { formatWeekdayLabel } from '@/lib/timetable/config';
 import type {
+  OfferingCatalogCoverage,
   TimetableDuplicateCandidate,
   TimetableStatus,
   TimetableTermOption,
@@ -24,6 +25,7 @@ type CreateOfferingModalProps = {
   initialTermId: string | null;
   initialDayOfWeek: TimetableWeekday | null;
   initialPeriod: number | null;
+  catalogCoverage: OfferingCatalogCoverage | null;
   onClose: () => void;
   onComplete: (value: { offeringId: string; dayOfWeek: TimetableWeekday | null; period: number | null }) => void;
 };
@@ -101,6 +103,7 @@ export default function CreateOfferingModal({
   initialTermId,
   initialDayOfWeek,
   initialPeriod,
+  catalogCoverage,
   onClose,
   onComplete,
 }: CreateOfferingModalProps) {
@@ -232,6 +235,11 @@ export default function CreateOfferingModal({
   const blockingCandidates = candidates.filter(isBlockingCandidate);
   const selectedDayOfWeek = Number(form.dayOfWeek);
   const selectedPeriod = Number(form.period);
+  const isPartialCoverage = catalogCoverage?.coverageKind === 'partial';
+  const partialCoveragePreview =
+    catalogCoverage && catalogCoverage.sourceScopeLabels.length > 0
+      ? catalogCoverage.sourceScopeLabels.slice(0, 3).join('、')
+      : null;
 
   const handleRegisterExisting = async (candidate: TimetableDuplicateCandidate) => {
     if (candidate.myStatus === 'enrolled' || candidate.myStatus === 'planned' || isSubmitting) {
@@ -379,6 +387,23 @@ export default function CreateOfferingModal({
 
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
+            {isPartialCoverage ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-semibold">この学期は一部区分のみ収録中です。</p>
+                    <p className="mt-1 text-xs text-amber-900">
+                      検索で見つからない授業は未収録の可能性があります。重複候補を確認したうえで新規作成してください。
+                    </p>
+                    {partialCoveragePreview ? (
+                      <p className="mt-1 text-xs text-amber-900">現在の収録区分: {partialCoveragePreview}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm text-slate-700">
                 <span className="font-medium">学期</span>

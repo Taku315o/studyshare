@@ -142,6 +142,9 @@ supabase/seeds/
 - `scripts/rebuild-supabase-seeds.sh`
 - `scripts/apply-supabase-master-data.sh`
 - `scripts/apply-supabase-dev-offering-sample.sh`
+- `backend/src/scripts/importSenshuOfferings.ts`
+- `backend/src/scripts/mapOfferingImport.ts`
+- `backend/src/scripts/unmapOfferingImport.ts`
 
 ## 個別判断
 
@@ -203,6 +206,7 @@ supabase/seeds/
 運用ルール:
 - 学期単位で import job を分ける
 - `course_offerings` は upsert キーを明確化する
+- upstream external id は `source_mappings` に保持し、canonical table 側に単一の external id を埋め込まない
 - default の `db reset` seed に本番相当 offerings を含めない
 - UI 検証用サンプルが必要なら、`dev-only` seed として分離し、明示実行にする
 
