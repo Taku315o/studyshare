@@ -417,17 +417,32 @@ export class OfferingImportRepository {
         throw existingCodeError;
       }
 
-      const { data, error } = await this.supabase
-        .from('courses')
-        .upsert(
-          {
-            university_id: args.universityId,
-            course_code: args.courseCode,
+      if (existingCodeData) {
+        const { data, error } = await this.supabase
+          .from('courses')
+          .update({
             name: normalizedTitle,
             credits: args.credits,
-          },
-          { onConflict: 'university_id,course_code' },
-        )
+          })
+          .eq('id', (existingCodeData as CourseRow).id)
+          .select('id')
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        return { courseId: (data as CourseRow).id, created: false };
+      }
+
+      const { data, error } = await this.supabase
+        .from('courses')
+        .insert({
+          university_id: args.universityId,
+          course_code: args.courseCode,
+          name: normalizedTitle,
+          credits: args.credits,
+        })
         .select('id')
         .single();
 
@@ -435,7 +450,7 @@ export class OfferingImportRepository {
         throw error;
       }
 
-      return { courseId: (data as CourseRow).id, created: !existingCodeData };
+      return { courseId: (data as CourseRow).id, created: true };
     }
 
     const { data: existingData, error: existingError } = await this.supabase
