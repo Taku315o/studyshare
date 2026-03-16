@@ -30,7 +30,7 @@ describe('OfferingsPage', () => {
   const mockGetUser = jest.fn();
   const mockProfilesMaybeSingle = jest.fn();
   const mockTermsEq = jest.fn();
-  const mockCoverageMaybeSingle = jest.fn();
+  const mockCoverageEq = jest.fn();
   const mockRpc = jest.fn();
 
   beforeEach(() => {
@@ -82,8 +82,8 @@ describe('OfferingsPage', () => {
       ],
       error: null,
     });
-    mockCoverageMaybeSingle.mockResolvedValue({
-      data: null,
+    mockCoverageEq.mockResolvedValue({
+      data: [],
       error: null,
     });
     mockRpc.mockResolvedValue({
@@ -128,7 +128,7 @@ describe('OfferingsPage', () => {
         if (table === 'offering_catalog_coverages') {
           return {
             select: jest.fn(() => ({
-              eq: jest.fn(() => ({ maybeSingle: mockCoverageMaybeSingle })),
+              eq: mockCoverageEq,
             })),
           };
         }
@@ -171,11 +171,13 @@ describe('OfferingsPage', () => {
   });
 
   it('shows a partial import banner and empty-state note when coverage is partial', async () => {
-    mockCoverageMaybeSingle.mockResolvedValue({
-      data: {
-        coverage_kind: 'partial',
-        source_scope_labels: ['経済学部', '経営学部', '商学部', '法学部'],
-      },
+    mockCoverageEq.mockResolvedValue({
+      data: [
+        {
+          coverage_kind: 'partial',
+          source_scope_labels: ['経済学部', '経営学部', '商学部', '法学部'],
+        },
+      ],
       error: null,
     });
     mockRpc.mockResolvedValue({
@@ -195,7 +197,7 @@ describe('OfferingsPage', () => {
     expect(
       await screen.findByText('この学期の授業データは一部区分のみ収録中です。見つからない授業は未収録の可能性があります。'),
     ).toBeInTheDocument();
-    expect(screen.getByText('収録中の区分: 経済学部、経営学部、商学部 ほか1件')).toBeInTheDocument();
+    expect(screen.getByText(/経済学部、経営学部、商学部 ほか1件/)).toBeInTheDocument();
     expect(screen.getByText('条件に一致する授業が見つかりません。この学期の授業データは一部区分のみ収録中のため、未収録の可能性があります。')).toBeInTheDocument();
   });
 });

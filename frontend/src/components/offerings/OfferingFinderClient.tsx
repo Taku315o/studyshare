@@ -61,6 +61,24 @@ type CoverageRow = {
   source_scope_labels: string[] | null;
 };
 
+function mergeCatalogCoverages(rows: CoverageRow[]): OfferingCatalogCoverage | null {
+  if (rows.length === 0) return null;
+
+  if (rows.some((row) => row.coverage_kind === 'full')) {
+    return {
+      coverageKind: 'full',
+      sourceScopeLabels: [],
+    };
+  }
+
+  const sourceScopeLabels = Array.from(new Set(rows.flatMap((row) => row.source_scope_labels ?? [])));
+
+  return {
+    coverageKind: 'partial',
+    sourceScopeLabels,
+  };
+}
+
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -231,9 +249,10 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
             select: (
               columns: 'coverage_kind, source_scope_labels',
             ) => {
-              eq: (column: 'term_id', value: string) => {
-                maybeSingle: () => Promise<{ data: CoverageRow | null; error: { message?: string } | null }>;
-              };
+              eq: (
+                column: 'term_id',
+                value: string,
+              ) => Promise<{ data: CoverageRow[] | null; error: { message?: string } | null }>;
             };
           };
         };
@@ -241,22 +260,14 @@ export default function OfferingFinderClient({ mode, initialContext }: OfferingF
         const { data, error } = await coverageClient
           .from('offering_catalog_coverages')
           .select('coverage_kind, source_scope_labels')
-          .eq('term_id', context.termId)
-          .maybeSingle();
+          .eq('term_id', context.termId);
 
         if (error) {
           throw error;
         }
 
         if (!cancelled) {
-          setCatalogCoverage(
-            data
-              ? {
-                  coverageKind: data.coverage_kind,
-                  sourceScopeLabels: data.source_scope_labels ?? [],
-                }
-              : null,
-          );
+          setCatalogCoverage(mergeCatalogCoverages(data ?? []));
         }
       } catch (error) {
         console.error('[OfferingFinderClient] 収録範囲の取得に失敗しました:', error);
