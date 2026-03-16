@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import {
   SENSHU_SOURCE_CODE,
-  SENSYU_UNIVERSITY_NAME,
+  SENSHU_UNIVERSITY_NAME,
   type CanonicalOfferingImportItem,
   type CanonicalSlotInput,
   type CanonicalTermCode,
@@ -235,7 +235,7 @@ export class OfferingImportRepository {
     const { data, error } = await this.supabase
       .from('universities')
       .select('id')
-      .eq('name', SENSYU_UNIVERSITY_NAME)
+      .eq('name', SENSHU_UNIVERSITY_NAME)
       .single();
 
     if (error) {

@@ -1,5 +1,5 @@
 export const SENSHU_SOURCE_CODE = 'senshu_syllabus';
-export const SENSYU_UNIVERSITY_NAME = '専修大学';
+export const SENSHU_UNIVERSITY_NAME = '専修大学';
 
 export const TERM_CODES = ['first_half', 'second_half', 'full_year'] as const;
 export type CanonicalTermCode = (typeof TERM_CODES)[number];
