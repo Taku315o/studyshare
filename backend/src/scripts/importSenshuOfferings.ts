@@ -73,6 +73,40 @@ type ImportResult = {
   seenExternalIds: string[];
 };
 
+function describeImportError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const message = typeof record.message === 'string' ? record.message : null;
+    const details = typeof record.details === 'string' ? record.details : null;
+    const hint = typeof record.hint === 'string' ? record.hint : null;
+    const code = typeof record.code === 'string' ? record.code : null;
+
+    const parts = [message, details, hint, code ? `code=${code}` : null].filter(
+      (value): value is string => Boolean(value && value.trim().length > 0),
+    );
+
+    if (parts.length > 0) {
+      return parts.join(' | ');
+    }
+
+    try {
+      return JSON.stringify(record);
+    } catch {
+      return 'unknown import error';
+    }
+  }
+
+  return 'unknown import error';
+}
+
 async function importCanonicalItems(args: {
   scope: ImportScope;
   repo: OfferingImportRepository;
@@ -151,9 +185,13 @@ async function importCanonicalItems(args: {
       seenExternalIds.push(item.externalId);
     } catch (error) {
       stats.skipped += 1;
+      const message = describeImportError(error);
+      console.error(
+        `[SenshuImporter] import failed for externalId=${item.externalId}: ${message}`,
+      );
       errors.push({
         externalId: item.externalId,
-        message: error instanceof Error ? error.message : 'unknown import error',
+        message,
       });
     }
   }
