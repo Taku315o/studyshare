@@ -512,10 +512,12 @@ export class OfferingImportRepository {
     entityId: string;
     mappingType: MappingType;
     confidence?: number;
+    existingMapping?: Pick<SourceMappingRow, 'id' | 'external_id' | 'entity_id' | 'mapping_type'> | null;
   }) {
-    const existing = await this.findSourceMapping(args.externalSource, args.externalId, args.entityType);
+    const existing =
+      args.existingMapping ?? (await this.findSourceMapping(args.externalSource, args.externalId, args.entityType));
     if (existing?.mapping_type === 'manual' && args.mappingType !== 'manual') {
-      return { mapping: existing, preservedManual: true };
+      return { mapping: existing as SourceMappingRow, preservedManual: true };
     }
 
     const { data, error } = await this.supabase
@@ -578,6 +580,7 @@ export class OfferingImportRepository {
         entityType: 'course_offering',
         entityId: existingMapping.entity_id,
         mappingType: existingMapping.mapping_type,
+        existingMapping,
       });
 
       return {
@@ -652,13 +655,16 @@ export class OfferingImportRepository {
       throw existingMappingsError;
     }
 
+    const staleMappings = (existingMappingsData ?? []) as ExistingSlotMapping[];
+    const existingMappingsByExternalId = new Map(staleMappings.map((mapping) => [mapping.external_id, mapping]));
+
     let created = 0;
     let updated = 0;
     let deleted = 0;
     let preservedManual = 0;
 
     for (const slot of args.slots) {
-      const existingMapping = await this.findSourceMapping(SENSHU_SOURCE_CODE, slot.externalId, 'offering_slot');
+      const existingMapping = existingMappingsByExternalId.get(slot.externalId);
       if (existingMapping) {
         const { error } = await this.supabase
           .from('offering_slots')
@@ -683,6 +689,7 @@ export class OfferingImportRepository {
           entityType: 'offering_slot',
           entityId: existingMapping.entity_id,
           mappingType: existingMapping.mapping_type,
+          existingMapping,
         });
         if (mappingResult.preservedManual) {
           preservedManual += 1;
@@ -721,7 +728,6 @@ export class OfferingImportRepository {
       created += 1;
     }
 
-    const staleMappings = (existingMappingsData ?? []) as ExistingSlotMapping[];
     for (const mapping of staleMappings) {
       if (importedExternalIds.has(mapping.external_id)) continue;
       if (mapping.mapping_type === 'manual') {
