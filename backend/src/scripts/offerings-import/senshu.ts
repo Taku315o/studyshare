@@ -1,3 +1,4 @@
+import * as https from 'node:https';
 import { chromium, type Browser, type Page } from 'playwright';
 import {
   TERM_CODES,
@@ -14,6 +15,8 @@ const SEARCH_URL =
 const DETAIL_LINK_SELECTOR = 'a[href*="slspsbdr.do"]';
 const LOAD_MORE_SELECTOR =
   'input[type="submit"][value*="次の5件"], input[type="submit"][value*="読み込む"]';
+const HTTP_TIMEOUT_MS = 60000;
+const HTTP_RETRY_COUNT = 3;
 
 function toAbsoluteDetailUrl(href: string) {
   return new URL(href, SEARCH_URL).toString();
@@ -479,6 +482,72 @@ async function buildCookieHeader(page: Page) {
   return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 }
 
+async function requestTextWithRetry(args: {
+  url: string | URL;
+  method: 'GET' | 'POST';
+  headers: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+  retryCount?: number;
+}) {
+  const retryCount = args.retryCount ?? HTTP_RETRY_COUNT;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= retryCount; attempt += 1) {
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        const url = typeof args.url === 'string' ? new URL(args.url) : args.url;
+        const request = https.request(
+          url,
+          {
+            method: args.method,
+            headers: args.headers,
+            timeout: args.timeoutMs ?? HTTP_TIMEOUT_MS,
+          },
+          (response) => {
+            let data = '';
+            response.setEncoding('utf8');
+            response.on('data', (chunk) => {
+              data += chunk;
+            });
+            response.on('end', () => {
+              const statusCode = response.statusCode ?? 0;
+              if (statusCode >= 200 && statusCode < 300) {
+                resolve(data);
+                return;
+              }
+              reject(new Error(`request failed: ${statusCode}`));
+            });
+          },
+        );
+
+        request.on('timeout', () => {
+          request.destroy(
+            new Error(`request timeout after ${args.timeoutMs ?? HTTP_TIMEOUT_MS}ms`),
+          );
+        });
+        request.on('error', reject);
+
+        if (args.body) {
+          request.write(args.body);
+        }
+        request.end();
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt < retryCount) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[SenshuImporter] http retry ${attempt}/${retryCount - 1} failed for ${args.method} ${String(args.url)}: ${message}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 async function postNextResultBatchHtml(args: {
   page: Page;
   currentHtml: string;
@@ -494,7 +563,8 @@ async function postNextResultBatchHtml(args: {
   formData.set('timestamp', timestamp);
   formData.set('navigateKougiList', '次の5件を読み込む');
 
-  const response = await fetch(new URL('/syllsenshu/slspskgr.do', args.page.url()), {
+  return requestTextWithRetry({
+    url: new URL('/syllsenshu/slspskgr.do', args.page.url()),
     method: 'POST',
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
@@ -505,12 +575,6 @@ async function postNextResultBatchHtml(args: {
     },
     body: formData.toString(),
   });
-
-  if (!response.ok) {
-    throw new Error(`next batch request failed: ${response.status}`);
-  }
-
-  return response.text();
 }
 
 async function waitForDetailUrlsToChange(
@@ -627,7 +691,8 @@ async function extractDetailFromUrl(
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      const response = await fetch(detailUrl, {
+      const detailHtml = await requestTextWithRetry({
+        url: detailUrl,
         method: 'GET',
         headers: {
           cookie: cookieHeader,
@@ -635,13 +700,9 @@ async function extractDetailFromUrl(
           origin: 'https://syllabus.acc.senshu-u.ac.jp',
           'user-agent': 'Mozilla/5.0',
         },
+        timeoutMs: HTTP_TIMEOUT_MS,
+        retryCount: 2,
       });
-
-      if (!response.ok) {
-        throw new Error(`detail request failed: ${response.status}`);
-      }
-
-      const detailHtml = await response.text();
       const detailText = normalizeText(
         decodeHtmlEntities(
           detailHtml
