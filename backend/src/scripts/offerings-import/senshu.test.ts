@@ -91,6 +91,40 @@ ICT101
     });
   });
 
+  it('decodes nbsp entities in imported detail text', () => {
+    const detailText = `
+開講年度
+2025
+科目名
+論理学１０１&nbsp;
+職名／担当教員
+文学部 兼任講師 岩本 敦&nbsp;
+期間／曜日／時限
+前期 月曜日 4時限
+開講区分／校舎
+一部生田
+単　位
+2
+コースコード
+PHL101
+授業形態
+講義
+更新日付
+2025/03/31
+    `;
+
+    expect(
+      parseSenshuDetailText(
+        detailText,
+        'https://syllabus.acc.senshu-u.ac.jp/syllsenshu/slbssbdr.do?value(risyunen)=2025&value(semekikn)=1&value(kougicd)=12345',
+        'first_half',
+      ),
+    ).toMatchObject({
+      courseTitle: '論理学１０１',
+      instructor: '文学部 兼任講師 岩本 敦',
+    });
+  });
+
   it('retains a stable hash regardless of object key order', () => {
     const left = stableJsonHash({ b: 1, a: { d: 2, c: 3 } });
     const right = stableJsonHash({ a: { c: 3, d: 2 }, b: 1 });

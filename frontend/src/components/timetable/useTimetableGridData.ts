@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { sanitizeDisplayText } from '@/lib/text';
 import { createSupabaseClient } from '@/lib/supabase/client';
 import {
   DEFAULT_GLOBAL_TIMETABLE_CONFIG,
@@ -133,14 +134,14 @@ function normalizeEnrollmentEntries(rows: TimetableRpcRow[], config: TimetableCo
       {
         offeringId: row.offering_id,
         termId: row.term_id,
-        courseTitle: row.course_title ?? '不明な授業',
-        instructorName: row.instructor ?? '教員未設定',
+        courseTitle: sanitizeDisplayText(row.course_title) ?? '不明な授業',
+        instructorName: sanitizeDisplayText(row.instructor) ?? '教員未設定',
         colorToken: resolveColorToken(row.offering_id),
         createdAt: row.created_at,
         status: row.status,
         slots: [],
         isUnslotted: false,
-        room: row.room ?? null,
+        room: sanitizeDisplayText(row.room),
       };
 
     if (isWeekdayValue(row.day_of_week) && row.period !== null && Number.isInteger(row.period) && row.period > 0) {
@@ -155,7 +156,7 @@ function normalizeEnrollmentEntries(rows: TimetableRpcRow[], config: TimetableCo
     }
 
     if (!entry.room && row.room) {
-      entry.room = row.room;
+      entry.room = sanitizeDisplayText(row.room);
     }
 
     byOfferingId.set(row.offering_id, entry);

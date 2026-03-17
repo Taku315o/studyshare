@@ -3,6 +3,7 @@ import OfferingHeader from '@/components/offerings/OfferingHeader';
 import OfferingTabs from '@/components/offerings/OfferingTabs';
 import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { sanitizeDisplayText } from '@/lib/text';
 import { buildTermLabel } from '@/lib/timetable/terms';
 import type {
   NoteListItem,
@@ -126,9 +127,9 @@ export default async function OfferingDetailPage({
 
   const offeringMeta: OfferingMeta = {
     id: offering.id,
-    courseTitle: course?.name ?? '不明な授業',
+    courseTitle: sanitizeDisplayText(course?.name) ?? '不明な授業',
     courseCode: course?.course_code ?? null,
-    instructorName: offering.instructor ?? null,
+    instructorName: sanitizeDisplayText(offering.instructor),
     termLabel: term ? buildTermLabel({ academicYear: term.academic_year, displayName: term.display_name }) : '未設定',
     timeslotLabel: formatTimeslot(slots),
   };
@@ -382,7 +383,7 @@ export default async function OfferingDetailPage({
       />
       <div className="border-t border-slate-100 bg-blue-50/80 px-6 py-3 text-xs text-blue-800">
         ノート・口コミ・質問は同大学スコープで表示されます。大学・学年が未設定だと他ユーザーの投稿が表示されない場合があります（
-        <span className="font-mono">/me</span> のプロフィール編集で変更できます）。
+        マイページのプロフィール編集で変更できます）。
       </div>
       <OfferingTabs
         offeringId={offeringId}
