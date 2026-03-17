@@ -14,11 +14,8 @@ export const metadata: Metadata = {
   title: 'StudyShare - 大学生の授業・時間割・ノート・コミュニティ',
   description: '大学生向けに授業情報、時間割、ノート、口コミ、コミュニティをまとめて使えるプラットフォーム。',
   icons: {
-    icon: [
-      { url: '/studyshare_logo.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', sizes: 'any' },
-    ],
-    shortcut: '/favicon.ico',
+    icon: [{ url: '/studyshare_logo.svg', type: 'image/svg+xml' }],
+    shortcut: '/studyshare_logo.svg',
     apple: '/studyshare_logo.svg',
   },
 };
