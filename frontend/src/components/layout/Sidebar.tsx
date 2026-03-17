@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { CalendarDays, Home, MessageSquareText, UserCircle2, Users } from 'lucide-react';
+import BrandLogo from '@/components/branding/BrandLogo';
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -30,7 +31,13 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <aside className="h-full rounded-3xl border border-white/60 bg-white/75 shadow-sm backdrop-blur">
       <div className="px-5 py-5">
-        <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Navigation</p>
+        <BrandLogo
+          href="/home"
+          iconSize={36}
+          textClassName="text-xl font-black tracking-tight text-slate-900"
+          className="inline-flex items-center gap-3 px-2"
+        />
+        <p className="mt-4 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Navigation</p>
       </div>
 
       <nav className="space-y-1 px-3 pb-6">
