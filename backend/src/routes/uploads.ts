@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { idempotencyGuard } from '../middleware/idempotency';
 import {
+  getNoteImageUrlController,
   uploadAvatarImageController,
   uploadController,
   uploadNoteImageController,
@@ -24,6 +25,12 @@ export const createUploadRoutes = (options: CreateUploadRoutesOptions = {}) => {
   if (enableLegacyUploadApi) {
     router.post('/upload', authenticate, idempotencyGuard, uploadSingleImage, uploadController);
   }
+
+  /**
+   * ノート画像表示用 signed URL 取得 API
+   * GET /api/notes/:noteId/image-url
+   */
+  router.get('/notes/:noteId/image-url', authenticate, getNoteImageUrlController);
 
   /**
    * ノート画像アップロード API

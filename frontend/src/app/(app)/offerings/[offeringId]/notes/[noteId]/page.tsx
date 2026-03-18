@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ThreadPanel from '@/components/thread/ThreadPanel';
+import { resolveNoteImageSrc } from '@/lib/noteImages';
 import { fetchProfiles } from '@/lib/supabase/fetchProfiles';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { ThreadNodeBase } from '@/types/offering';
@@ -78,6 +79,7 @@ export default async function OfferingNoteDetailPage({
   const note = noteRes.data as NoteRow;
   const offering = offeringRes.data as OfferingSummaryRow;
   const noteComments = (commentsRes.data ?? []) as NoteCommentRow[];
+  const noteImageSrc = resolveNoteImageSrc(note.id, note.image_url);
 
   const profileMap = await fetchProfiles(
     supabase,
@@ -117,10 +119,10 @@ export default async function OfferingNoteDetailPage({
           {noteAuthor?.display_name ?? '匿名ユーザー'} / {formatDate(note.created_at)}
         </p>
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{note.body_md ?? '本文なし'}</p>
-        {note.image_url ? (
+        {noteImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={note.image_url}
+            src={noteImageSrc}
             alt={`${note.title} の添付画像`}
             className="mt-4 h-auto w-full rounded-2xl border border-slate-200 object-cover"
           />

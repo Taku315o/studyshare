@@ -50,6 +50,7 @@
 - `DELETE /api/assignments/:id` 管理者権限
 - `POST /api/upload` 画像バリデーション
 - `POST /api/notes/upload` 画像バリデーション/認証（現行ノート画像添付）
+- `GET /api/notes/:noteId/image-url` が note 可視性を満たすユーザーにだけ signed URL を返す
 - `POST /api/notes/upload` で legacy `users` テーブル不在でも認証継続できること
 - `POST /api/profiles/avatar/upload` 画像バリデーション/認証/idempotency
 - upload系APIで 5MB 超過ファイルが multer の route middleware 段階で 400 になること（DoS軽減）
@@ -124,7 +125,8 @@
 - ログイン直後（セッション復元直後）でも「ログインが必要です」誤判定にならない
 - ノート画像添付アップロード
 - Storage bucket 未作成時に backend ログへ `Bucket not found` が出ることを確認できる（原因切り分け）
-- bucket 作成後に `image_url` 付きで `notes` insert が成功する
+- bucket 作成後に `storage://notes/...` が `notes.image_url` に保存され、授業詳細/ノート詳細では signed URL 経由で画像表示できる
+- `notes` bucket が private でも、URL直打ちでは閲覧できず、閲覧権限のあるユーザーだけ画像表示できる
 - プロフィール画像アップロード
 - `/me` で学部とアバターを保存後、再読込しても表示が維持される
 - アバター更新後、旧 `avatars/{userId}/...` オブジェクトが残存しないこと
@@ -132,6 +134,7 @@
 
 **コマンド**
 - frontend: `pnpm --filter frontend test`
+- frontend CI: `pnpm --filter frontend test:ci`
 - frontend watch: `pnpm --filter frontend test:watch`
 - backend: `pnpm --filter backend test`
 - backend watch: `pnpm --filter backend test:watch`

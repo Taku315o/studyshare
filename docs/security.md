@@ -1,6 +1,6 @@
 **セキュリティ**
 
-**移行メモ（2026-02-25）**
+**移行メモ（2026-03-18）**
 - backend 認証ミドルウェアは新スキーマ互換のため、`public.users` が存在しない環境でも `auth.getUser(token)` の結果だけで認証を継続する。
 - `users` テーブル参照は legacy 互換の補助情報取得として扱う（存在時のみ利用）。
 - legacy assignments API と汎用 `/api/upload` は退避済みで、デフォルト無効（必要時のみ `ENABLE_LEGACY_ASSIGNMENTS_API=true` / `ENABLE_LEGACY_UPLOAD_API=true` で有効化）。
@@ -33,10 +33,17 @@
 - `notes` bucket（現行ノート画像添付）
 - `avatars` bucket（プロフィールアバター画像）
 - `assignments` bucket（legacy 互換）
-- 読み取り: 全員
+- `notes` bucket は private。`notes.image_url` には `storage://notes/...` を保存し、閲覧時に認可済みユーザー向け signed URL を発行する
+- `avatars` / `assignments` は現状 public 運用
 - アップロード: 認証済みかつ owner = auth.uid()
 - 削除: owner または admin
 - backend の `/api/notes/upload` は Storage bucket が未作成だと `Bucket not found` で失敗するため、bucket 作成 migration の適用を前提とする
 - backend の `/api/profiles/avatar/upload` も同様に bucket 未作成時は失敗するため、`avatars` bucket migration の適用を前提とする
 - backend の legacy `/api/upload` は `ENABLE_LEGACY_UPLOAD_API=true` で有効化した場合のみ利用可能
 - upload系ルートは `multer` の route middleware で `fileSize=5MB` / `files=1` を先に適用し、メモリバッファ肥大化のリスクを抑制する
+
+**API運用**
+- backend 本番起動時は `.env.development` を読まない。production はデプロイ環境変数を唯一の truth とする
+- upload API を含む backend CORS は `CORS_ALLOWED_ORIGINS` で許可 origin を明示し、本番で未設定なら起動時に失敗させる
+- `/api` 配下には最低限の security headers と IP ベースの rate limit を適用する
+- 認証/セッションの詳細ログ（token 長、user id、auth event、Supabase URL など）は本番ログへ出さない

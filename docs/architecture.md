@@ -4,6 +4,7 @@
 - 旧 `assignments` ベースUIは現行本体フローから切り離し、frontend では `frontend/src/legacy/assignments/` に退避済み。
 - `/(app)` の投稿導線から legacy `assignments` ルートへは遷移しない。
 - `POST /api/notes/upload` は legacy `assignments` ルーター配下から分離し、upload 専用ルーターで提供する。
+- ノート画像は private storage bucket を使い、frontend 表示時は Next route handler -> backend -> signed URL の流れで解決する。
 - backend の route mount は `createApp` / `createUploadRoutes` ファクトリ経由で切替可能にし、legacy API有効化を環境変数だけに依存しない構成へ変更（テストで明示注入可能）。
 
 **構成**
@@ -67,6 +68,7 @@
 **主要APIと責務境界**
 - `POST /api/upload` 画像アップロード（認証必須）
 - `POST /api/notes/upload` ノート画像アップロード（認証必須）
+- `GET /api/notes/:noteId/image-url` ノート閲覧権限確認後の signed URL 発行（認証必須）
 - `POST /api/profiles/avatar/upload` プロフィールアバター画像アップロード（認証必須）
 - `POST /api/assignments` 課題投稿（認証必須 + バリデーション）
 - `GET /api/assignments/search` 検索

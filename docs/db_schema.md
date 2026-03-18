@@ -1,12 +1,13 @@
 # StudyShare schema v1（Supabase/Postgres）
 
-## 実装メモ（2026-02-25）
-- 現行のノート画像添付は frontend から backend `POST /api/notes/upload` を呼び出し、Supabase Storage に保存して公開URLを `notes.image_url` に保存する構成。
+## 実装メモ（2026-03-18）
+- 現行のノート画像添付は frontend から backend `POST /api/notes/upload` を呼び出し、Supabase Storage の private `notes` bucket に保存する。
+- `notes.image_url` には公開URLではなく `storage://notes/...` 形式の storage 参照を保存し、表示時は認可済みユーザーにだけ signed URL を発行する。
 - プロフィールのアバター画像は frontend から backend `POST /api/profiles/avatar/upload` を呼び出し、公開URLを `profiles.avatar_url` に保存する構成。
 - アバター画像更新時は、同ユーザー配下の旧オブジェクト（`avatars/{userId}/...`）を backend 側で削除する。
 - backend の upload エンドポイントは `assignments` ルーターから分離済み（`uploads` ルーター）。
 - 旧 `assignments` 機能は frontend 本体導線から切り離し済みだが、backend には legacy 互換として一部残存。
-- Storage bucket は少なくとも `notes`（現行ノート画像）、`avatars`（プロフィール画像）、`assignments`（legacy互換）を用意する前提。
+- Storage bucket は少なくとも `notes`（現行ノート画像、private）、`avatars`（プロフィール画像）、`assignments`（legacy互換）を用意する前提。
 - bucket 未作成時は backend ログに `Bucket not found` が出るため、Storage bucket 作成 migration の適用を確認すること。
 - 2026-03-07 時点で時間割追加フローは `/timetable/add` を起点にし、既存 offering 検索・重複候補提示付き新規作成・`enrollments` upsert を RPC で処理する。
 
@@ -86,7 +87,7 @@
 
 ### A. Notes
 - `notes`: `offering_id` に紐づく（授業実体単位）
-- `image_url`: ノート画像添付の公開URL（backend upload API 経由で生成）
+- `image_url`: ノート画像添付の storage 参照（backend upload API 経由で生成、表示時に signed URL 化）
 - `visibility`: `public` / `university` / `offering_only` / `private`
 - `search_tsv`: `title` / `body` / `tags` を tsvector 化（`unaccent + simple`）
 - `deleted_at` によるソフトデリート

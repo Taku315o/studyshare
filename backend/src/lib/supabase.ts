@@ -1,21 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
+import { loadBackendEnv } from './env';
 
-// 開発環境では .env.development を優先的に読み込む
-if (process.env.NODE_ENV === 'development') {
-  dotenv.config({ path: path.resolve(__dirname, '../../.env.development') });
-} else {
-  dotenv.config();
-}
+loadBackendEnv();
 
 const url = process.env.SUPABASE_URL!;
 const anon = process.env.SUPABASE_ANON_KEY!;
 const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-console.log('[Supabase] URL:', url);
-console.log('[Supabase] Anon Key:', anon ? anon.substring(0, 20) + '...' : 'なし');
-
 
 export const supabaseAuth = createClient(url, anon, {
   auth: { autoRefreshToken: false, persistSession: false }

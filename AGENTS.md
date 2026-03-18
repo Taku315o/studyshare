@@ -122,6 +122,7 @@
 
 ### Storage bucket 前提
 - `notes`（現行ノート画像）
+  - 現行は private bucket 前提。`notes.image_url` には公開URLではなく storage 参照を保存し、表示時に signed URL 化する
 - `avatars`（プロフィールアバター画像）
 - `assignments`（legacy互換）
 
@@ -129,6 +130,10 @@ bucket未作成時:
 - backend `/api/notes/upload` で `Bucket not found` が出る
 - backend `/api/profiles/avatar/upload` でも同様に `Bucket not found` が出る
 - migration適用状況を確認すること
+
+環境変数:
+- frontend の upload 系 API は `NEXT_PUBLIC_BACKEND_API_URL` を本番必須とする。server-side route handler では `BACKEND_API_URL` も利用可
+- backend 本番起動時は `.env.development` を読まない。production はデプロイ環境変数を唯一の truth とする
 
 ## 現在の実装状況（できること / 未完了）
 

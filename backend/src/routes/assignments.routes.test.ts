@@ -325,13 +325,9 @@ describe('assignment routes', () => {
         data: { path: 'notes/user-1/image.webp' },
         error: null,
       });
-      const getPublicUrlMock = jest.fn().mockReturnValue({
-        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
-      });
-
       mockedSupabaseAdmin.storage.from.mockReturnValue({
         upload: uploadMock,
-        getPublicUrl: getPublicUrlMock,
+        getPublicUrl: jest.fn(),
       });
 
       const response = await request(app)
@@ -343,7 +339,7 @@ describe('assignment routes', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(response.body).toEqual({ url: 'storage://notes/notes/user-1/fixed-uuid.webp' });
     });
 
     it('works even when legacy users table lookup fails', async () => {
@@ -353,13 +349,9 @@ describe('assignment routes', () => {
         data: { path: 'notes/user-1/image.webp' },
         error: null,
       });
-      const getPublicUrlMock = jest.fn().mockReturnValue({
-        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
-      });
-
       mockedSupabaseAdmin.storage.from.mockReturnValue({
         upload: uploadMock,
-        getPublicUrl: getPublicUrlMock,
+        getPublicUrl: jest.fn(),
       });
 
       const response = await request(app)
@@ -371,7 +363,7 @@ describe('assignment routes', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(response.body).toEqual({ url: 'storage://notes/notes/user-1/fixed-uuid.webp' });
     });
 
     it('returns 503 with storage error code when storage upload fails', async () => {
@@ -381,11 +373,9 @@ describe('assignment routes', () => {
         data: null,
         error: { message: 'Bucket not found' },
       });
-      const getPublicUrlMock = jest.fn();
-
       mockedSupabaseAdmin.storage.from.mockReturnValue({
         upload: uploadMock,
-        getPublicUrl: getPublicUrlMock,
+        getPublicUrl: jest.fn(),
       });
 
       const response = await request(app)
@@ -410,13 +400,9 @@ describe('assignment routes', () => {
         data: { path: 'notes/user-1/image.webp' },
         error: null,
       });
-      const getPublicUrlMock = jest.fn().mockReturnValue({
-        data: { publicUrl: 'https://example.com/notes/user-1/image.webp' },
-      });
-
       mockedSupabaseAdmin.storage.from.mockReturnValue({
         upload: uploadMock,
-        getPublicUrl: getPublicUrlMock,
+        getPublicUrl: jest.fn(),
       });
 
       const first = await request(app)
@@ -438,11 +424,60 @@ describe('assignment routes', () => {
         });
 
       expect(first.status).toBe(200);
-      expect(first.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(first.body).toEqual({ url: 'storage://notes/notes/user-1/fixed-uuid.webp' });
       expect(second.status).toBe(200);
-      expect(second.body).toEqual({ url: 'https://example.com/notes/user-1/image.webp' });
+      expect(second.body).toEqual({ url: 'storage://notes/notes/user-1/fixed-uuid.webp' });
       expect(second.headers['idempotency-replayed']).toBe('true');
       expect(uploadMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /api/notes/:noteId/image-url', () => {
+    it('returns signed url when note is visible to requester', async () => {
+      mockAuthenticatedUser('student');
+
+      const maybeSingleMock = jest.fn().mockResolvedValue({
+        data: { id: 'note-1', image_url: 'storage://notes/notes/user-1/file.webp' },
+        error: null,
+      });
+      const isMock = jest.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
+      const eqMock = jest.fn().mockReturnValue({ is: isMock });
+      const selectMock = jest.fn().mockReturnValue({ eq: eqMock });
+      const fromMock = jest.fn((table: string) => {
+        if (table === 'users') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { email: 'user-1@example.com', role: 'student' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        return { select: selectMock };
+      });
+
+      mockedSupabaseFromToken.mockReturnValue({ from: fromMock });
+
+      const createSignedUrlMock = jest.fn().mockResolvedValue({
+        data: { signedUrl: 'https://example.com/storage/v1/object/sign/notes/notes/user-1/file.webp?token=abc' },
+        error: null,
+      });
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        createSignedUrl: createSignedUrlMock,
+      });
+
+      const response = await request(app)
+        .get('/api/notes/note-1/image-url')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        url: 'https://example.com/storage/v1/object/sign/notes/notes/user-1/file.webp?token=abc',
+      });
     });
   });
 

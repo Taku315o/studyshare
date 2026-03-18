@@ -10,6 +10,12 @@ interface File {
 
 type UploadTarget = 'assignments' | 'notes' | 'avatars';
 export const STORAGE_UPLOAD_ERROR_CODE = 'STORAGE_UPLOAD_FAILED' as const;
+const SIGNED_URL_TTL_SECONDS = 60 * 10;
+
+type StorageObjectReference = {
+  bucketName: string;
+  objectPath: string;
+};
 
 export class StorageUploadError extends Error {
   readonly code = STORAGE_UPLOAD_ERROR_CODE;
@@ -68,16 +74,72 @@ const resolveExpectedPrefix = (target: UploadTarget, userId: string): string => 
 const resolveObjectPathFromPublicUrl = (publicUrl: string, bucketName: string): string | null => {
   try {
     const parsed = new URL(publicUrl);
-    const marker = `/storage/v1/object/public/${bucketName}/`;
-    const markerIndex = parsed.pathname.indexOf(marker);
-    if (markerIndex < 0) {
+    const markers = [
+      `/storage/v1/object/public/${bucketName}/`,
+      `/storage/v1/object/sign/${bucketName}/`,
+    ];
+
+    for (const marker of markers) {
+      const markerIndex = parsed.pathname.indexOf(marker);
+      if (markerIndex < 0) {
+        continue;
+      }
+
+      const encodedPath = parsed.pathname.slice(markerIndex + marker.length);
+      if (!encodedPath) return null;
+
+      return decodeURIComponent(encodedPath);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+export const createStorageObjectReference = (bucketName: string, objectPath: string): string =>
+  `storage://${bucketName}/${objectPath}`;
+
+export const parseStorageObjectReference = (value: string): StorageObjectReference | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('storage://')) {
+    const withoutScheme = trimmed.slice('storage://'.length);
+    const firstSlashIndex = withoutScheme.indexOf('/');
+    if (firstSlashIndex <= 0) {
       return null;
     }
 
-    const encodedPath = parsed.pathname.slice(markerIndex + marker.length);
-    if (!encodedPath) return null;
+    const bucketName = withoutScheme.slice(0, firstSlashIndex);
+    const objectPath = withoutScheme.slice(firstSlashIndex + 1);
+    if (!bucketName || !objectPath) {
+      return null;
+    }
 
-    return decodeURIComponent(encodedPath);
+    return { bucketName, objectPath };
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const pathSegments = parsed.pathname.split('/');
+    const publicIndex = pathSegments.indexOf('public');
+    const signIndex = pathSegments.indexOf('sign');
+    const bucketIndex = publicIndex >= 0 ? publicIndex + 1 : signIndex >= 0 ? signIndex + 1 : -1;
+
+    if (bucketIndex < 0 || bucketIndex >= pathSegments.length) {
+      return null;
+    }
+
+    const bucketName = pathSegments[bucketIndex];
+    const objectPath = resolveObjectPathFromPublicUrl(trimmed, bucketName);
+    if (!bucketName || !objectPath) {
+      return null;
+    }
+
+    return { bucketName, objectPath };
   } catch {
     return null;
   }
@@ -105,14 +167,15 @@ export const isValidFileSize = (size: number): boolean => {
 };
 
 /**
- * Uploads an image to the specified Supabase Storage bucket
- * ('assignments', 'notes', or 'avatars') and returns its public URL.
+ * Uploads an image to the specified Supabase Storage bucket and returns
+ * a persisted reference string. Notes use a private storage reference,
+ * while public buckets keep returning public URLs for backward compatibility.
  *
  * @param file - Multer file object containing the binary data to store.
  * @param userId - Identifier of the user whose namespace the file should be stored under.
  * @param target - The target bucket: 'assignments', 'notes', or 'avatars'.
- * @returns The publicly accessible URL pointing to the uploaded asset.
- * @throws When Supabase fails to upload the file or generate a public URL.
+ * @returns A persisted URL/reference string suitable for DB storage.
+ * @throws When Supabase fails to upload the file or generate the return value.
  */
 export const uploadToStorage = async (file: File, userId: string, target: UploadTarget = 'assignments'): Promise<string> => {
   try {
@@ -137,6 +200,10 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
       throw new StorageUploadError('ストレージへのアップロードに失敗しました');
     }
 
+    if (target === 'notes') {
+      return createStorageObjectReference(bucketName, objectPath);
+    }
+
     const { data: publicURL } = supabase.storage
       .from(bucketName)
       .getPublicUrl(objectPath);
@@ -153,6 +220,28 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
     console.error('ストレージエラー:', error);
     throw new StorageUploadError('ストレージへのアップロード処理に失敗しました');
   }
+};
+
+export const createSignedUrlForStoredObject = async (reference: string): Promise<string> => {
+  const parsed = parseStorageObjectReference(reference);
+  if (!parsed) {
+    return reference;
+  }
+
+  const { data, error } = await supabase.storage
+    .from(parsed.bucketName)
+    .createSignedUrl(parsed.objectPath, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.error('署名付きURLの生成に失敗しました', {
+      bucketName: parsed.bucketName,
+      objectPath: parsed.objectPath,
+      message: error?.message,
+    });
+    throw new StorageUploadError('画像URLの生成に失敗しました');
+  }
+
+  return data.signedUrl;
 };
 
 /**

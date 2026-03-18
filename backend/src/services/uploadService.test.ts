@@ -1,7 +1,9 @@
 import {
+  createSignedUrlForStoredObject,
   deleteFromStorageByPublicUrl,
   isValidFileSize,
   isValidImageType,
+  parseStorageObjectReference,
   uploadToStorage,
 } from './uploadService';
 import { supabaseAdmin } from '../lib/supabase';
@@ -119,18 +121,15 @@ describe('uploadService', () => {
       ).rejects.toThrow('ストレージへのアップロードに失敗しました');
     });
 
-    it('stores note images under notes prefix', async () => {
+    it('stores note images under notes prefix as private storage references', async () => {
       const uploadMock = jest.fn().mockResolvedValue({
         data: { path: 'notes/user-1/fixed-uuid.webp' },
         error: null,
       });
-      const getPublicUrlMock = jest.fn().mockReturnValue({
-        data: { publicUrl: 'https://example.com/notes/user-1/fixed-uuid.webp' },
-      });
 
       mockedSupabaseAdmin.storage.from.mockReturnValue({
         upload: uploadMock,
-        getPublicUrl: getPublicUrlMock,
+        getPublicUrl: jest.fn(),
       });
 
       const result = await uploadToStorage(
@@ -144,7 +143,7 @@ describe('uploadService', () => {
         'notes'
       );
 
-      expect(result).toBe('https://example.com/notes/user-1/fixed-uuid.webp');
+      expect(result).toBe('storage://notes/notes/user-1/fixed-uuid.webp');
       expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('notes');
       expect(uploadMock).toHaveBeenCalledWith(
         'notes/user-1/fixed-uuid.webp',
@@ -226,6 +225,45 @@ describe('uploadService', () => {
       );
 
       expect(removeMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parseStorageObjectReference', () => {
+    it('parses storage:// references', () => {
+      expect(parseStorageObjectReference('storage://notes/notes/user-1/file.png')).toEqual({
+        bucketName: 'notes',
+        objectPath: 'notes/user-1/file.png',
+      });
+    });
+
+    it('parses legacy public URLs', () => {
+      expect(
+        parseStorageObjectReference(
+          'https://project-ref.supabase.co/storage/v1/object/public/notes/notes/user-1/file.png',
+        ),
+      ).toEqual({
+        bucketName: 'notes',
+        objectPath: 'notes/user-1/file.png',
+      });
+    });
+  });
+
+  describe('createSignedUrlForStoredObject', () => {
+    it('creates a signed URL from a storage reference', async () => {
+      const createSignedUrlMock = jest.fn().mockResolvedValue({
+        data: { signedUrl: 'https://example.com/storage/v1/object/sign/notes/notes/user-1/file.png?token=abc' },
+        error: null,
+      });
+
+      mockedSupabaseAdmin.storage.from.mockReturnValue({
+        createSignedUrl: createSignedUrlMock,
+      });
+
+      const result = await createSignedUrlForStoredObject('storage://notes/notes/user-1/file.png');
+
+      expect(result).toBe('https://example.com/storage/v1/object/sign/notes/notes/user-1/file.png?token=abc');
+      expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('notes');
+      expect(createSignedUrlMock).toHaveBeenCalledWith('notes/user-1/file.png', 600);
     });
   });
 });
