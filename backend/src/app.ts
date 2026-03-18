@@ -14,6 +14,8 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
+type TrustProxySetting = boolean | number;
+
 const rateLimitStore = new Map<string, RateLimitEntry>();
 const ONE_MINUTE_MS = 60_000;
 const DEFAULT_RATE_LIMIT_MAX = 60;
@@ -65,10 +67,32 @@ const resolveRateLimitMax = (): number => {
   return DEFAULT_RATE_LIMIT_MAX;
 };
 
+const resolveTrustProxy = (): TrustProxySetting => {
+  const rawValue = process.env.TRUST_PROXY?.trim();
+
+  if (!rawValue) {
+    if (isProduction) {
+      throw new Error('TRUST_PROXY must be set in production');
+    }
+
+    return false;
+  }
+
+  if (rawValue === 'false') {
+    return false;
+  }
+
+  const parsed = Number(rawValue);
+  if (Number.isInteger(parsed) && parsed >= 0) {
+    return parsed;
+  }
+
+  throw new Error("TRUST_PROXY must be 'false' or a non-negative integer");
+};
+
 const apiRateLimit = (req: Request, res: Response, next: NextFunction) => {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const forwardedIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(',')[0];
-  const clientKey = (forwardedIp || req.ip || 'unknown').trim();
+  // req.ip is resolved by Express using trust proxy. Do not read x-forwarded-for directly.
+  const clientKey = (req.ip || 'unknown').trim();
   const now = Date.now();
   const current = rateLimitStore.get(clientKey);
 
@@ -98,6 +122,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
     process.env.ENABLE_LEGACY_ASSIGNMENTS_API === 'true';
 
   app.disable('x-powered-by');
+  app.set('trust proxy', resolveTrustProxy());
   app.use(applySecurityHeaders);
   app.use(cors({
     origin(origin, callback) {
