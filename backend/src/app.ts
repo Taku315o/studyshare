@@ -93,7 +93,7 @@ const resolveTrustProxy = (): TrustProxySetting => {
 };
 
 const pruneExpiredRateLimitEntries = (now: number): void => {
-  if (now - lastRateLimitSweepAt < RATE_LIMIT_SWEEP_INTERVAL_MS) {
+  if (lastRateLimitSweepAt !== 0 && now - lastRateLimitSweepAt < RATE_LIMIT_SWEEP_INTERVAL_MS) {
     return;
   }
 

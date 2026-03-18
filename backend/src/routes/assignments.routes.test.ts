@@ -3,21 +3,16 @@ import { createApp } from '../app';
 import { supabaseAdmin, supabaseAuth, supabaseFromToken } from '../lib/supabase';
 import { resetIdempotencyStoreForTests } from '../middleware/idempotency';
 
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'fixed-uuid'),
+}));
+
 const app = createApp({
   enableLegacyAssignmentsApi: true,
   enableLegacyUploadApi: true,
 });
 
-jest.mock('../services/uploadService', () => ({
-  uploadToStorage: jest.fn(async (file: any, userId: string, target = 'assignments') => {
-    if (target === 'notes') {
-      return `storage://notes/notes/${userId}/fixed-uuid.webp`;
-    } else if (target === 'avatars') {
-      return `https://example.com/avatars/${userId}/avatar.png`;
-    }
-    return `https://example.com/${userId}/image.png`;
-  }),
-}));
+jest.mock('../services/uploadService', () => jest.requireActual('../services/uploadService'));
 
 jest.mock('../lib/supabase', () => ({
   supabaseAdmin: {
@@ -87,13 +82,9 @@ const mockAuthenticatedUserWithoutLegacyUsersTable = (userId = 'user-1') => {
   mockedSupabaseFromToken.mockReturnValue({ from: fromMock });
 };
 
-describe.skip('assignment routes', () => {
-  // TODO: Fix these tests after "Harden production environment and storage security" commit
-  // The uploadService mock needs to be updated to match the new implementation
-  // Upstream issue: https://github.com/...
-  
+describe('assignment routes', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
     resetIdempotencyStoreForTests();
   });
 
