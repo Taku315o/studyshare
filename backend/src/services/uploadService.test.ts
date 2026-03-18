@@ -4,6 +4,7 @@ import {
   isValidFileSize,
   isValidImageType,
   parseStorageObjectReference,
+  StorageReferenceError,
   uploadToStorage,
 } from './uploadService';
 import { supabaseAdmin } from '../lib/supabase';
@@ -264,6 +265,20 @@ describe('uploadService', () => {
       expect(result).toBe('https://example.com/storage/v1/object/sign/notes/notes/user-1/file.png?token=abc');
       expect(mockedSupabaseAdmin.storage.from).toHaveBeenCalledWith('notes');
       expect(createSignedUrlMock).toHaveBeenCalledWith('notes/user-1/file.png', 600);
+    });
+
+    it('rejects unparseable references instead of echoing them back', async () => {
+      await expect(createSignedUrlForStoredObject('https://evil.example/track')).rejects.toBeInstanceOf(
+        StorageReferenceError
+      );
+      expect(mockedSupabaseAdmin.storage.from).not.toHaveBeenCalled();
+    });
+
+    it('rejects references from buckets other than notes', async () => {
+      await expect(createSignedUrlForStoredObject('storage://avatars/avatars/user-1/avatar.png')).rejects.toBeInstanceOf(
+        StorageReferenceError
+      );
+      expect(mockedSupabaseAdmin.storage.from).not.toHaveBeenCalled();
     });
   });
 });

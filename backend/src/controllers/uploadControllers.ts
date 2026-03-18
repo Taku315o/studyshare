@@ -9,6 +9,7 @@ import {
   uploadToStorage,
   isValidImageType,
   isValidFileSize,
+  StorageReferenceError,
   StorageUploadError,
   STORAGE_UPLOAD_ERROR_CODE,
 } from '../services/uploadService';
@@ -181,6 +182,10 @@ export const getNoteImageUrlController = async (req: Request, res: Response): Pr
     res.status(200).json({ url: signedUrl });
   } catch (error: any) {
     console.error('ノート画像URL取得エラー:', error);
+    if (error instanceof StorageReferenceError) {
+      res.status(404).json({ error: '画像が見つかりません' });
+      return;
+    }
     if (error instanceof StorageUploadError) {
       sendStorageUploadError(res);
       return;

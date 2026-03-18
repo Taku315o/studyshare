@@ -481,6 +481,43 @@ describe('assignment routes', () => {
         url: 'https://example.com/storage/v1/object/sign/notes/notes/user-1/file.webp?token=abc',
       });
     });
+
+    it('returns 404 when note image url is not a storage reference', async () => {
+      mockAuthenticatedUser('student');
+
+      const maybeSingleMock = jest.fn().mockResolvedValue({
+        data: { id: 'note-1', image_url: 'https://evil.example/track' },
+        error: null,
+      });
+      const isMock = jest.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
+      const eqMock = jest.fn().mockReturnValue({ is: isMock });
+      const selectMock = jest.fn().mockReturnValue({ eq: eqMock });
+      const fromMock = jest.fn((table: string) => {
+        if (table === 'users') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { email: 'user-1@example.com', role: 'student' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        return { select: selectMock };
+      });
+
+      mockedSupabaseFromToken.mockReturnValue({ from: fromMock });
+
+      const response = await request(app)
+        .get('/api/notes/note-1/image-url')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: '画像が見つかりません' });
+    });
   });
 
   describe('POST /api/profiles/avatar/upload', () => {

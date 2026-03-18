@@ -17,12 +17,23 @@ type StorageObjectReference = {
   objectPath: string;
 };
 
+export const INVALID_STORAGE_REFERENCE_ERROR_CODE = 'INVALID_STORAGE_REFERENCE' as const;
+
 export class StorageUploadError extends Error {
   readonly code = STORAGE_UPLOAD_ERROR_CODE;
 
   constructor(message: string) {
     super(message);
     this.name = 'StorageUploadError';
+  }
+}
+
+export class StorageReferenceError extends Error {
+  readonly code = INVALID_STORAGE_REFERENCE_ERROR_CODE;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'StorageReferenceError';
   }
 }
 
@@ -225,7 +236,12 @@ export const uploadToStorage = async (file: File, userId: string, target: Upload
 export const createSignedUrlForStoredObject = async (reference: string): Promise<string> => {
   const parsed = parseStorageObjectReference(reference);
   if (!parsed) {
-    return reference;
+    throw new StorageReferenceError('無効なストレージオブジェクト参照です');
+  }
+
+  const notesBucketName = resolveBucketName('notes');
+  if (parsed.bucketName !== notesBucketName) {
+    throw new StorageReferenceError('許可されていないストレージバケットです');
   }
 
   const { data, error } = await supabase.storage
