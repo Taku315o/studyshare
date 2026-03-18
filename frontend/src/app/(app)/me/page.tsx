@@ -8,6 +8,7 @@ import ProfileCard from '@/components/me/ProfileCard';
 import SettingsPanel from '@/components/me/SettingsPanel';
 import TimetableSummary from '@/components/me/TimetableSummary';
 import { isUploadApiError, uploadAvatarImage } from '@/lib/api';
+import { sanitizeDisplayText } from '@/lib/text';
 import { buildTermLabel, parseDateOnly, resolveDefaultTerm } from '@/lib/timetable/terms';
 import { getValidationErrorMessage, profileEditSchema } from '@/lib/validation/profile';
 import { createSupabaseClient } from '@/lib/supabase/client';
@@ -216,8 +217,8 @@ function buildNoteItems(rows: NoteQueryRow[]): MeNoteItemViewModel[] {
       title: row.title,
       body: row.body_md,
       createdAt: row.created_at,
-      offeringTitle: course?.name ?? '不明な授業',
-      instructorName: offering?.instructor ?? '教員未設定',
+      offeringTitle: sanitizeDisplayText(course?.name) ?? '不明な授業',
+      instructorName: sanitizeDisplayText(offering?.instructor) ?? '教員未設定',
     };
   });
 }
@@ -231,8 +232,8 @@ function buildReviewItems(rows: ReviewQueryRow[]): MeReviewItemViewModel[] {
       rating: row.rating_overall,
       comment: row.comment,
       createdAt: row.created_at,
-      offeringTitle: course?.name ?? '不明な授業',
-      instructorName: offering?.instructor ?? '教員未設定',
+      offeringTitle: sanitizeDisplayText(course?.name) ?? '不明な授業',
+      instructorName: sanitizeDisplayText(offering?.instructor) ?? '教員未設定',
     };
   });
 }
@@ -256,8 +257,8 @@ function buildSavedNoteItems(rows: SavedReactionQueryRow[]): MeSavedNoteItemView
         title: note.title,
         body: note.body_md,
         createdAt: note.created_at,
-        offeringTitle: course?.name ?? '不明な授業',
-        instructorName: offering?.instructor ?? '教員未設定',
+        offeringTitle: sanitizeDisplayText(course?.name) ?? '不明な授業',
+        instructorName: sanitizeDisplayText(offering?.instructor) ?? '教員未設定',
         savedAt: row.created_at,
         savedByLike: row.kind === 'like',
         savedByBookmark: row.kind === 'bookmark',
@@ -321,8 +322,8 @@ function buildTimetableSummary(rows: EnrollmentQueryRow[]): MeTimetableSummaryVi
 
     entries.push({
       offeringId: offering.id,
-      courseTitle: course?.name ?? '不明な授業',
-      instructorName: offering.instructor ?? '教員未設定',
+      courseTitle: sanitizeDisplayText(course?.name) ?? '不明な授業',
+      instructorName: sanitizeDisplayText(offering.instructor) ?? '教員未設定',
       status: row.status,
       termId: term?.id ?? null,
       slots: slots.map((slot) => ({

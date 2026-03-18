@@ -9,7 +9,7 @@ export default function TimetablePage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">時間割</h1>
             <p className="mt-2 text-sm text-slate-600">
-              あなたの履修中・予定の授業を、Offering単位で週間時間割として確認できます。
+              あなたの履修中・予定の授業を、週間時間割として確認できます。
             </p>
           </div>
           <Link

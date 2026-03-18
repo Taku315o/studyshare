@@ -2,14 +2,13 @@
 // This file contains the API client setup and various API functions for the StudyShare application.
 // It uses Axios for HTTP requests and includes functions for authentication, image upload, and assignment management
 import axios from 'axios';
+import { getBrowserBackendApiUrl } from '@/lib/backendApi';
 //バックエンドのExpressサーバーと通信するためのAPIクライアントです。
 // axiosライブラリを使い、画像アップロード、課題の投稿・検索・削除といった各APIリクエストを行う関数を定義しています。
 /**
  * Preconfigured Axios instance targeting the backend API base URL.
  */
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001/api',
-});
+const api = axios.create({});
 
 export const createIdempotencyKey = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -124,6 +123,7 @@ const postUploadImage = async (
 ): Promise<{ url: string }> => {
   try {
     const response = await api.post<{ url: string }>(path, formData, {
+      baseURL: getBrowserBackendApiUrl(),
       headers: {
         'Idempotency-Key': resolveIdempotencyKey(idempotencyKey),
       },
@@ -166,7 +166,7 @@ export const uploadImage = async (
 };
 
 /**
- * Uploads a note image file to the backend and returns its public URL.
+ * Uploads a note image file to the backend and returns a persisted storage reference.
  *
  * @param file - Browser File object selected by the user.
  * @returns A promise resolving to an object containing the uploaded image URL.
@@ -219,6 +219,7 @@ export const createAssignment = async (data: {
   teacher_name?: string;
 }, options?: IdempotentRequestOptions) => {
   const response = await api.post('/assignments', data, {
+    baseURL: getBrowserBackendApiUrl(),
     headers: {
       'Idempotency-Key': resolveIdempotencyKey(options?.idempotencyKey),
     },
@@ -234,7 +235,9 @@ export const createAssignment = async (data: {
  * @returns A promise resolving to the array of assignments returned by the server.
  */
 export const searchAssignments = async (query: string) => {
-  const response = await api.get(`/assignments/search?query=${encodeURIComponent(query)}`);
+  const response = await api.get(`/assignments/search?query=${encodeURIComponent(query)}`, {
+    baseURL: getBrowserBackendApiUrl(),
+  });
   return response.data;
 };
 
@@ -246,7 +249,9 @@ export const searchAssignments = async (query: string) => {
  * @returns A promise resolving once the backend acknowledges the deletion.
  */
 export const deleteAssignment = async (id: string) => {
-  const response = await api.delete(`/assignments/${id}`);
+  const response = await api.delete(`/assignments/${id}`, {
+    baseURL: getBrowserBackendApiUrl(),
+  });
   return response.data;
 };
 

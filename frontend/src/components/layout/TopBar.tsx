@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Bell, Menu, Plus, Search } from 'lucide-react';
+import BrandLogo from '@/components/branding/BrandLogo';
 
 type TopBarProps = {
   onOpenMobileMenu: () => void;
@@ -20,9 +21,7 @@ export default function TopBar({ onOpenMobileMenu }: TopBarProps) {
           <Menu className="h-5 w-5" />
         </button>
 
-        <Link href="/home" className="text-3xl font-black tracking-tight text-slate-800">
-          StudyShare
-        </Link>
+        <BrandLogo href="/home" iconSize={40} textClassName="text-3xl font-black tracking-tight text-slate-800" />
 
         <div className="hidden flex-1 items-center lg:flex">
           <label

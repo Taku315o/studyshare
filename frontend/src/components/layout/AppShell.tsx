@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import { X } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
+import BrandLogo from '@/components/branding/BrandLogo';
 
 type AppShellProps = {
   children: ReactNode;
@@ -38,7 +39,11 @@ export default function AppShell({ children }: AppShellProps) {
 
           <div className="relative h-full w-72 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-              <span className="text-sm font-semibold text-slate-500">MENU</span>
+              <BrandLogo
+                href="/home"
+                iconSize={32}
+                textClassName="text-lg font-black tracking-tight text-slate-900"
+              />
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(false)}

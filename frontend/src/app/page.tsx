@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowRight, CalendarDays, MessageSquareText, NotebookPen, Users } from 'lucide-react';
+import BrandLogo from '@/components/branding/BrandLogo';
 
 export default function HomePage() {
   const router = useRouter();
@@ -34,9 +35,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#dbeafe_0%,_#f8fafc_45%,_#f8fafc_100%)]">
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-          <Link href="/" className="text-2xl font-black tracking-tight text-slate-900">
-            StudyShare
-          </Link>
+          <BrandLogo
+            href="/"
+            iconSize={40}
+            priority
+            textClassName="text-2xl font-black tracking-tight text-slate-900"
+          />
           <div className="flex items-center gap-2">
             <Link
               href="/home"

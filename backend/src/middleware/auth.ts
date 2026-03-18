@@ -5,6 +5,7 @@ import { supabaseAuth, supabaseFromToken } from '../lib/supabase';
 declare global {
   namespace Express {
     interface Request {
+      authToken?: string;
       user?: {
         id: string;
         email?: string;
@@ -26,23 +27,19 @@ declare global {
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('[Auth] Authorization header:', authHeader ? 'Bearer ***' : 'なし');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[Auth] トークンなし - 401返却');
       res.status(401).json({ error: '認証トークンが必要です' });
       return;
     }
 
     const token = authHeader.split(' ')[1];
-    console.log('[Auth] Token received, length:', token.length);
+    req.authToken = token;
 
     // Supabaseでユーザー確認（署名検証はSupabaseが内部でやってくれる）ここでsupabaseAuthはjwtを検証している。
     const { data, error } = await supabaseAuth.auth.getUser(token);
-    console.log('[Auth] getUser result:', { hasUser: !!data?.user, error: error?.message });
 
     if (error || !data.user) {
-      console.log('[Auth] トークン検証失敗:', error?.message);
       res.status(401).json({ error: '無効なトークンです' });
       return;
     }
@@ -71,7 +68,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         .single();
 
       if (userErr) {
-        console.warn('[Auth] legacy usersテーブル参照をスキップ:', userErr.message);
+        console.warn('[Auth] legacy users lookup skipped:', userErr.message);
       } else if (userData) {
         req.user = {
           id: user.id,
@@ -80,12 +77,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         };
       }
     } catch (legacyLookupError) {
-      console.warn('[Auth] legacy usersテーブル参照で例外。authユーザー情報で継続します:', legacyLookupError);
+      console.warn('[Auth] legacy users lookup failed, continuing with auth user');
     }
 
     next();
   } catch (error) {
-    console.error('認証エラー:', error);
+    console.error('Authentication failed');
     res.status(500).json({ error: '認証処理でエラーが発生しました' });
   }
 };

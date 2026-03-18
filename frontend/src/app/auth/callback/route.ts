@@ -41,9 +41,7 @@ export async function GET(request: NextRequest) {
         return createRedirectWithCookies(redirectUrl);
       }
 
-      // セッションが正常に設定されたことを確認
       if (data.session) {
-        console.log('セッション正常に設定されました:', data.session.user.id);
         redirectUrl.pathname = '/home';
         return createRedirectWithCookies(redirectUrl);
       }

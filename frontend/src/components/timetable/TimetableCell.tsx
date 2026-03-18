@@ -133,9 +133,9 @@ export default function TimetableCell({
             onRequestRemove?.(item);
           }}
           className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label="時間割から削除"
+          aria-label="時間割から取り消し"
         >
-          {isMutating ? '処理中...' : '削除'}
+          {isMutating ? '処理中...' : '取消'}
         </button>
       ) : null}
 

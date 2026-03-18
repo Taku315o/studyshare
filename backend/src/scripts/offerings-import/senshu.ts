@@ -94,6 +94,7 @@ function normalizeBlock(value: string) {
 
 function decodeHtmlEntities(value: string) {
   return value
+    .replace(/&(nbsp|#160|#xa0);/gi, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
@@ -232,7 +233,7 @@ export function parseSenshuDetailText(
   const externalId = buildSenshuExternalId(detailUrl);
   if (!externalId) return null;
 
-  const normalized = normalizeBlock(detailText);
+  const normalized = normalizeBlock(decodeHtmlEntities(detailText));
   const academicYearText = extractSection(normalized, '開講年度', ['科目名']);
   const courseTitle = extractSection(normalized, '科目名', [
     '職名／担当教員',

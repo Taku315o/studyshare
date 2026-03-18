@@ -66,7 +66,7 @@ jobs:
       - name: Typecheck frontend
         run: pnpm --filter frontend run --if-present typecheck
       - name: Test frontend
-        run: pnpm --filter frontend run --if-present test:ci
+        run: pnpm --filter frontend run test:ci
       - name: Build frontend
         run: pnpm --filter frontend build
 

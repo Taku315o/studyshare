@@ -1,3 +1,4 @@
+import { sanitizeDisplayText } from '@/lib/text';
 import { normalizeCourseText } from '@/lib/timetable/add';
 import type {
   TimetableDuplicateCandidate,
@@ -63,11 +64,13 @@ export function parseSlotDetails(value: unknown): TimetableSlotDetail[] {
 export function mapSearchResultRow(row: RawRpcRow): TimetableSearchResult {
   return {
     offeringId: row.offering_id,
-    courseTitle: row.course_title ?? '不明な授業',
+    courseTitle: sanitizeDisplayText(row.course_title) ?? '不明な授業',
     courseCode: row.course_code ?? null,
-    instructorName: row.instructor ?? null,
-    room: row.room ?? null,
-    slotLabels: row.slot_labels ?? [],
+    instructorName: sanitizeDisplayText(row.instructor),
+    room: sanitizeDisplayText(row.room),
+    slotLabels: (row.slot_labels ?? [])
+      .map((label) => sanitizeDisplayText(label) ?? '')
+      .filter((label) => label.length > 0),
     slotDetails: parseSlotDetails(row.slot_details),
     slotMatch: Boolean(row.slot_match),
     enrollmentCount: Number(row.enrollment_count ?? 0),

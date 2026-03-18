@@ -129,9 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('認証状態変更:', event, session?.user?.id);
-        
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setAuthToken(session?.access_token ?? null);
