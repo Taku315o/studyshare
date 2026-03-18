@@ -18,7 +18,9 @@ type TrustProxySetting = boolean | number;
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 const ONE_MINUTE_MS = 60_000;
+const RATE_LIMIT_SWEEP_INTERVAL_MS = ONE_MINUTE_MS;
 const DEFAULT_RATE_LIMIT_MAX = 60;
+let lastRateLimitSweepAt = 0;
 
 loadBackendEnv();
 
@@ -90,10 +92,25 @@ const resolveTrustProxy = (): TrustProxySetting => {
   throw new Error("TRUST_PROXY must be 'false' or a non-negative integer");
 };
 
+const pruneExpiredRateLimitEntries = (now: number): void => {
+  if (now - lastRateLimitSweepAt < RATE_LIMIT_SWEEP_INTERVAL_MS) {
+    return;
+  }
+
+  for (const [clientKey, entry] of rateLimitStore) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(clientKey);
+    }
+  }
+
+  lastRateLimitSweepAt = now;
+};
+
 const apiRateLimit = (req: Request, res: Response, next: NextFunction) => {
   // req.ip is resolved by Express using trust proxy. Do not read x-forwarded-for directly.
   const clientKey = (req.ip || 'unknown').trim();
   const now = Date.now();
+  pruneExpiredRateLimitEntries(now);
   const current = rateLimitStore.get(clientKey);
 
   if (!current || current.resetAt <= now) {
@@ -168,3 +185,11 @@ export const createApp = (options: CreateAppOptions = {}) => {
 const app = createApp();
 
 export default app;
+
+export const __internal = {
+  rateLimitStore,
+  pruneExpiredRateLimitEntries,
+  resetRateLimitSweepState: () => {
+    lastRateLimitSweepAt = 0;
+  },
+};

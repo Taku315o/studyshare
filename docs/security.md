@@ -49,4 +49,5 @@
 - rate limit の client key は `req.ip` を使い、`x-forwarded-for` を直接読まない
 - `req.ip` を正しく解決するため、`TRUST_PROXY` を運用環境に合わせて設定する。本番で未設定だと起動に失敗する
 - `TRUST_PROXY=false` は direct access / proxy なし、`TRUST_PROXY=1` は 1 段の trusted proxy / load balancer / CDN の後ろを想定する
+- rate limit の in-memory store はリクエスト時に期限切れエントリを掃除するが、プロセス間共有はしないため、厳密な制御が必要なら Redis などへ移行する
 - 認証/セッションの詳細ログ（token 長、user id、auth event、Supabase URL など）は本番ログへ出さない
