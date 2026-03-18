@@ -1,3 +1,5 @@
+import request from 'supertest';
+
 jest.mock('./lib/env', () => ({
   loadBackendEnv: jest.fn(),
 }));
@@ -44,5 +46,17 @@ describe('createApp trust proxy configuration', () => {
     const app = createApp();
 
     expect(app.get('trust proxy')).toBe(1);
+  });
+
+  it('returns 200 on health endpoints', async () => {
+    const app = createApp();
+
+    const rootHealth = await request(app).get('/healthz');
+    const apiHealth = await request(app).get('/api/health');
+
+    expect(rootHealth.status).toBe(200);
+    expect(rootHealth.body).toEqual({ status: 'ok' });
+    expect(apiHealth.status).toBe(200);
+    expect(apiHealth.body).toEqual({ status: 'ok' });
   });
 });
