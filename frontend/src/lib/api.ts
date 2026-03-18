@@ -8,7 +8,7 @@ import { getBrowserBackendApiUrl } from '@/lib/backendApi';
 /**
  * Preconfigured Axios instance targeting the backend API base URL.
  */
-const api = axios.create();
+const api = axios.create({});
 
 export const createIdempotencyKey = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
