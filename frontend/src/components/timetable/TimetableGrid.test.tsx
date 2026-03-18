@@ -344,7 +344,7 @@ describe('TimetableGrid', () => {
       expect(screen.getAllByText('データベース概論').length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: '時間割から削除' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '時間割から取り消し' })[0]);
     expect(screen.getByRole('dialog', { name: '時間割から外す' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '時間割から外す' }));

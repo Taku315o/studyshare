@@ -50,7 +50,7 @@ describe('TimetableCell', () => {
     fireEvent.click(screen.getByRole('button', { name: /データベース概論/ }));
     expect(mockPush).toHaveBeenCalledWith('/offerings/offering-1');
 
-    fireEvent.click(screen.getByRole('button', { name: '時間割から削除' }));
+    fireEvent.click(screen.getByRole('button', { name: '時間割から取り消し' }));
     expect(onRequestRemove).toHaveBeenCalledWith(item);
     expect(mockPush).toHaveBeenCalledTimes(1);
 

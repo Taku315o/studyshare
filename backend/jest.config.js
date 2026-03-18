@@ -8,6 +8,9 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   clearMocks: true,
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
 };
 
 module.exports = config;
