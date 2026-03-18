@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { noteId: string } },
+  { params }: { params?: Promise<{ noteId: string }> },
 ) {
   const response = NextResponse.next();
   const supabase = createRouteHandlerSupabaseClient(request, response);
@@ -18,7 +18,7 @@ export async function GET(
     return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
   }
 
-  const { noteId } = params;
+  const { noteId } = await params!;
   const upstream = await fetch(`${getServerBackendApiUrl()}/notes/${noteId}/image-url`, {
     method: 'GET',
     headers: {
