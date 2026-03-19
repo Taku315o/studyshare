@@ -1,6 +1,6 @@
 ## AGENTS.md (Project Guide for `studyshare`)
 
-最終更新: 2026-03-15
+最終更新: 2026-03-19
 
 このファイルは、`studyshare` の現状実装に合わせた作業ガイドです。  
 古い「課題共有アプリ」前提だけで判断しないこと。現在は `授業/口コミ + ノート + 時間割 + コミュニティ` を中心にした大学生活アプリへ移行済みです。
@@ -10,7 +10,7 @@
 
 ### 現行の主機能（本体導線）
 - ランディング + Googleログイン (`/`)
-- ホーム (`/home`) ※現在は `homeMockData` ベース
+- ホーム (`/home`) ※時間割カードは実データ、その他は `homeMockData` ベース
 - 授業・口コミ一覧 (`/offerings`)
 - 授業詳細 (`/offerings/[offeringId]`) でノート/口コミ/質問/受講者数
 - ノート詳細 (`/offerings/[offeringId]/notes/[noteId]`) でコメント/返信（無制限ツリー）
@@ -165,7 +165,9 @@ bucket未作成時:
 - 質問詳細ページで回答/返信投稿（`question_answers.parent_answer_id`）
 
 ### 現在のプレースホルダ / 暫定仕様（作業時に誤解しやすい）
-- `/home` は `homeMockData` 使用（実データ化未完）
+- `/home`:
+  - 「今週の時間割」カードは実データ（`list_my_timetable` + `profile_timetable_settings` / `timetable_presets`）を表示
+  - 口コミ / 最近見た授業 / 人気の授業 / ミニ掲示板は `homeMockData` 使用（実データ化未完）
 - `community`:
   - `reviews` / `more` タブは準備中
   - チップフィルタUIはあるが、取得クエリ条件に未反映（`activeChip` stateのみ）
