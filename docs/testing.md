@@ -14,6 +14,8 @@
 - `AssignmentList` 検索/一覧表示
 - `AuthContext` 認証状態の更新
 - `AppRouteGuard` の未ログイン時リダイレクト / 初期設定未完了時 `onboarding` リダイレクト / 完了時通過
+- `home/page` の主要セクション表示と `HomeTimetableSection` 差し込み
+- `WeeklyTimetable` の実データ表示（ユーザー設定依存の曜日/時限、重複 `+N`、空状態、エラー、設定外/時間未設定件数）
 - `TimetableGrid` ローディング/空状態/表示切替（`dropped`トグル）/設定依存の行列描画/設定外授業警告/セル遷移/戻りハイライト/削除/再登録/重複モーダル同期
 - `TimetableCell` セル表示（授業カード/空セル）と遷移動作、削除/再登録アクション
 - `TimetableAddPage` の文脈ヘッダー/検索語初期値/学期切替/slot match 優先表示
@@ -108,6 +110,8 @@
 - 設定パネルの公開範囲保存で連打しても RPC が二重発火しない
 - `/timetable` から「時間・曜日を変更」で `/me?modal=timetable-settings&from=timetable` に遷移できる
 - 時間割設定を変更した内容が `/timetable` の行列（曜日・時限）に反映される
+- ホーム (`/home`) の「今週の時間割」が `/timetable` と同じ現在学期・曜日・時限設定で表示される
+- ホーム (`/home`) で設定外/時間未設定の授業件数が表示され、`/timetable` 導線から詳細確認できる
 - `5限` / `6限` / `7限` / `10限` の大学を切り替えたとき、`/onboarding`・`/me`・`/timetable`・`/timetable/add` が同じ時限数で揃う
 - `/timetable?termId=...` で表示 term が切り替わり、別 term に切り替えても過去 term の履修が消えない
 - 設定外スロットの授業がある場合に警告表示される
