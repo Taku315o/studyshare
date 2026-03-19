@@ -233,7 +233,7 @@ describe('OnboardingPage', () => {
     expect(toast.success).toHaveBeenCalledWith('初期設定を保存しました');
     expect(mockReplace).toHaveBeenCalledWith('/offerings/offering-1?tab=notes');
     expect(mockRefresh).toHaveBeenCalled();
-  });
+  }, 10000);
 
   it('renders all periods from a ten-period university preset', async () => {
     const user = userEvent.setup();

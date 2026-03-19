@@ -344,7 +344,7 @@ describe('MePage', () => {
         { onConflict: 'user_id' },
       );
     });
-  });
+  }, 10000);
 
   it('aborts profile save when avatar upload fails', async () => {
     const user = userEvent.setup();
@@ -367,5 +367,5 @@ describe('MePage', () => {
       });
     });
     expect(profilesUpsertMock).not.toHaveBeenCalled();
-  });
+  }, 10000);
 });

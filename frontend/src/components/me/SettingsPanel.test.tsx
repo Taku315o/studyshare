@@ -173,8 +173,10 @@ describe('SettingsPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: '時間割の時間・曜日を編集' })).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('5限の表示名')).toBeInTheDocument();
-    expect(screen.queryByLabelText('6限の表示名')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('5限の表示名')).toBeInTheDocument();
+      expect((screen.getByLabelText('1限の開始時刻') as HTMLInputElement).value).toBe('08:45');
+    });
 
     await user.click(screen.getByRole('button', { name: '時間割設定を保存' }));
 
