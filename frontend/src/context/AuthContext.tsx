@@ -35,6 +35,27 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return '';
+}
+
+function isRecoverableAuthError(error: unknown): boolean {
+  const normalizedMessage = getAuthErrorMessage(error).toLowerCase();
+
+  return (
+    normalizedMessage.includes('invalid refresh token')
+    || normalizedMessage.includes('refresh token not found')
+    || normalizedMessage.includes('refresh_token_not_found')
+    || normalizedMessage.includes('session from session_id claim in jwt does not exist')
+  );
+}
+
 /**
  * Provides authentication context to descendant components, wiring Supabase session management and helper actions.
  *
@@ -55,6 +76,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return 'student';
   }, []);
+
+  const resetAuthState = useCallback(() => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setAuthToken(null);
+  }, []);
+
+  const clearBrokenSession = useCallback(async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // Invalid refresh tokens are expected here; keep the client signed out locally.
+    } finally {
+      resetAuthState();
+    }
+  }, [resetAuthState]);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     const { data: profileDataRaw, error: profileError } = await supabase
@@ -97,6 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
+          if (isRecoverableAuthError(error)) {
+            await clearBrokenSession();
+            return;
+          }
           console.error('セッション取得エラー:', error);
         }
         
@@ -107,18 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           const { error: userError } = await supabase.auth.getUser();
           if (userError) {
+            if (isRecoverableAuthError(userError)) {
+              await clearBrokenSession();
+              return;
+            }
             console.error('セッション検証エラー:', userError);
-            await supabase.auth.signOut();
-            setSession(null);
-            setUser(null);
-            setProfile(null);
-            setAuthToken(null);
+            await clearBrokenSession();
             return;
           }
 
           await fetchProfile(session.user);
         }
       } catch (error) {
+        if (isRecoverableAuthError(error)) {
+          await clearBrokenSession();
+          return;
+        }
         console.error('セッション初期化エラー:', error);
       } finally {
         setIsLoading(false);
@@ -147,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [clearBrokenSession, fetchProfile]);
 
   // Googleログイン
   const signInWithGoogle = async () => {
@@ -183,8 +229,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // JWTトークン取得（常にSupabaseから最新を取得）
   const getAccessToken = async (): Promise<string | null> => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    return currentSession?.access_token ?? null;
+    try {
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      if (error) {
+        if (isRecoverableAuthError(error)) {
+          await clearBrokenSession();
+          return null;
+        }
+        throw error;
+      }
+      return currentSession?.access_token ?? null;
+    } catch (error) {
+      if (isRecoverableAuthError(error)) {
+        await clearBrokenSession();
+        return null;
+      }
+      console.error('アクセストークン取得エラー:', error);
+      return null;
+    }
   };
 
   const isAdmin = profile?.role === 'admin';

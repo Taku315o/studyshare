@@ -38,7 +38,8 @@ generate_sql() {
     }
 
     END {
-      print "-- generated from " FILENAME
+      split(FILENAME, parts, "/")
+      print "-- generated from supabase/seeds/" parts[length(parts)]
       print "-- source of truth: universities.csv\n"
       print "insert into public.universities (name)"
       print "select source.name"

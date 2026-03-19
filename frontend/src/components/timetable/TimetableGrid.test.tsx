@@ -282,6 +282,28 @@ describe('TimetableGrid', () => {
     expect(screen.getByText('線形代数 / 火曜 3限')).toHaveClass('font-semibold');
   });
 
+  it('renders every configured period when timetable settings include ten periods', async () => {
+    loadEffectiveTimetableConfigMock.mockResolvedValue({
+      config: {
+        weekdays: [1, 2, 3, 4, 5],
+        periods: Array.from({ length: 10 }, (_, index) => ({
+          period: index + 1,
+          label: `${index + 1}限`,
+          startTime: '08:45',
+          endTime: '09:30',
+        })),
+      },
+      presetId: 'preset-hiroshima',
+      source: 'user',
+    });
+
+    render(<TimetableGrid />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('10限').length).toBeGreaterThan(0);
+    });
+  });
+
   it('shows unslotted offerings in a dedicated section', async () => {
     mockRpc.mockResolvedValue({
       data: [

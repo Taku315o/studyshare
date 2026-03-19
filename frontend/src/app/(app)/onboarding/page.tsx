@@ -38,6 +38,10 @@ function buildFallbackDisplayName(user: { email?: string | null; user_metadata?:
   return user.email?.trim() || 'ユーザー';
 }
 
+function isSameTimetableConfig(left: TimetableConfig, right: TimetableConfig) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -370,6 +374,9 @@ export default function OnboardingPage() {
         isSaving={false}
         onClose={() => setIsTimetableModalOpen(false)}
         onSave={(nextConfig) => {
+          if (!isSameTimetableConfig(nextConfig, timetableConfig)) {
+            setSelectedPresetId(null);
+          }
           setTimetableConfig(nextConfig);
           setIsCustomTimetable(true);
           setIsTimetableModalOpen(false);

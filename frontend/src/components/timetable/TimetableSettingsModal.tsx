@@ -141,7 +141,7 @@ export default function TimetableSettingsModal({
 
         <section className="mt-5">
           <p className="text-sm font-semibold text-slate-800">時限</p>
-          <p className="mt-1 text-xs text-slate-500">時限数は固定です。表示名と時間のみ変更できます。</p>
+          <p className="mt-1 text-xs text-slate-500">現在の時間割に含まれる時限だけ編集できます。表示名と時間を変更できます。</p>
           <div className="mt-2 space-y-2">
             {periods.map((period) => (
               <div key={period.period} className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 p-3 md:grid-cols-[80px_1fr_140px_140px]">

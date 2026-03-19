@@ -58,6 +58,7 @@
 **時間割コンポーネント実装ルール**
 - Offeringを主語に表示する（`course_offerings` をUI上「Offering」として扱う）
 - グリッドはユーザーの設定（`weekdays` / `periods`）をもとに動的生成する
+- `periods` は大学ごとの実数時限をそのまま保持し、`5限` や `10限` を `7限` に正規化しない
 - 時間割の描画ソースは `enrollments + offering_slots` とし、空セルタップ/授業カードの補助ボタンは `/timetable/add?day=...&period=...&termId=...` へ遷移する
 - 時間割ページからの削除は `enrollments.status = 'dropped'` 更新として扱い、履歴を残したまま `取消を表示` と再登録導線で扱う
 - `/timetable/add` の初期一覧は `search_timetable_offerings` を一次ソースとし、同大学・同学期・同曜日限を優先表示する

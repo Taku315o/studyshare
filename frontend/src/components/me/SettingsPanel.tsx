@@ -33,6 +33,10 @@ type ProfileSettingsRow = {
   university_id: string | null;
 };
 
+function isSameTimetableConfig(left: TimetableConfig, right: TimetableConfig) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export default function SettingsPanel() {
   const { signOut } = useAuth();
   const supabaseClient = supabase;
@@ -236,16 +240,18 @@ export default function SettingsPanel() {
         return;
       }
 
+      const nextPresetId = isSameTimetableConfig(nextConfig, timetableConfig) ? timetablePresetId : null;
       const savedConfig = await upsertUserTimetableSettings(
         typedSupabase,
         {
           userId: user.id,
-          presetId: timetablePresetId,
+          presetId: nextPresetId,
           config: nextConfig,
         },
       );
 
       setTimetableConfig(savedConfig);
+      setTimetablePresetId(nextPresetId);
       closeTimetableModal();
       toast.success('時間割の時間・曜日を保存しました');
     } catch (error) {

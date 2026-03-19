@@ -77,10 +77,10 @@
 	- `university_id`（`null` はグローバルデフォルト）
 	- `name`（現行は `default`）
 	- `weekdays`（`smallint[]`, 1..7）
-	- `periods`（`jsonb`。`period/label/start_time/end_time` を保持）
+	- `periods`（`jsonb`。`period/label/start_time/end_time` を保持。大学ごとの実数時限をそのまま保持し、`5限`〜`10限` などを許容）
 - `profile_timetable_settings`: ユーザー個別の時間割設定
 	- `user_id` 主キー
-	- `preset_id`（参照元プリセット。任意）
+	- `preset_id`（参照元プリセット。任意。master data 再同期対象はこの参照がある設定のみ）
 	- `weekdays` / `periods` は最終描画設定を保持
 
 ## コンテンツ（ノート・レビュー）

@@ -165,6 +165,7 @@ DATABASE_URL='postgresql://...' ./scripts/apply-supabase-master-data.sh
 - `psql` が必要
 - `--dry-run` では実行せず、対象ファイルだけ表示する
 - 適用順は `00_universities.sql` -> `10_timetable_presets.sql`
+- seed 適用後に `select public.sync_profile_timetable_settings_to_presets();` を実行し、`preset_id` 付きユーザー設定を最新 preset に再同期する
 
 想定用途:
 

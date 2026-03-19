@@ -32,8 +32,9 @@ Thumbs.db
 .gemini
 
 .pnpm-store/
-
+.tools/
 memo.md
 .envrc
 strategy.md
 strategy_final.md
+
