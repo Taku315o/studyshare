@@ -283,6 +283,39 @@ describe('AuthContext', () => {
       consoleSpy.mockRestore();
     });
 
+    it('should clear broken session without logging when refresh token is invalid', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: null },
+        error: new Error('Invalid Refresh Token: Refresh Token Not Found'),
+      });
+      (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      });
+      (supabase.auth.signOut as jest.Mock).mockResolvedValue({
+        error: null,
+      });
+
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('Not loading');
+      });
+
+      expect(screen.getByTestId('user')).toHaveTextContent('No user');
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(consoleSpy).not.toHaveBeenCalledWith('セッション取得エラー:', expect.any(Error));
+
+      consoleSpy.mockRestore();
+    });
+
     it('should handle profile fetch error', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
