@@ -218,6 +218,7 @@ supabase/seeds/
 2. `universities` は参照マスタとして `seed` と `管理ジョブ` で同期する。
 3. `timetable_presets` は `universities` 依存の設定データとして `seed` と `管理ジョブ` で同期する。
 4. `terms / courses / course_offerings / offering_slots` の投入データは、schema ではなく運用データとして扱う。
+5. Storage bucket の provisioning は migration ではなく、local は `supabase/config.toml`、remote は provisioning script で管理する。
 5. `offering_seed` のような学期依存データは migration に入れない。
 6. snippet は source of truth にしない。
 7. remote 環境の master/config 更新は、手動 SQL ではなく原則として管理ジョブ経由で行う。

@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "NODE_ENV=production node dist/index.js",
     "seed": "ts-node src/scripts/seed.ts",
+    "ensure:storage-buckets": "ts-node src/scripts/ensureStorageBuckets.ts",
     "import:offerings:senshu": "ts-node src/scripts/importSenshuOfferings.ts",
     "import:offerings:map": "ts-node src/scripts/mapOfferingImport.ts",
     "import:offerings:unmap": "ts-node src/scripts/unmapOfferingImport.ts",
