@@ -186,6 +186,7 @@ supabase/seeds/
 - `global default` も preset データとして扱い、migration に混ぜない
 - university 未解決時に暗黙で `universities` を作らない
 - `timetable_presets` の同期は `universities` 同期後に実行する
+- `timetable_presets` を remote に適用した直後は `select public.sync_profile_timetable_settings_to_presets();` を実行し、`preset_id` 付きユーザー設定を最新 preset に再同期する
 
 ### `offering_seed`
 

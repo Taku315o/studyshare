@@ -31,6 +31,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 if [[ "${DRY_RUN}" == "true" ]]; then
   echo "[dry-run] would apply ${ROOT_DIR}/supabase/seeds/00_universities.sql to ${DATABASE_URL_ARG}"
   echo "[dry-run] would apply ${ROOT_DIR}/supabase/seeds/10_timetable_presets.sql to ${DATABASE_URL_ARG}"
+  echo "[dry-run] would run select public.sync_profile_timetable_settings_to_presets() on ${DATABASE_URL_ARG}"
   exit 0
 fi
 
@@ -41,3 +42,4 @@ fi
 
 psql "${DATABASE_URL_ARG}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/supabase/seeds/00_universities.sql"
 psql "${DATABASE_URL_ARG}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/supabase/seeds/10_timetable_presets.sql"
+psql "${DATABASE_URL_ARG}" -v ON_ERROR_STOP=1 -c "select public.sync_profile_timetable_settings_to_presets();"

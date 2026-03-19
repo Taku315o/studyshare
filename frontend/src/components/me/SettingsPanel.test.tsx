@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  DEFAULT_GLOBAL_TIMETABLE_CONFIG,
   loadEffectiveTimetableConfig,
   upsertUserTimetableSettings,
 } from '@/lib/timetable/config';
@@ -68,6 +67,17 @@ jest.mock('@/lib/supabase', () => ({
 const loadEffectiveTimetableConfigMock = loadEffectiveTimetableConfig as jest.Mock;
 const upsertUserTimetableSettingsMock = upsertUserTimetableSettings as jest.Mock;
 
+const FIVE_PERIOD_CONFIG = {
+  weekdays: [1, 2, 3, 4, 5],
+  periods: [
+    { period: 1, label: '1限', startTime: '08:45', endTime: '10:15' },
+    { period: 2, label: '2限', startTime: '10:30', endTime: '12:00' },
+    { period: 3, label: '3限', startTime: '13:00', endTime: '14:30' },
+    { period: 4, label: '4限', startTime: '14:45', endTime: '16:15' },
+    { period: 5, label: '5限', startTime: '16:30', endTime: '18:00' },
+  ],
+};
+
 const supabaseMock = supabase as unknown as {
   auth: {
     getUser: jest.Mock;
@@ -108,11 +118,11 @@ describe('SettingsPanel', () => {
     supabaseMock.rpc.mockResolvedValue({ error: null });
 
     loadEffectiveTimetableConfigMock.mockResolvedValue({
-      config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+      config: FIVE_PERIOD_CONFIG,
       presetId: 'preset-1',
       source: 'user',
     });
-    upsertUserTimetableSettingsMock.mockResolvedValue(DEFAULT_GLOBAL_TIMETABLE_CONFIG);
+    upsertUserTimetableSettingsMock.mockResolvedValue(FIVE_PERIOD_CONFIG);
   });
 
   it('opens visibility modal and saves selected visibility', async () => {
@@ -163,7 +173,8 @@ describe('SettingsPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: '時間割の時間・曜日を編集' })).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('7限の表示名')).toBeInTheDocument();
+    expect(screen.getByLabelText('5限の表示名')).toBeInTheDocument();
+    expect(screen.queryByLabelText('6限の表示名')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '時間割設定を保存' }));
 
@@ -173,7 +184,7 @@ describe('SettingsPanel', () => {
         {
           userId: 'user-1',
           presetId: 'preset-1',
-          config: DEFAULT_GLOBAL_TIMETABLE_CONFIG,
+          config: FIVE_PERIOD_CONFIG,
         },
       );
     });
