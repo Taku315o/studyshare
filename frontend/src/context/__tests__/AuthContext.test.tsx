@@ -252,6 +252,85 @@ describe('AuthContext', () => {
     });
   });
 
+  describe('認証イベント処理', () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      app_metadata: { role: 'student' },
+      user_metadata: {},
+    };
+
+    const mockSession = {
+      user: mockUser,
+      access_token: 'mock-token',
+    };
+
+    const mockProfile = {
+      user_id: 'user-1',
+      display_name: 'test-user',
+    };
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('defers profile fetch until after the auth callback returns', async () => {
+      jest.useFakeTimers();
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: mockProfile,
+              error: null,
+            }),
+          }),
+        }),
+      });
+      (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      });
+
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>,
+        );
+      });
+
+      const authStateChangeCallback = (supabase.auth.onAuthStateChange as jest.Mock).mock.calls[0][0] as (
+        event: string,
+        session: typeof mockSession | null,
+      ) => void;
+
+      let callbackResult: void | undefined;
+      await act(async () => {
+        callbackResult = authStateChangeCallback('SIGNED_IN', mockSession);
+      });
+      expect(callbackResult).toBeUndefined();
+      expect(supabase.from).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.runOnlyPendingTimers();
+      });
+
+      await waitFor(() => {
+        expect(supabase.from).toHaveBeenCalled();
+      });
+      expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
+      expect(screen.getByTestId('profile')).toHaveTextContent('test@example.com');
+    });
+  });
+
   describe('エラーハンドリング', () => {
     it('should handle session fetch error', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
