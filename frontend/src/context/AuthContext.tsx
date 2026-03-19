@@ -5,7 +5,7 @@
 // ユーザー認証状態を管理し、アプリケーション全体で共有するためのContextとProvider
 //ユーザー情報（user）、セッション（session）、プロフィール（profile）などを、アプリ内のどのコンポーネントからでも直接呼び出せるようにします。
 // Googleログインやログアウトの関数もここで定義されています。
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import supabase from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const profileSyncRequestRef = useRef(0);
   const router = useRouter();
 
   const getRoleFromUser = useCallback((currentUser: User): UserProfile['role'] => {
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [resetAuthState]);
 
-  const fetchProfile = useCallback(async (currentUser: User) => {
+  const fetchProfile = useCallback(async (currentUser: User): Promise<UserProfile> => {
     const { data: profileDataRaw, error: profileError } = await supabase
       .from('profiles')
       .select('user_id,display_name')
@@ -108,25 +109,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (profileData) {
-      const mappedProfile: UserProfile = {
+      return {
         id: profileData.user_id,
         user_id: profileData.user_id,
         display_name: profileData.display_name,
         email: currentUser.email ?? '',
         role: getRoleFromUser(currentUser),
       };
-      setProfile(mappedProfile);
-      return;
     }
 
-    setProfile({
+    return {
       id: currentUser.id,
       user_id: currentUser.id,
       display_name: currentUser.user_metadata?.name ?? currentUser.email ?? 'user',
       email: currentUser.email ?? '',
       role: getRoleFromUser(currentUser),
-    });
+    };
   }, [getRoleFromUser]);
+
+  const syncProfile = useCallback(async (currentUser: User | null) => {
+    const requestId = ++profileSyncRequestRef.current;
+
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+
+    const nextProfile = await fetchProfile(currentUser);
+    if (profileSyncRequestRef.current !== requestId) {
+      return;
+    }
+
+    setProfile(nextProfile);
+  }, [fetchProfile]);
+
+  const scheduleProfileSync = useCallback((currentUser: User | null) => {
+    if (!currentUser) {
+      void syncProfile(null);
+      return;
+    }
+
+    globalThis.setTimeout(() => {
+      void syncProfile(currentUser);
+    }, 0);
+  }, [syncProfile]);
 
   // セッション初期化
   useEffect(() => {
@@ -158,7 +184,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          await fetchProfile(session.user);
+          await syncProfile(session.user);
+        } else {
+          await syncProfile(null);
         }
       } catch (error) {
         if (isRecoverableAuthError(error)) {
@@ -175,25 +203,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setAuthToken(session?.access_token ?? null);
-        
-        if (session?.user) {
-          await fetchProfile(session.user);
-        } else {
-          setProfile(null);
-        }
-        
+
+        scheduleProfileSync(session?.user ?? null);
         setIsLoading(false);
-      }
+      },
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [clearBrokenSession, fetchProfile]);
+  }, [clearBrokenSession, scheduleProfileSync, syncProfile]);
 
   // Googleログイン
   const signInWithGoogle = async () => {
