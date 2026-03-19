@@ -45,6 +45,8 @@
 **API運用**
 - backend 本番起動時は `.env.development` を読まない。production はデプロイ環境変数を唯一の truth とする
 - upload API を含む backend CORS は `CORS_ALLOWED_ORIGINS` で許可 origin を明示し、本番で未設定なら起動時に失敗させる
+- Render / uptime monitor 向けに `/healthz` と `/api/health` は 2xx を返す軽量エンドポイントとして用意する
+- Storage bucket の provisioning は SQL migration に置かず、local は `supabase/config.toml`、remote は `backend/src/scripts/ensureStorageBuckets.ts` で管理する
 - `/api` 配下には最低限の security headers と IP ベースの rate limit を適用する
 - rate limit の client key は `req.ip` を使い、`x-forwarded-for` を直接読まない
 - `req.ip` を正しく解決するため、`TRUST_PROXY` を運用環境に合わせて設定する。本番で未設定だと起動に失敗する

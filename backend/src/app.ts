@@ -106,6 +106,8 @@ const pruneExpiredRateLimitEntries = (now: number): void => {
   lastRateLimitSweepAt = now;
 };
 
+const healthResponse = { status: 'ok' as const };
+
 const apiRateLimit = (req: Request, res: Response, next: NextFunction) => {
   // req.ip is resolved by Express using trust proxy. Do not read x-forwarded-for directly.
   const clientKey = (req.ip || 'unknown').trim();
@@ -158,6 +160,12 @@ export const createApp = (options: CreateAppOptions = {}) => {
     credentials: true,
   }));
   app.use(express.json());
+  app.get('/healthz', (_req, res) => {
+    res.status(200).json(healthResponse);
+  });
+  app.get('/api/health', (_req, res) => {
+    res.status(200).json(healthResponse);
+  });
   app.use('/api', apiRateLimit);
 
   app.get('/', (_req, res) => {
