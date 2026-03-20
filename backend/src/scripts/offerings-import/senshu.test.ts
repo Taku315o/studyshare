@@ -1,5 +1,12 @@
 import { resolveCatalogCoverage, selectRetiredOfferingIds, stableJsonHash } from './db';
-import { buildSenshuExternalId, parseSenshuDetailText, parseSenshuSlots, parseTermCode, selectDepartmentLabels } from './senshu';
+import {
+  buildSenshuExternalId,
+  parseSenshuDetailText,
+  parseSenshuSlots,
+  parseTermCode,
+  selectDepartmentLabels,
+  waitForSearchCompletion,
+} from './senshu';
 
 describe('Senshu importer helpers', () => {
   it('builds a stable external id from detail url params', () => {
@@ -49,6 +56,47 @@ describe('Senshu importer helpers', () => {
     expect(() => selectDepartmentLabels(['経済学部', '経営学部'], ['法学部'])).toThrow(
       'unknown departments: 法学部',
     );
+  });
+
+  it('stops waiting when a no-results dialog was detected', async () => {
+    const waitForTimeout = jest.fn().mockResolvedValue(undefined);
+    const hasNoResults = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    const waitForResults = jest.fn().mockRejectedValue(new Error('still waiting'));
+
+    await expect(
+      waitForSearchCompletion({
+        page: { waitForTimeout },
+        hasNoResults,
+        waitForResults,
+        timeoutMs: 1500,
+        probeTimeoutMs: 200,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(waitForResults).toHaveBeenCalled();
+    expect(waitForTimeout).toHaveBeenCalled();
+  });
+
+  it('resolves immediately when results become available', async () => {
+    const waitForTimeout = jest.fn().mockResolvedValue(undefined);
+    const waitForResults = jest.fn().mockResolvedValue(undefined);
+
+    await expect(
+      waitForSearchCompletion({
+        page: { waitForTimeout },
+        hasNoResults: () => false,
+        waitForResults,
+        timeoutMs: 1500,
+        probeTimeoutMs: 200,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(waitForResults).toHaveBeenCalledWith(200);
+    expect(waitForTimeout).not.toHaveBeenCalled();
   });
 
   it('parses a detail text payload into canonical fields', () => {

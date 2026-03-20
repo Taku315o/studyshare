@@ -392,7 +392,7 @@ async function readSearchResultCount(page: Page): Promise<number | null> {
   return match ? Number(match[1]) : null;
 }
 
-async function waitForSearchResults(page: Page) {
+async function waitForSearchResults(page: Page, timeoutMs = 60000) {
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 }).catch(() => null);
   await page.waitForFunction(
     ({ detailSelector, loadMoreSelector }) => {
@@ -417,8 +417,47 @@ async function waitForSearchResults(page: Page) {
       detailSelector: DETAIL_LINK_SELECTOR,
       loadMoreSelector: LOAD_MORE_SELECTOR,
     },
-    { timeout: 60000 },
+    { timeout: timeoutMs },
   );
+}
+
+export async function waitForSearchCompletion(args: {
+  page: Pick<Page, 'waitForTimeout'>;
+  hasNoResults: () => boolean;
+  waitForResults: (timeoutMs: number) => Promise<void>;
+  timeoutMs?: number;
+  probeTimeoutMs?: number;
+}) {
+  const timeoutMs = args.timeoutMs ?? 60000;
+  const probeTimeoutMs = args.probeTimeoutMs ?? 1000;
+  const startedAt = Date.now();
+  let lastError: unknown;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (args.hasNoResults()) {
+      return;
+    }
+
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    const currentProbeTimeoutMs = Math.max(100, Math.min(probeTimeoutMs, remainingMs));
+
+    try {
+      await args.waitForResults(currentProbeTimeoutMs);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (args.hasNoResults()) {
+        return;
+      }
+      await args.page.waitForTimeout(Math.min(250, currentProbeTimeoutMs));
+    }
+  }
+
+  if (args.hasNoResults()) {
+    return;
+  }
+
+  throw lastError ?? new Error('Timed out waiting for search completion');
 }
 
 async function logCurrentSearchSelection(page: Page) {
@@ -636,7 +675,16 @@ async function executeSearch(page: Page, args: {
     timeout: 60000,
   });
 
-  await waitForSearchResults(page);
+  if (noResults) {
+    return { noResults };
+  }
+
+  await waitForSearchCompletion({
+    page,
+    hasNoResults: () => noResults,
+    waitForResults: (timeoutMs) => waitForSearchResults(page, timeoutMs),
+  });
+
   return { noResults };
 }
 
