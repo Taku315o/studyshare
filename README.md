@@ -1,663 +1,189 @@
-# StudyShare
+# StudyShare: 大学生向け 課題・時間割・コミュニティ統合プラットフォーム
 
-大学生向けの `授業/口コミ + ノート + 時間割 + コミュニティ` アプリです。  
-単なる情報掲示板ではなく、`Course` と `Offering` を分離した授業データ、`enrollments` を中核に置いた時間割、同大学スコープを前提にした投稿可視性、Supabase RLS/RPC を中心にした責務分離を設計の軸にしています。
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![Express](https://img.shields.io/badge/Express-TypeScript-blue?style=flat&logo=express)](https://expressjs.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth_DB_Storage-green?style=flat&logo=supabase)](https://supabase.com/)
 
-ポートフォリオとして見る場合は、UI そのものよりも次の3点を見てください。
+> **技術ポートフォリオとしての Readme**  
+> このリポジトリは、就職活動において「設計・実装・技術選定・課題解決力」を伝えるために作成・公開しています。単なる機能紹介にとどまらず、プロダクトのドメインモデリングやセキュリティ設計、利用技術の選定理由までを記載しています。
 
-- 読み取りは frontend から Supabase 直参照、複雑な更新は RPC、画像アップロードなど副作用は backend に寄せたハイブリッド構成
-- `enrollments` を直接公開せず、マッチングや件数集計を RPC で返すプライバシー寄りのデータ設計
-- 旧 `assignments` アプリを legacy として隔離しつつ、現行ドメインへ移行したリポジトリ運用
+## 1. プロジェクト概要
 
-## Screenshots
+「StudyShare」は、大学生にとって身近な「授業」を起点とし、時間割の管理から、授業ノート・口コミの共有、そして同じ授業を受ける学生同士が繋がるコミュニティ機能までをワンストップで提供するフルスタックWebアプリケーションです。
 
-### Landing / Desktop
+大学の公式シラバスから講義データをインポートし、「科目名（Course）」と「開講実体（Offering）」を綺麗に分離した本格的なデータベースモデリングを行っています。これにより、学生は単なる掲示板ではなく、整然と整理された時間割ベースのUIから、有益な情報交換を行うことができます。
 
-![StudyShare landing desktop](./docs/images/readme/landing-desktop.png)
+## 2. 解決したい課題
 
-### Landing / Mobile
+現在、多くの大学生活では以下のような課題があります。
 
-![StudyShare landing mobile](./docs/images/readme/landing-mobile.png)
+- **情報の分断**: 履修登録システム、講義情報、過去のノートや課題情報が、異なるシステムや個人のSNS・LINEグループ等に散在している。
+- **匿名性の限界と信憑性**: 「誰が書いたか分からない」匿名の情報サイトでは、投稿の信憑性が担保されず、スパムや無意味な投稿が混ざりやすい。
+- **授業コミュニティの希薄化**: 大規模なオンライン授業やパンデミック以降、同じ授業を取っている学生同士が自然に繋がる機会が激減した。
 
-## Product Scope
+StudyShareはこれらの課題に対し、**「授業（Offering）単位で全ての情報と人が集まる場所」** を提供することで、キャンパスライフにおける情報共有とコミュニケーションをアップデートします。
 
-現在の本体導線は次の通りです。
+## 3. 主な機能
 
-- `/` ランディング + Google ログイン
-- `/home` ホーム
-- `/offerings` 授業・口コミ一覧
-- `/offerings/[offeringId]` 授業詳細
-- `/offerings/[offeringId]/notes/[noteId]` ノート詳細
-- `/offerings/[offeringId]/questions/[questionId]` 質問詳細
-- `/timetable` 時間割
-- `/community` マッチングと DM
-- `/profile/[userId]` 他ユーザープロフィール
-- `/me` マイページ
-- `/onboarding` 大学・学年の初期設定
+1. **時間割＆履修管理**
+   - 独自の「大学ごとの時限設定」に対応した、直感的な時間割グリッドUI。
+   - 講義検索からワンクリックで履修登録し、即座に時間割UIへ反映。取消や再登録もシームレスに対応。
+2. **講義情報・ノート・口コミの共有機能**
+   - 授業（Offering）ごとに、ノート（画像添付可）、口コミ、質問を投稿・閲覧可能。
+   - 「同一大学の学生にのみ公開」「授業履修者のみに公開」といった、きめ細かい可視性（Visibility）コントロール機構を実装。
+3. **マッチング＆ダイレクトメッセージ（DM）**
+   - 「同じ授業を取っている学生」を安全に抽出し、共通の話題で繋がるきっかけを提供。
+   - スパム防止のため、「一定数以上のノート・口コミ投稿」や「学年」を条件とする階層化されたゲート（DM解放条件）システムを導入。
+4. **大学シラバスの一括インポート**
+   - Headlessブラウザ（Playwright）を用いて大学の公開シラバスから講義情報を取り込み、本番データベースの Offering へ冪等性（複数回実行しても重複しない）を持って安全に統合。
 
-現状の補足です。
+## 4. 利用イメージ / ユーザーフロー
 
-- `/home` は `homeMockData` ベースです
-- `community` の一部タブは準備中です
-- 旧 `assignments` UI は [`frontend/src/legacy/assignments/`](./frontend/src/legacy/assignments/) に退避しています
-- backend の legacy API はデフォルト無効です
+ユーザーは主に以下のフローでStudyShareを利用します。
 
-## Architecture
+| フロー | ユーザー体験（UX） |
+| :--- | :--- |
+| **1. オンボーディング** | Google認証（Supabase Auth）後、所属大学・学年を設定。ユーザーの大学に応じた「標準時間割枠（例：5限まで等）」が自動で適用されます。 |
+| **2. 時間割の作成** | `/timetable` の空きコマをタップ。シラバスデータから該当曜日の講義を検索し、ワンクリックで追加（`/timetable/add`）。 |
+| **3. 授業情報の確認** | 時間割のセルをタップすると、その講義の詳細（`/offerings/[id]`）へ遷移。他の学生が投稿した「口コミ（ラク単情報等）」や「ノート」を効率よく確認できます。 |
+| **4. コミュニティ** | `/community` にて、自分と共通の授業を多く履修しているマッチング候補が表示され、条件を満たせばDMで直接質問や相談が可能です。 |
+
+### 画面イメージ
+
+![Landing Desktop](./docs/images/readme/landing-desktop.png)
+![Landing Mobile](./docs/images/readme/landing-mobile.png)
+
+## 5. 技術スタック
+
+**「ユーザー体験(UX)の最適化」** と **「複雑なドメインロジックの堅牢な管理」** の両立をテーマに技術選定を行いました。
+
+### Frontend
+- **Framework**: Next.js 15 (App Router), React 19
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Validation**: Zod, React Hook Form
+
+### Backend
+- **Framework**: Express, Node.js
+- **Language**: TypeScript
+- **Middleware**: Multer (画像アップロード用)
+
+### Infrastructure & Database
+- **BaaS**: Supabase
+- **Database**: PostgreSQL (Supabase DB)
+- **Auth**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Security**: Row Level Security (RLS)
+
+### CI / Testing / Tooling
+- pnpm Workspace (Frontend/Backend 統合リポジトリ)
+- Jest, React Testing Library, Supertest
+
+## 6. システム構成
+
+フロントエンドから直接Supabaseを参照するCaaS的アプローチを基本にしつつも、権限が必要な操作や複雑な処理を自前バックエンド・RPCで受ける **ハイブリッド構成** を採用しています。
 
 ```mermaid
 flowchart LR
   U[User] --> F[Next.js Frontend]
-  F -->|Simple reads| SB[(Supabase Postgres + RLS)]
-  F -->|Aggregations / guarded writes| RPC[Supabase RPC]
-  F -->|Uploads / side effects| B[Express Backend]
-  B -->|Service role / Storage operations| SB
-  SB --> S[Supabase Storage]
-  SB --> A[Supabase Auth]
+  F -->|1. シンプルな参照 / RLS制約付き| SB[(Supabase Postgres)]
+  F -->|2. 複雑なDB操作 / 権限隠蔽| RPC[Supabase RPC]
+  F -->|3. 画像アップロード / 副作用| B[Express Backend]
+  B -->|Service role / Storage| SB
+  SB -.-> S[Supabase Storage]
+  SB -.-> A[Supabase Auth]
 ```
 
-### Why this split
+**【アーキテクチャの選定理由】**
+1. **読み取り速度と実装コストの最適化（1）**: タイムラインや授業一覧など、RLSで安全性が担保される単純なRead処理は、Next.js（Client/Server Components）から直接Supabaseを叩き、不要なAPI層を削減。
+2. **ビジネスロジックのDBカプセル化（2）**: 「講義の新規作成＋履修登録」等の複数テーブルに跨るトランザクション処理や、「他者に生データは見せないが、マッチング集計結果だけ返す」要件は、Supabase RPCにロジックを寄せて安全に処理。
+3. **強い権限と副作用の分離（3）**: ファイルアップロードやリソースの物理削除など、管理者権限（Service Role）が必要な副作用処理のみを Express Backend API に集積し、フロントエンドから秘匿。
 
-- `frontend -> Supabase` を読み取りの一次導線にして、一覧・詳細・本人データ取得の速度と実装量を抑える
-- 他人データや複雑な権限制御が絡む処理は `RPC` に寄せて、クライアントから raw table を不用意に触らせない
-- 画像アップロードや複数ステップの副作用は `backend` で受けて、Storage や認可チェックを集中管理する
+## 7. データベース設計 / ER図
 
-### Request patterns
-
-| Use case | Main path | Reason |
-| --- | --- | --- |
-| 授業一覧・詳細・プロフィール取得 | `frontend -> Supabase SELECT` | RLS で完結する読み取りは直参照が最も単純 |
-| 時間割登録・講義新規作成 | `frontend -> Supabase RPC` | 重複判定や複数テーブル更新を DB 側で一貫処理したい |
-| ノート画像・アバター画像 | `frontend -> backend -> Supabase Storage` | バリデーション、副作用、旧画像削除を集約したい |
-| DM 開始・フォロー・集計 | `frontend -> Supabase RPC` | 他人の生データを返さずに必要情報だけ返すため |
-
-## Domain Model
-
-このプロダクトでは授業を次のように分けています。
-
-- `courses`: 科目そのもの
-- `course_offerings`: 学期ごとの開講実体
-- `offering_slots`: 曜日・時限・教室などの時間枠
-- `enrollments`: `user x offering` の履修関係
-
-この分解により、時間割・口コミ・ノート・質問をすべて `offering_id` に束ねつつ、履修状態は `enrollments` で独立管理できます。
+大学の履修システムという複雑なドメインを正確にマッピングするため、「Course（科目）」と「Offering（開講実体）」を意図的に分離しています。
 
 ```mermaid
 erDiagram
-  universities ||--o{ profiles : belongs_to
-  universities ||--o{ courses : offers
+  universities ||--o{ terms : has
+  universities ||--o{ courses : has
   terms ||--o{ course_offerings : has
-  courses ||--o{ course_offerings : opens_as
-  course_offerings ||--o{ offering_slots : has
-  profiles ||--o{ enrollments : registers
-  course_offerings ||--o{ enrollments : registered_by
+  courses ||--o{ course_offerings : "offered_as (開講実体)"
+  course_offerings ||--o{ offering_slots : scheduled_as
+  
+  profiles ||--o{ enrollments : "takes (private)"
+  course_offerings ||--o{ enrollments : taken_by
+  
   course_offerings ||--o{ notes : has
   course_offerings ||--o{ reviews : has
   course_offerings ||--o{ questions : has
-  notes ||--o{ note_comments : has
-  questions ||--o{ question_answers : has
-  profiles ||--o{ follows : follows
-  conversations ||--o{ conversation_members : has
-  conversations ||--o{ messages : has
 ```
 
-## Design Decisions
+**【設計のポイント】**
+- **Course と Offering の分離**:
+  `courses`（恒久的な科目名）と `course_offerings`（今年度の前期における開講実体）を分離。これにより、年度ごとに担当教員や曜日が変わっても「過去のこの講義の口コミやノート」が散逸・混同しません。
+- **Enrollment によるプライバシー保護の徹底**:
+  時間割は `profiles` と `course_offerings` の交差テーブルである `enrollments` で管理。ここは PostgreSQLの RLS によって完全に「本人のみ参照可能」とし、プライバシーを保護。
 
-### 1. `enrollments` を直接公開しない
+## 8. 技術的なこだわり・工夫
 
-履修情報は個人データとして扱い、他ユーザーの生 `enrollments` を一覧取得させません。  
-マッチングは `find_match_candidates`、件数表示は `offering_enrollment_count` のような RPC で返します。
+### 8.1. RLS と RPC を駆使した鉄壁のプライバシー保護
+「他人に自分の履修履歴を見られたくない」というストーカー対策・プライバシー保護は、学生向けコミュニティアプリで最も重要な要件です。
+そのため、`enrollments` テーブルの RLS で他者からの生アクセスを完全シャットアウトしています。その上で、UI上で「同じ授業の人」をサジェストするために、`find_match_candidates` という RPC 関数をDB側に実装。これにより、**アプリケーション層（Next.js）を通さずDBの奥深くで「共通の授業があるか」を集計し、その結果（カウントのみ）を返す** ことで生データ漏洩のリスクを根本から断ち切りました。
 
-### 2. 同大学スコープを UI と RLS の両方で揃える
+### 8.2. 冪等な「大学シラバス」インポート基盤（Source Mappings）
+各大学の公開シラバスシステム（Web）からデータをスクレイピングし、本番 DB へ反映するパイプラインを構築しています。
+単純に「毎回データを全消去して再投入する」のではなく、外部IDと内部IDを紐付ける `source_mappings` テーブルを用意しました。これにより、**「既存の学生が登録した履修データや口コミ（Offeringへの紐付き）を破壊せずに、大学側で変更された講義情報（時間割変更など）の差分だけを適用・更新する」** 高度な冪等性のインポート処理を実現しています。
 
-ノート・口コミ・質問は、単に画面で隠すだけではなく RLS と `profiles.university_id` 前提で可視性を揃えています。  
-そのため `AppRouteGuard` で `university_id` / `grade_year` 未設定ユーザーを `/onboarding` へ送ります。
+### 8.3. 階層化されたアクセス制御とDMゲーティング
+DM機能におけるスパム・迷惑行為を防ぐため、以下のようなゲーティング（解放条件）システムを実装しました。
+- 原則として「ノートや口コミを2件以上投稿してプラットフォームに貢献したユーザー」のみがDM送信可能。
+- ただし、「右も左も分からない1年生」は例外として初期からDM機能を解放（情報収集を支援するため）。
 
-### 3. 画面追加より先に SQL 側の責務境界を決める
+これらの判定もフロントエンドに依存せず、PostgreSQLの `create_direct_conversation` RPC 内部でトランザクションとして検証しており、悪意のある直接的な API コールであっても強固に防ぎます。
 
-特に DM やコミュニティは、UI 先行で local state に閉じるよりも、先に RLS / RPC / helper function を固める方針です。  
-`conversation_members` の policy 再帰や `create_direct_conversation` のような境界はその考え方の典型です。
+## 9. 難しかった点とその解決
 
-### 4. legacy を消さずに隔離する
+### 課題: 時間割UIにおける「大学ごとの『時限』の多様性」
+**背景**:
+大学によって「1限の開始時間」や「1日の最大時限数（5限まで / 7限まで 等）」が全く異なります。当初は固定のグリッドUIで実装していましたが、様々な大学にスケールできませんでした。
 
-旧 `assignments` は完全削除ではなく、互換機能として backend と frontend に残しています。  
-ただし現行機能とは責務を分離し、デフォルトでは無効化しています。
+**解決策**:
+DBスキーマに `timetable_presets` および `profile_timetable_settings` と呼ばれる設定テーブルを導入。JSONB型で「◯限が何時開始〜何時終了か」という動的マスタを持たせました。
+フロントエンドではこの設定データに基づいてグリッドコンポーネント（`TimetableGrid`）を動的にレンダリングする設計へ大幅なリファクタリングを実施し、未知の大学が追加されても時間割UIが柔軟にスケールダウン・スケールアップする仕組みを作り上げました。
 
-## Main Tech Stack
+### 課題: Next.js App Router における認証状態とルーティングのちらつき
+**背景**:
+Supabase Auth と Next.js (SSR/CSRの混在環境) の組み合わせにおいて、ページ遷移時に一瞬「未ログイン状態」と判定されてリダイレクトループに陥るなど、セッション同期のライフサイクル管理に非常に苦労しました。
 
-| Layer | Stack |
-| --- | --- |
-| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
-| Backend | Express, TypeScript, Multer |
-| Auth / DB / Storage | Supabase Auth, Postgres, Storage, RLS, RPC |
-| Validation | Zod |
-| Testing | Jest, React Testing Library, Supertest |
+**解決策**:
+認証ガード（`AppRouteGuard.tsx`）を中心に、`useAuth` コンテキストでセッション状態を一元管理する設計へ変更。単なるログイン有無の判定だけでなく、「初回プロフィールの設定有無（`university_id` や `grade_year` があるか）」までを判定基準に含めて状態遷移マシンとしてモデリングすることで、安全かつ UX を損なわないスムーズなルーティングフローを確立しました。
 
-## Repository Map
-
-```text
-studyshare/
-├── frontend/
-│   └── src/
-│       ├── app/                 # App Router pages
-│       ├── components/          # Current UI
-│       ├── context/             # AuthContext
-│       ├── lib/                 # Supabase / validation / utilities
-│       ├── legacy/assignments/  # Old assignments UI
-│       └── types/
-├── backend/
-│   └── src/
-│       ├── middleware/
-│       ├── routes/
-│       ├── services/
-│       └── scripts/
-├── supabase/
-│   └── migrations/
-└── docs/
-```
-
-## Key Files
-
-- [`frontend/src/components/auth/AppRouteGuard.tsx`](./frontend/src/components/auth/AppRouteGuard.tsx)
-- [`frontend/src/context/AuthContext.tsx`](./frontend/src/context/AuthContext.tsx)
-- [`frontend/src/app/(app)/timetable/page.tsx`](./frontend/src/app/(app)/timetable/page.tsx)
-- [`frontend/src/app/(app)/community/page.tsx`](./frontend/src/app/(app)/community/page.tsx)
-- [`backend/src/app.ts`](./backend/src/app.ts)
-- [`backend/src/routes/uploads.ts`](./backend/src/routes/uploads.ts)
-- [`backend/src/middleware/auth.ts`](./backend/src/middleware/auth.ts)
-- [`supabase/migrations/20260216132701_init_full_schema.sql`](./supabase/migrations/20260216132701_init_full_schema.sql)
-
-## Local Setup
+## 10. セットアップ方法
 
 ```bash
-pnpm install
-pnpm dev:frontend
-pnpm dev:backend
-```
-
-必要な環境変数の例です。
-
-### `frontend/.env.local`
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3001/api
-```
-
-### `backend/.env.development`
-
-```env
-PORT=3001
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-ENABLE_LEGACY_ASSIGNMENTS_API=false
-ENABLE_LEGACY_UPLOAD_API=false
-```
-
-Storage bucket は少なくとも次を前提にしています。
-
-- `notes`
-- `avatars`
-- `assignments` (`legacy`)
-
-## Tests
-
-```bash
-pnpm test
-pnpm --filter frontend test
-pnpm --filter backend test
-pnpm --filter backend test:ci
-```
-
-優先して見ている観点は以下です。
-
-- `AppRouteGuard` の認証/オンボーディング分岐
-- `TimetableGrid` の表示、取消、再登録、戻りハイライト
-- `CreateOfferingModal` の重複候補 blocking
-- `community/page` の DM 制約、既読、Realtime 追従
-- backend upload API の認証、バリデーション、Storage 異常
-
-## Documentation
-
-- [`docs/architecture.md`](./docs/architecture.md)
-- [`docs/components.md`](./docs/components.md)
-- [`docs/data-model.md`](./docs/data-model.md)
-- [`docs/db_schema.md`](./docs/db_schema.md)
-- [`docs/security.md`](./docs/security.md)
-- [`docs/testing.md`](./docs/testing.md)
-- [`docs/supabase_operations.md`](./docs/supabase_operations.md)
-
-## Notes
-
-- この README は legacy `assignments` アプリではなく、2026-03 時点の現行 StudyShare を基準にしています
-- スキーマ変更は migration ファイルを作成する前提で、worktree 上での安易な `supabase db reset` は避けます
-- 認証後の主要画面は Supabase セッション前提のため、README にはランディング画面のスクリーンショットを掲載しています
-
-
-
-
-
-
-
-
-# StudyShare
-
-大学生向けの課題・ノート・履修情報共有プラットフォームです。
-学生が **授業ごとに情報を集約し、課題やノートを探し、時間割を管理し、同じ授業の学生とつながれる** ことを目指して開発しています。
-
-StudyShare は、単なる「投稿アプリ」ではなく、大学の講義データ・履修体験・ユーザー生成コンテンツを一つの導線にまとめることを目的としたフルスタック Web アプリケーションです。
-
----
-
-## Why this project exists
-
-大学生活では、次のような問題が起きがちです。
-
-* どの授業で何が出るのか分かりにくい
-* 過去の課題やノートが個人間で閉じていて再利用しづらい
-* 同じ授業を取っている人を見つけにくい
-* 履修登録や時間割管理が分散しやすい
-* 大学の公開シラバスや講義情報が使いづらい
-
-StudyShare はこれらをまとめて解決するために、
-
-* **講義単位で情報を整理できる構造**
-* **学生が投稿・検索・再利用できる共有導線**
-* **時間割と履修情報を起点にした体験設計**
-* **大学ごとの公開講義データを取り込む仕組み**
-
-を備えたアプリとして設計しています。
-
----
-
-## Main features
-
-### 1. Assignment / note sharing
-
-* 授業ごとに課題・ノートを投稿
-* タイトル / 本文 / 画像付き投稿
-* 全文検索や絞り込みによる探索
-* 将来的には品質評価や通報・モデレーションにも対応予定
-
-### 2. Timetable management
-
-* 自分の履修情報を登録
-* 学期ごとの時間割を管理
-* 大学・学年・学期に応じた時間割設定
-* 大学ごとの時限データに対応
-
-### 3. University course ingestion
-
-* 大学の公開シラバスから講義データをインポート
-* 学期や年度ごとの講義変更に対応
-* 既存の本番 offering データと整合性を取りながら更新
-* 冪等性を保つための source mapping ベースの設計
-
-### 4. Authentication and user profiles
-
-* Supabase Auth による認証
-* ユーザープロフィール管理
-* 初回プロフィールセットアップ
-* 権限に応じた表示・操作制御
-
-### 5. Search and discovery
-
-* 投稿・講義・関連情報の検索
-* 将来的に「同じ授業を取っている学生」や「関連ノート」の発見導線も拡張予定
-
----
-
-## Architecture
-
-StudyShare は、フロントエンド・バックエンド・BaaS を分離した構成です。
-
-```text
-Frontend (Next.js)
-   ↓
-Backend API (Express)
-   ↓
-Supabase (Auth / Postgres / Storage)
-```
-
-### Frontend
-
-* **Next.js (App Router)**
-* **TypeScript**
-* **Tailwind CSS**
-* React ベースの UI コンポーネント設計
-
-役割:
-
-* UI / UX
-* 認証状態に応じた画面制御
-* 投稿、検索、時間割編集などのクライアント体験
-* 一部 API Route を経由した安全なデータ取得
-
-### Backend
-
-* **Express + TypeScript**
-
-役割:
-
-* バリデーション
-* 認証トークン検証
-* 業務ロジックの集約
-* 画像アップロードや検索処理
-* インポートジョブなどのサーバーサイド処理
-
-### Database / Auth / Storage
-
-* **Supabase**
-* **PostgreSQL**
-* **Supabase Auth**
-* **Supabase Storage**
-
-役割:
-
-* ユーザー認証
-* 投稿・履修・講義・プロフィールデータ管理
-* 行レベルセキュリティ (RLS)
-* 画像などのファイル保存
-
----
-
-## Tech stack
-
-### Frontend
-
-* Next.js
-* React
-* TypeScript
-* Tailwind CSS
-
-### Backend
-
-* Express
-* Node.js
-* TypeScript
-* Multer (upload)
-* Zod / validation utilities
-
-### Database / Infra
-
-* Supabase
-* PostgreSQL
-* Supabase Storage
-* Supabase Auth
-
-### Tooling
-
-* pnpm workspace
-* GitHub Actions
-* ESLint
-* Vercel / Render / Supabase hosted infrastructure
-
----
-
-## Repository structure
-
-```text
-studyshare/
-├── frontend/   # Next.js app
-├── backend/    # Express API server
-├── supabase/   # migrations, seeds, SQL related files
-├── docs/       # design notes, architecture, operation docs
-└── ...
-```
-
-より詳細には、概ね次のような責務を持ちます。
-
-```text
-frontend/
-  src/app/          # App Router pages / route handlers
-  src/components/   # UI components
-  src/lib/          # client utilities
-  src/hooks/        # custom hooks
-  src/types/        # shared frontend types
-
-backend/
-  src/routes/       # API routes
-  src/controllers/  # request handlers
-  src/services/     # business logic
-  src/middleware/   # auth / validation / error handling
-  src/scripts/      # import and operational scripts
-
-supabase/
-  migrations/       # SQL migrations
-  seed.sql / seeds  # initial data
-```
-
----
-
-## Data model design highlights
-
-StudyShare では、講義データを seed の固定マスタではなく、**年度・学期で変化する運用データ**として扱う方針を採っています。
-
-特に重要なのは次の点です。
-
-### Offering-centered design
-
-* 講義の「本体」を `offering` として扱う
-* 年度・学期・担当教員・曜日時限の変化を反映できる構造にする
-* ユーザーの履修や投稿が offering に紐づく
-
-### Import without breaking production consistency
-
-大学の公開シラバスを取り込む際、別テーブルに隔離して終わるのではなく、既存のアプリ本体データと整合性を取りながら更新できるようにしています。
-
-### Idempotent import via source mappings
-
-インポートジョブを複数回実行しても同じ講義が重複生成されないように、外部ソース上の講義識別子と内部 offering を紐づける **source mapping** を採用しています。
-
-この設計により、
-
-* 再インポート
-* 差分更新
-* 同一講義の再解決
-* 本番テーブル直接更新時の重複防止
-
-が可能になります。
-
----
-
-## Security
-
-このプロジェクトでは、学生向け共有サービスとして最低限必要なセキュリティを重視しています。
-
-* Supabase Auth による認証
-* RLS による行単位のアクセス制御
-* サーバー側での JWT 検証
-* CORS / security headers の設定
-* レートリミット導入
-* 画像アクセスの private 化と signed URL 対応
-* 入力値バリデーション
-
-特に「投稿画像を単純公開 URL にしない」「クライアントだけで権限制御しない」といった点を重視しています。
-
----
-
-## Local development
-
-### Prerequisites
-
-* Node.js
-* pnpm
-* Supabase CLI
-* Docker (ローカル Supabase を使う場合)
-
-### 1. Clone
-
-```bash
+# 1. リポジトリのクローン
 git clone <your-repository-url>
 cd studyshare
-```
 
-### 2. Install dependencies
-
-```bash
+# 2. パッケージのインストール (pnpmワークスペースを使用)
 pnpm install
+
+# 3. 環境変数の設定
+# frontend/.env.local および backend/.env.development を作成して以下を設定してください
+# NEXT_PUBLIC_SUPABASE_URL=...
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+# SUPABASE_SERVICE_ROLE_KEY=...
+
+# 4. 開発サーバーの起動 (Frontend / Backend を並行起動)
+pnpm dev:frontend  # http://localhost:3000 で Next.js 起動
+pnpm dev:backend   # http://localhost:3001 で Express API 起動
 ```
 
-### 3. Configure environment variables
+※ ローカル開発環境で Supabase データベースを立ち上げる場合は、`npx supabase start` および `npx supabase db reset` にて初期マイグレーションを実行してください。
 
-フロントエンド・バックエンドそれぞれで `.env` 系ファイルを設定してください。
+## 11. 今後の展望
 
-例:
-
-```bash
-frontend/.env.local
-backend/.env
-```
-
-必要な値の例:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-BACKEND_PORT=
-FRONTEND_URL=
-```
-
-実際の変数名は各アプリケーション側の実装に合わせて設定してください。
-
-### 4. Start development servers
-
-```bash
-pnpm --filter frontend dev
-pnpm --filter backend dev
-```
-
-### 5. Start Supabase (optional local setup)
-
-```bash
-npx supabase start
-npx supabase db reset
-```
-
----
-
-## Database migrations
-
-Supabase migration ベースでスキーマを管理しています。
-
-```bash
-npx supabase migration up --linked
-```
-
-またはローカル環境で:
-
-```bash
-npx supabase db reset
-```
-
-スキーマ変更時は migration を追加し、アプリコードと一緒に管理する運用を前提としています。
-
----
-
-## Course import operations
-
-StudyShare では、大学の公開講義データをアプリに取り込むための import script を運用しています。
-
-主な考え方は以下です。
-
-* seed ではなく import job として扱う
-* offering を直接更新するが、重複制御を入れる
-* source mapping で外部講義 ID と内部データを対応づける
-* 冪等実行できるようにする
-* 年度・学期ごとの差分に対応する
-
-これにより、大学ごとにデータ形式が異なっても、最終的にはアプリ内の共通 offering モデルへ正規化できます。
-
----
-
-## Deployment
-
-環境に応じて、以下のような構成を想定しています。
-
-### Frontend
-
-* Vercel
-
-### Backend
-
-* Render などの Node.js 対応ホスティング
-
-### Database / Auth / Storage
-
-* Supabase hosted project
-
-本番では、
-
-* フロントエンドとバックエンドの環境変数整合
-* CORS の許可 origin
-* signed URL の取得経路
-* DB migration の適用状況
-
-を確認する必要があります。
-
----
-
-## Current focus
-
-現在の開発では、主に以下に注力しています。
-
-* 時間割体験の改善
-* 大学講義データの安定インポート
-* offering / term / enrollment 周辺の整合性強化
-* セキュリティ改善
-* 投稿・画像・検索導線の品質向上
-
----
-
-## Roadmap
-
-* [ ] 大学講義データ対応校の拡張
-* [ ] 投稿品質評価 / 通報 / モデレーション
-* [ ] 同一授業ユーザーのマッチング導線
-* [ ] より強力な検索・推薦
-* [ ] UI / UX polish
-* [ ] 運用監視と管理画面の強化
-
----
-
-## Screenshots
-
-必要に応じてここに追加してください。
-
-```md
-![Home](./docs/images/home.png)
-![Timetable](./docs/images/timetable.png)
-![Offering Search](./docs/images/offering-search.png)
-```
-
----
-
-## Motivation as a developer
-
-このプロジェクトでは、単に機能を作るだけでなく、次のようなテーマに向き合っています。
-
-* 学生向けサービスとして実際に使える情報設計
-* 年度・学期で揺れる講義データのモデリング
-* BaaS と独自バックエンドをどう分担するか
-* 本番データ整合性を壊さずにインポート運用する方法
-* セキュリティと開発速度の両立
-
-そのため StudyShare は、ポートフォリオとしても
-**UI / frontend / backend / DB schema / auth / storage / operations**
-を横断して設計・実装している点が特徴です。
-
----
-
-## Contributing
-
-現在は個人開発プロジェクトですが、設計や実装方針についてのフィードバックは歓迎します。
-
-将来的には以下を整備予定です。
-
-* contribution guide
-* issue template
-* PR template
-
----
+- **情報のレコメンド機能強化**: アプリ内に蓄積された履修履歴や「お気に入り」したノートの傾向ベクターから、次学期のおすすめ授業や、より相性の良い関連ノートを自動サジェストするシステムの実装。
+- **通知システムの拡充**: 現状のフォロー通知に加え、DM受信時やコメント追加時のリアルタイム通知（Supabase Realtime と PWA Push通知基盤の連携）によるエンゲージメントの向上。
+- **Native App化の検証**: 現在のPWAの提供に加え、React Native / Expo をベースとした iOS/Android 向けネイティブアプリ化の技術検証（Supabase クライアントロジックの共有化）。
